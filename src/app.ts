@@ -3,8 +3,8 @@ import cors from "cors";
 import helmet from "helmet";
 import dotenv from "dotenv";
 import connectDB from "./config/db";
-dotenv.config({ path: ".env.local" });
 import authRoutes from "./routes/auth.route";
+import commentRoutes from "./routes/comment.route";
 
 dotenv.config();
 
@@ -21,5 +21,6 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api", commentRoutes);
 
 export default app;
