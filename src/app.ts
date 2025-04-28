@@ -5,6 +5,8 @@ import dotenv from "dotenv";
 import connectDB from "./config/db";
 dotenv.config({ path: ".env.local" });
 import authRoutes from "./routes/auth.route";
+import { protect } from "./middleware/auth";
+import notificationRoutes from "./routes/notification.route";
 
 dotenv.config();
 
@@ -21,5 +23,6 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/notifications", protect, notificationRoutes);
 
 export default app;
