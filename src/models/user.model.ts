@@ -76,7 +76,7 @@ export interface IUser extends Document {
     };
   }>;
   roles: Array<{
-    type: UserRole;
+    role: UserRole;
     grantedAt: Date;
     grantedBy: {
       type: mongoose.Types.ObjectId;
@@ -160,14 +160,15 @@ const userSchema = new Schema<IUser>(
     ],
     roles: [
       {
-        type: {
+        role: {
           type: String,
           enum: Object.values(UserRole),
           required: true,
         },
         grantedAt: { type: Date, required: true },
         grantedBy: {
-          type: { type: Schema.Types.ObjectId, ref: "User" },
+          type: Schema.Types.ObjectId,
+          ref: "User",
         },
         status: {
           type: String,
