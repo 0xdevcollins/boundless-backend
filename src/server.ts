@@ -2,11 +2,12 @@ import { Request, Response } from "express";
 import app from "./app";
 import dotenv from "dotenv";
 import connectDB from "./config/db";
+import { config } from "./config/main.config";
 dotenv.config({ path: ".env.local" });
 
 dotenv.config();
 
-const PORT = process.env.PORT || 8000;
+const PORT = config.PORT || 8000;
 
 app.get("/", (req: Request, res: Response) => {
   res.send("Welcome to Express & TypeScript Server");
