@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import User, { IUser } from "../models/user.model";
+import User, { IUser, UserRole } from "../models/user.model";
 
 declare global {
   namespace Express {
@@ -53,7 +53,7 @@ export const protect = async (
 };
 
 export const admin = (req: Request, res: Response, next: NextFunction) => {
-  if (req.user && req.user.role === "ADMIN") {
+  if (req.user && req.user.roles.some((role) => role.role === UserRole.ADMIN)) {
     next();
   } else {
     res.status(401).json({ message: "Not authorized as an admin" });
