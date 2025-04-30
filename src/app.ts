@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import connectDB from "./config/db";
 dotenv.config({ path: ".env.local" });
 import authRoutes from "./routes/auth.route";
+import router from "./routes/user.routes";
 // import blockchainRoutes from "./routes/blockchain.route";
 import { validateSorobanConfig } from "./config/soroban";
 
@@ -24,6 +25,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/users", router);
 // app.use("/api/blockchain", blockchainRoutes);
 
 export default app;

@@ -17,6 +17,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@stellar/stellar-sdk": "^13.3.0",
     "axios": "^1.8.4",
     "bcryptjs": "^3.0.2",
     "cloudinary": "^2.6.0",
