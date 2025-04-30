@@ -8,7 +8,8 @@ import axios from "axios";
 
 // Register user with email and password
 export const register = async (req: Request, res: Response): Promise<void> => {
-  const { name, email, password, confirmPassword } = req.body;
+  const { firstName, lastName, username, email, password, confirmPassword } =
+    req.body;
 
   try {
     if (password !== confirmPassword) {
@@ -23,13 +24,22 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const username = email.split("@")[0] + Math.floor(Math.random() * 1000);
-
     const user = await User.create({
-      name,
       email: email?.toLowerCase(),
       password,
-      username,
+      profile: {
+        firstName,
+        lastName,
+        username,
+        avatar: "", // Default empty avatar
+      },
+      roles: [
+        {
+          role: "BACKER", // Default role
+          grantedAt: new Date(),
+          status: "ACTIVE",
+        },
+      ],
     });
 
     if (user) {
@@ -37,10 +47,12 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
       res.status(201).json({
         _id: user._id,
-        name: user.name,
+        name: `${user.profile.firstName} ${user.profile.lastName}`,
         email: user.email,
-        username: user.username,
-        role: user.role,
+        username: user.profile.username,
+        roles: user.roles
+          .filter((r) => r.status === "ACTIVE")
+          .map((r) => r.role),
         token,
       });
     } else {
@@ -60,7 +72,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const user = await User.findOne({
       $or: [
         { email: emailOrUsername?.toLowerCase() },
-        { username: emailOrUsername },
+        { "profile.username": emailOrUsername },
       ],
     });
 
@@ -81,12 +93,17 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       expires: expiresDate,
     });
 
+    // Update last login time
+    user.lastLogin = new Date();
+    await user.save();
+
     res.json({
       _id: user._id,
-      name: user.name,
+      name: `${user.profile.firstName} ${user.profile.lastName}`,
       email: user.email,
-      username: user.username,
-      role: user.role,
+      username: user.profile.username,
+      image: user.profile.avatar,
+      roles: user.roles.filter((r) => r.status === "ACTIVE").map((r) => r.role),
       token,
     });
   } catch (error) {
@@ -168,11 +185,31 @@ export const githubAuth = async (
       }
 
       if (!user) {
+        // Split name into first and last (or use login as first name if no name)
+        const nameParts = name ? name.split(" ") : [login, ""];
+        const firstName = nameParts[0] || login;
+        const lastName =
+          nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
+
+        // Generate random password for OAuth users
+        const randomPassword = crypto.randomBytes(16).toString("hex");
+
         user = await User.create({
-          name: name || login,
           email: primaryEmail,
-          username: login,
-          image: avatar_url,
+          password: randomPassword, // Random password for OAuth users
+          profile: {
+            firstName,
+            lastName,
+            username: login,
+            avatar: avatar_url || "",
+          },
+          roles: [
+            {
+              role: "BACKER", // Default role
+              grantedAt: new Date(),
+              status: "ACTIVE",
+            },
+          ],
         });
       }
 
@@ -192,6 +229,10 @@ export const githubAuth = async (
 
     const token = generateToken(user._id.toString());
 
+    // Update last login time
+    user.lastLogin = new Date();
+    await user.save();
+
     const expiresDate = new Date();
     expiresDate.setDate(expiresDate.getDate() + 7);
 
@@ -203,11 +244,11 @@ export const githubAuth = async (
 
     res.json({
       _id: user._id,
-      name: user.name,
+      name: `${user.profile.firstName} ${user.profile.lastName}`,
       email: user.email,
-      username: user.username,
-      image: user.image,
-      role: user.role,
+      username: user.profile.username,
+      image: user.profile.avatar,
+      roles: user.roles.filter((r) => r.status === "ACTIVE").map((r) => r.role),
       token,
     });
   } catch (error) {
@@ -273,13 +314,34 @@ export const googleAuth = async (
       }
 
       if (!user) {
+        // Split name into first and last
+        const nameParts = name ? name.split(" ") : ["User", ""];
+        const firstName = nameParts[0];
+        const lastName =
+          nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
+
+        // Create username from email
         const username = email.split("@")[0] + Math.floor(Math.random() * 1000);
 
+        // Generate random password for OAuth users
+        const randomPassword = crypto.randomBytes(16).toString("hex");
+
         user = await User.create({
-          name,
           email,
-          username,
-          image: picture,
+          password: randomPassword,
+          profile: {
+            firstName,
+            lastName,
+            username,
+            avatar: picture || "",
+          },
+          roles: [
+            {
+              role: "BACKER", // Default role
+              grantedAt: new Date(),
+              status: "ACTIVE",
+            },
+          ],
         });
       }
 
@@ -298,6 +360,10 @@ export const googleAuth = async (
       return;
     }
 
+    // Update last login time
+    user.lastLogin = new Date();
+    await user.save();
+
     const token = generateToken(user._id.toString());
 
     const expiresDate = new Date();
@@ -311,11 +377,11 @@ export const googleAuth = async (
 
     res.json({
       _id: user._id,
-      name: user.name,
+      name: `${user.profile.firstName} ${user.profile.lastName}`,
       email: user.email,
-      username: user.username,
-      image: user.image,
-      role: user.role,
+      username: user.profile.username,
+      image: user.profile.avatar,
+      roles: user.roles.filter((r) => r.status === "ACTIVE").map((r) => r.role),
       token,
     });
   } catch (error) {
