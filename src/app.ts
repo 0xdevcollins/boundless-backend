@@ -3,9 +3,11 @@ import cors from "cors";
 import helmet from "helmet";
 import dotenv from "dotenv";
 import connectDB from "./config/db";
-dotenv.config({ path: ".env.local" });
 import authRoutes from "./routes/auth.route";
 import router from "./routes/user.routes";
+import { protect } from "./middleware/auth";
+import notificationRoutes from "./routes/notification.route";
+import blockchainRoutes from "./routes/blockchain.route";
 // import blockchainRoutes from "./routes/blockchain.route";
 import { validateSorobanConfig } from "./config/soroban";
 
@@ -26,6 +28,8 @@ app.get("/", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", router);
+app.use("/api/notifications", protect, notificationRoutes);
+app.use("/api/blockchain", blockchainRoutes);
 // app.use("/api/blockchain", blockchainRoutes);
 
 export default app;
