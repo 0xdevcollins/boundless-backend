@@ -46,7 +46,7 @@ const MilestoneSchema = new Schema<IMilestone>(
     },
     releasedAt: { type: Date },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // Indexes for faster queries
@@ -54,4 +54,4 @@ MilestoneSchema.index({ projectId: 1 });
 MilestoneSchema.index({ contractId: 1 });
 MilestoneSchema.index({ status: 1 });
 
-export default mongoose.model<IMilestone>("Milestone", MilestoneSchema); 
+export default mongoose.model<IMilestone>("Milestone", MilestoneSchema);

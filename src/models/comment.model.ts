@@ -1,93 +1,118 @@
 import mongoose, { Schema, Document } from "mongoose";
 
-export enum CommentStatus {
-  ACTIVE = "ACTIVE",
-  HIDDEN = "HIDDEN",
-  DELETED = "DELETED",
+export interface IEdit {
+  content: string;
+  editedAt: Date;
+  editedBy: mongoose.Types.ObjectId;
 }
 
 export interface IComment extends Document {
-  _id: mongoose.Types.ObjectId;
   content: string;
-  author: {
-    type: mongoose.Types.ObjectId;
-    ref: "User";
+  projectId: mongoose.Types.ObjectId;
+  author: mongoose.Types.ObjectId;
+  parentCommentId?: mongoose.Types.ObjectId;
+  mentions: mongoose.Types.ObjectId[];
+  status: "active" | "deleted" | "flagged" | "hidden";
+  editHistory: IEdit[];
+  reactionCounts: {
+    LIKE: number;
+    DISLIKE: number;
+    HELPFUL: number;
+    SPAM: number;
   };
-  project: {
-    type: mongoose.Types.ObjectId;
-    ref: "Project";
-  };
-  parentComment?: {
-    type: mongoose.Types.ObjectId;
-    ref: "Comment";
-  };
-  replies: Array<{
-    type: mongoose.Types.ObjectId;
-    ref: "Comment";
-  }>;
-  mentions: Array<{
-    type: mongoose.Types.ObjectId;
-    ref: "User";
-  }>;
-  reactions: Array<{
-    type: string;
-    count: number;
-  }>;
-  status: CommentStatus;
-  reports: Array<{
-    userId: {
-      type: mongoose.Types.ObjectId;
-      ref: "User";
-    };
-    reason: string;
-    description?: string;
-    timestamp: Date;
-  }>;
   createdAt: Date;
   updatedAt: Date;
+  isSpam: boolean;
+  reports: {
+    userId: mongoose.Types.ObjectId;
+    reason: string;
+    description?: string;
+    createdAt: Date;
+  }[];
 }
 
 const CommentSchema = new Schema<IComment>(
   {
-    content: { type: String, required: true },
+    content: {
+      type: String,
+      required: [true, "Content is required"],
+      minlength: [1, "Content must not be empty"],
+      maxlength: [5000, "Content must not exceed 5000 characters"],
+    },
+    projectId: {
+      type: Schema.Types.ObjectId,
+      ref: "Project",
+      required: true,
+      index: true,
+    },
     author: {
-      type: { type: Schema.Types.ObjectId, ref: "User", required: true },
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
-    project: {
-      type: { type: Schema.Types.ObjectId, ref: "Project", required: true },
+    parentCommentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Comment",
+      default: null,
     },
-    parentComment: {
-      type: { type: Schema.Types.ObjectId, ref: "Comment" },
-    },
-    replies: [{ type: Schema.Types.ObjectId, ref: "Comment" }],
-    mentions: [{ type: Schema.Types.ObjectId, ref: "User" }],
-    reactions: [
+    mentions: [
       {
-        type: { type: String, required: true },
-        count: { type: Number, default: 0 },
+        type: Schema.Types.ObjectId,
+        ref: "User",
       },
     ],
     status: {
       type: String,
-      enum: Object.values(CommentStatus),
-      default: CommentStatus.ACTIVE,
+      enum: ["active", "deleted", "flagged", "hidden"],
+      default: "active",
+    },
+    editHistory: [
+      {
+        content: String,
+        editedAt: Date,
+        editedBy: {
+          type: Schema.Types.ObjectId,
+          ref: "User",
+        },
+      },
+    ],
+    reactionCounts: {
+      LIKE: { type: Number, default: 0 },
+      DISLIKE: { type: Number, default: 0 },
+      HELPFUL: { type: Number, default: 0 },
+      SPAM: { type: Number, default: 0 },
+    },
+    isSpam: {
+      type: Boolean,
+      default: false,
     },
     reports: [
       {
-        userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-        reason: { type: String, required: true },
-        description: { type: String },
-        timestamp: { type: Date, required: true },
+        userId: {
+          type: Schema.Types.ObjectId,
+          ref: "User",
+        },
+        reason: {
+          type: String,
+          required: true,
+        },
+        description: String,
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
       },
     ],
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+  },
 );
 
-// Indexes for faster queries
-CommentSchema.index({ "author.type": 1 });
-CommentSchema.index({ "project.type": 1 });
-CommentSchema.index({ "parentComment.type": 1 });
+// Indexes for better query performance
+CommentSchema.index({ projectId: 1, createdAt: -1 });
+CommentSchema.index({ parentCommentId: 1 });
+CommentSchema.index({ mentions: 1 });
 CommentSchema.index({ status: 1 });
 
 export default mongoose.model<IComment>("Comment", CommentSchema);

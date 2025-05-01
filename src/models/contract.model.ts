@@ -46,4 +46,4 @@ ContractSchema.index({ projectId: 1 });
 ContractSchema.index({ address: 1 });
 ContractSchema.index({ status: 1 });
 
-export default mongoose.model<IContract>("Contract", ContractSchema); 
+export default mongoose.model<IContract>("Contract", ContractSchema);

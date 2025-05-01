@@ -50,7 +50,7 @@ const TransactionSchema = new Schema<ITransaction>(
     timestamp: { type: Date, required: true },
     confirmedAt: { type: Date },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // Indexes for faster queries
@@ -58,4 +58,4 @@ TransactionSchema.index({ projectId: 1 });
 TransactionSchema.index({ transactionHash: 1 }, { unique: true });
 TransactionSchema.index({ status: 1 });
 
-export default mongoose.model<ITransaction>("Transaction", TransactionSchema); 
+export default mongoose.model<ITransaction>("Transaction", TransactionSchema);
