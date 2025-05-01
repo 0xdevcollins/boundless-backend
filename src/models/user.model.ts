@@ -179,14 +179,8 @@ const userSchema = new Schema<IUser>(
     ],
     lastLogin: { type: Date },
   },
-
   { timestamps: true },
 );
-
-// Indexes for faster queries
-userSchema.index({ "profile.username": 1 });
-userSchema.index({ email: 1 });
-userSchema.index({ "wallet.address": 1 });
 
 // Password comparison method
 userSchema.methods.comparePassword = async function (

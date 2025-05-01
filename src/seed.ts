@@ -8,6 +8,9 @@ import Transaction from "./models/transaction.model";
 import Comment from "./models/comment.model";
 import Notification from "./models/notification.model";
 import bcrypt from "bcryptjs";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const seedDatabase = async () => {
   try {
@@ -296,6 +299,104 @@ const seedDatabase = async () => {
       documents: {
         whitepaper: "https://example.com/whitepaper2.pdf",
         pitchDeck: "https://example.com/pitchdeck2.pdf",
+      },
+    });
+
+    // Create test comments
+    const comment1 = await Comment.create({
+      content:
+        "This is an exciting project! I love the idea of a decentralized social network.",
+      projectId: project1._id,
+      author: backerUser._id,
+      status: "active",
+      reactionCounts: {
+        LIKE: 5,
+        DISLIKE: 0,
+        HELPFUL: 2,
+        SPAM: 0,
+      },
+    });
+
+    const comment2 = await Comment.create({
+      content: "How will you handle user data privacy?",
+      projectId: project1._id,
+      author: adminUser._id,
+      parentCommentId: comment1._id,
+      status: "active",
+      reactionCounts: {
+        LIKE: 3,
+        DISLIKE: 0,
+        HELPFUL: 1,
+        SPAM: 0,
+      },
+    });
+
+    const comment3 = await Comment.create({
+      content:
+        "We'll use zero-knowledge proofs and end-to-end encryption for all user data.",
+      projectId: project1._id,
+      author: creatorUser._id,
+      parentCommentId: comment2._id,
+      status: "active",
+      mentions: [adminUser._id],
+      reactionCounts: {
+        LIKE: 8,
+        DISLIKE: 0,
+        HELPFUL: 5,
+        SPAM: 0,
+      },
+    });
+
+    const comment4 = await Comment.create({
+      content:
+        "This NFT marketplace looks promising! What blockchain will you use?",
+      projectId: project2._id,
+      author: backerUser._id,
+      status: "active",
+      reactionCounts: {
+        LIKE: 4,
+        DISLIKE: 0,
+        HELPFUL: 1,
+        SPAM: 0,
+      },
+    });
+
+    const comment5 = await Comment.create({
+      content:
+        "We're building on Ethereum with plans to expand to other chains.",
+      projectId: project2._id,
+      author: creatorUser._id,
+      parentCommentId: comment4._id,
+      status: "active",
+      mentions: [backerUser._id],
+      reactionCounts: {
+        LIKE: 6,
+        DISLIKE: 0,
+        HELPFUL: 3,
+        SPAM: 0,
+      },
+    });
+
+    // Create a flagged comment
+    const comment6 = await Comment.create({
+      content: "This is spam content! Buy my tokens!",
+      projectId: project1._id,
+      author: backerUser._id,
+      status: "flagged",
+      isSpam: true,
+      reports: [
+        {
+          userId: adminUser._id,
+          reason: "Spam",
+          description: "Promoting unrelated tokens",
+          createdAt: new Date(),
+        },
+      ],
+      reactionCounts: {
+        LIKE: 0,
+        DISLIKE: 10,
+        HELPFUL: 0,
+        SPAM: 8,
       },
     });
 
