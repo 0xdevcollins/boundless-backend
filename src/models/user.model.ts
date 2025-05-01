@@ -36,6 +36,9 @@ export interface IUser extends Document {
   _id: mongoose.Types.ObjectId;
   email: string;
   password: string;
+  isVerified: boolean;
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
   profile: {
     firstName: string;
     lastName: string;
@@ -92,6 +95,9 @@ const userSchema = new Schema<IUser>(
   {
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
+    isVerified: { type: Boolean, default: false },
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date },
     profile: {
       firstName: { type: String, required: true },
       lastName: { type: String, required: true },
@@ -149,7 +155,7 @@ const userSchema = new Schema<IUser>(
         badge: {
           type: { type: Schema.Types.ObjectId, ref: "Badge" },
         },
-        earnedAt: { type: Date, required: true },
+        earnedAt: { type: Date, default: Date.now },
         status: {
           type: String,
           enum: ["ACTIVE", "REVOKED"],
@@ -165,7 +171,7 @@ const userSchema = new Schema<IUser>(
           enum: Object.values(UserRole),
           required: true,
         },
-        grantedAt: { type: Date, required: true },
+        grantedAt: { type: Date, default: Date.now },
         grantedBy: {
           type: Schema.Types.ObjectId,
           ref: "User",

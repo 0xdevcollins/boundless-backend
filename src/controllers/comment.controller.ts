@@ -91,6 +91,26 @@ interface QueryParams {
 }
 
 // Get comments for a project
+/**
+ * @swagger
+ * /projects/{id}/comments:
+ *   get:
+ *     summary: Get comments for a project
+ *     tags: [Comments]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Comments retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ */
 export const getComments = async (
   req: Request,
   res: Response,
