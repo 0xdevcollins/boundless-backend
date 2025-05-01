@@ -6,7 +6,7 @@ import connectDB from "./config/db";
 import authRoutes from "./routes/auth.route";
 import { protect } from "./middleware/auth";
 import notificationRoutes from "./routes/notification.route";
-import blockchainRoutes from "./routes/blockchain.route";
+// import blockchainRoutes from "./routes/blockchain.route";
 // import blockchainRoutes from "./routes/blockchain.route";
 import { validateSorobanConfig } from "./config/soroban";
 import commentRoutes from "./routes/comment.route";
@@ -28,7 +28,7 @@ app.get("/", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/notifications", protect, notificationRoutes);
-app.use("/api/blockchain", blockchainRoutes);
+// app.use("/api/blockchain", blockchainRoutes);
 // app.use("/api/blockchain", blockchainRoutes);
 app.use("/api", commentRoutes);
 
