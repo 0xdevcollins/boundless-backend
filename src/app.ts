@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
 import connectDB from "./config/db";
 import authRoutes from "./routes/auth.routes";
+import router from "./routes/user.routes";
 import { authMiddleware } from "./utils/jwt.utils";
 import notificationRoutes from "./routes/notification.route";
 import commentRoutes from "./routes/comment.route";
@@ -38,6 +39,7 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 
 // Protected routes
+app.use("/api/users", router);
 app.use("/api/notifications", authMiddleware, (req, res, next) => {
   // Your notification routes here
   next();
