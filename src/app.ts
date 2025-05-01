@@ -1,35 +1,51 @@
-import express, { type Application } from "express";
+import express, { Application } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import dotenv from "dotenv";
+import rateLimit from "express-rate-limit";
 import connectDB from "./config/db";
-import authRoutes from "./routes/auth.route";
-import { protect } from "./middleware/auth";
+import authRoutes from "./routes/auth.routes";
+import { authMiddleware } from "./utils/jwt.utils";
 import notificationRoutes from "./routes/notification.route";
-// import blockchainRoutes from "./routes/blockchain.route";
-// import blockchainRoutes from "./routes/blockchain.route";
-import { validateSorobanConfig } from "./config/soroban";
 import commentRoutes from "./routes/comment.route";
+import { config } from "./config";
+import { setupSwagger } from "./config/swagger";
 
 dotenv.config();
 
 connectDB();
-validateSorobanConfig();
 
 const app: Application = express();
 
-app.use(cors());
-app.use(helmet());
+// Middleware
 app.use(express.json());
+app.use(helmet());
+app.use(cors(config.cors));
 
+// Rate limiting
+const limiter = rateLimit(config.rateLimit);
+app.use(limiter);
+
+// Setup Swagger
+setupSwagger(app);
+
+// Routes
 app.get("/", (req, res) => {
   res.send("API is running...");
 });
 
+// Authentication routes
 app.use("/api/auth", authRoutes);
-app.use("/api/notifications", protect, notificationRoutes);
-// app.use("/api/blockchain", blockchainRoutes);
-// app.use("/api/blockchain", blockchainRoutes);
-app.use("/api", commentRoutes);
+
+// Protected routes
+app.use("/api/notifications", authMiddleware, (req, res, next) => {
+  // Your notification routes here
+  next();
+});
+
+app.use("/api/comments", authMiddleware, (req, res, next) => {
+  // Your comment routes here
+  next();
+});
 
 export default app;

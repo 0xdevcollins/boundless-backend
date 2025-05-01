@@ -11,24 +11,24 @@ interface EmailTemplate {
 const transporter = nodemailer.createTransport({
   host: config.SMTP_HOST,
   port: config.SMTP_PORT,
-  secure: false, // true for port 465, false for 587
+  secure: true, // true for port 465, false for 587
   auth: {
     user: config.SMTP_USER,
     pass: config.SMTP_PASS,
   },
 });
 
-const sendMail = async ({
-  from,
+export default async function sendMail({
+  from = "info@defipulsex.org",
   to,
   subject,
   html,
 }: {
-  from: string;
+  from?: string;
   to: string;
   subject: string;
   html: string;
-}) => {
+}) {
   const mailOptions = {
     from,
     to,
@@ -43,7 +43,7 @@ const sendMail = async ({
     console.error("Error sending email:", error);
     throw error;
   }
-};
+}
 
 function generateNotificationHtml({
   name,
@@ -105,5 +105,3 @@ function generateNotificationHtml({
       </html>
     `.trim();
 }
-
-export default { sendMail };
