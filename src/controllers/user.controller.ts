@@ -3,7 +3,7 @@ import User from "../models/user.model";
 import { uploadToCloudinary } from "../utils/user.upload";
 import { IUser } from "../models/user.model";
 import mongoose from "mongoose";
-
+import Activity from "../models/activity.model";
 // Extend the Express Request type to include our custom properties
 interface AuthenticatedRequest extends Request {
   user: IUser;
@@ -137,7 +137,6 @@ export const updateUserAvatar = async (
     res.status(500).json({ message: "Server Error" });
   }
 };
-
 /**
  * @desc    Get user activity
  * @route   GET /api/users/activity
@@ -148,18 +147,15 @@ export const getUserActivity = async (
   res: Response,
 ) => {
   try {
-    // In a real implementation, you would fetch user activity from an Activity model
-    // This is a placeholder implementation
-    const activity = [
-      { type: "LOGIN", timestamp: new Date(), details: "Logged in from web" },
-      {
-        type: "PROJECT_CREATED",
-        timestamp: new Date(),
-        details: "Created project XYZ",
-      },
-    ];
+    const activities = await Activity.find({ "userId.type": req.user._id })
+      .sort({ createdAt: -1 }) // Sort by most recent first
+      .populate({
+        path: "details.projectId",
+        select: "title slug", // Only include title and slug from project
+      })
+      .lean();
 
-    res.status(200).json(activity);
+    res.status(200).json(activities);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server Error" });
