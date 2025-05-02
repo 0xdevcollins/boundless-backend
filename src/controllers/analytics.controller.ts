@@ -1,23 +1,36 @@
 import { Request, Response } from "express";
 import Project from "../models/project.model";
+import User from "../models/user.model";
 
 const getOverview = async (req: Request, res: Response) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const userId = req.user?._id;
 
-    const pageNumber = parseInt(page as string, 10);
-    const pageSize = parseInt(limit as string, 10);
+    const projects = await Project.find({ owner: userId });
 
-    const totalProjects = await Project.countDocuments();
-    const projects = await Project.find()
-      .skip((pageNumber - 1) * pageSize)
-      .limit(pageSize);
+    const totalFunding = projects.reduce(
+      (acc, project) => acc + project.funding.raised,
+      0,
+    );
+    const recentActivity = projects
+      .map((project) => ({
+        title: project.title,
+        status: project.status,
+        lastUpdated: project.updatedAt,
+      }))
+      .sort((a, b) => b.lastUpdated.getTime() - a.lastUpdated.getTime())
+      .slice(0, 3);
+
+    const engagement = projects.map((project) => ({
+      title: project.title,
+      totalVotes: project.voting.totalVotes,
+      totalContributors: project.funding.contributors.length,
+    }));
 
     res.status(200).json({
-      totalProjects,
-      projects,
-      currentPage: pageNumber,
-      totalPages: Math.ceil(totalProjects / pageSize),
+      totalFunding,
+      recentActivity,
+      engagement,
     });
   } catch (error) {
     console.error("Error fetching overview:", error);
@@ -35,7 +48,19 @@ const getProjectAnalytics = async (req: Request, res: Response) => {
       return;
     }
 
-    res.status(200).json(project.toJSON());
+    res.status(200).json({
+      funding: {
+        goal: project.funding.goal,
+        raised: project.funding.raised,
+        currency: project.funding.currency,
+        endDate: project.funding.endDate,
+      },
+      engagement: {
+        totalVotes: project.voting.totalVotes,
+        positiveVotes: project.voting.positiveVotes,
+        negativeVotes: project.voting.negativeVotes,
+      },
+    });
   } catch (error) {
     console.error("Error fetching project analytics:", error);
     res.status(500).json({ message: "Server error" });
@@ -44,21 +69,22 @@ const getProjectAnalytics = async (req: Request, res: Response) => {
 
 const getContributionsAnalytics = async (req: Request, res: Response) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const userId = req.user?._id;
 
-    const pageNumber = parseInt(page as string, 10);
-    const pageSize = parseInt(limit as string, 10);
+    const user = await User.findById(userId).populate(
+      "contributedProjects.project",
+    );
 
-    const totalProjects = await Project.countDocuments();
-    const projects = await Project.find()
-      .skip((pageNumber - 1) * pageSize)
-      .limit(pageSize);
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    const totalContributions = user.contributedProjects.length;
 
     res.status(200).json({
-      totalProjects,
-      projects,
-      currentPage: pageNumber,
-      totalPages: Math.ceil(totalProjects / pageSize),
+      totalContributions,
+      history: user.contributedProjects,
     });
   } catch (error) {
     console.error("Error fetching contributions analytics:", error);
@@ -68,21 +94,18 @@ const getContributionsAnalytics = async (req: Request, res: Response) => {
 
 const getEngagementAnalytics = async (req: Request, res: Response) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const userId = req.user?._id;
 
-    const pageNumber = parseInt(page as string, 10);
-    const pageSize = parseInt(limit as string, 10);
-
-    const totalProjects = await Project.countDocuments();
-    const projects = await Project.find()
-      .skip((pageNumber - 1) * pageSize)
-      .limit(pageSize);
+    const projects = await Project.find({ owner: userId });
+    const totalProjects = projects.length;
+    const totalVotes = projects.reduce(
+      (acc, project) => acc + project.voting.totalVotes,
+      0,
+    );
 
     res.status(200).json({
       totalProjects,
-      projects,
-      currentPage: pageNumber,
-      totalPages: Math.ceil(totalProjects / pageSize),
+      totalVotes,
     });
   } catch (error) {
     console.error("Error fetching contributions analytics:", error);
