@@ -36,6 +36,8 @@ app.use("/api/notifications", authMiddleware, (req, res, next) => {
   // Your notification routes here
   next();
 });
+app.use("/api/analytics", authMiddleware, analyticsRoutes);
+app.use("/api/reports", authMiddleware, reportsRoutes);
 
 app.use("/api/comments", authMiddleware, (req, res, next) => {
   // Your comment routes here
