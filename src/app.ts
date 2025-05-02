@@ -11,7 +11,9 @@ import notificationRoutes from "./routes/notification.route";
 import commentRoutes from "./routes/comment.route";
 import { config } from "./config";
 import { setupSwagger } from "./config/swagger";
-
+import { protect } from "./middleware/auth";
+import analyticsRoutes from "./routes/analytics.route";
+import reportsRoutes from "./routes/report.route";
 dotenv.config();
 
 connectDB();
@@ -20,17 +22,7 @@ const app: Application = express();
 
 // Middleware
 app.use(express.json());
-app.use(helmet());
-app.use(cors(config.cors));
 
-// Rate limiting
-const limiter = rateLimit(config.rateLimit);
-app.use(limiter);
-
-// Setup Swagger
-setupSwagger(app);
-
-// Routes
 app.get("/", (req, res) => {
   res.send("API is running...");
 });
@@ -44,6 +36,8 @@ app.use("/api/notifications", authMiddleware, (req, res, next) => {
   // Your notification routes here
   next();
 });
+app.use("/api/analytics", authMiddleware, analyticsRoutes);
+app.use("/api/reports", authMiddleware, reportsRoutes);
 
 app.use("/api/comments", authMiddleware, (req, res, next) => {
   // Your comment routes here
