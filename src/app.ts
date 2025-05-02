@@ -2,9 +2,15 @@ import express, { Application } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import dotenv from "dotenv";
+import rateLimit from "express-rate-limit";
 import connectDB from "./config/db";
-dotenv.config({ path: ".env.local" });
-import authRoutes from "./routes/auth.route";
+import authRoutes from "./routes/auth.routes";
+import router from "./routes/user.routes";
+import { authMiddleware } from "./utils/jwt.utils";
+import notificationRoutes from "./routes/notification.route";
+import commentRoutes from "./routes/comment.route";
+import { config } from "./config";
+import { setupSwagger } from "./config/swagger";
 import { protect } from "./middleware/auth";
 import analyticsRoutes from "./routes/analytics.route";
 import reportsRoutes from "./routes/report.route";
@@ -14,17 +20,26 @@ connectDB();
 
 const app: Application = express();
 
-app.use(cors());
-app.use(helmet());
+// Middleware
 app.use(express.json());
-
-app.use("/api/analytics", protect, analyticsRoutes);
-app.use("/api/reports", protect, reportsRoutes);
 
 app.get("/", (req, res) => {
   res.send("API is running...");
 });
 
+// Authentication routes
 app.use("/api/auth", authRoutes);
+
+// Protected routes
+app.use("/api/users", router);
+app.use("/api/notifications", authMiddleware, (req, res, next) => {
+  // Your notification routes here
+  next();
+});
+
+app.use("/api/comments", authMiddleware, (req, res, next) => {
+  // Your comment routes here
+  next();
+});
 
 export default app;

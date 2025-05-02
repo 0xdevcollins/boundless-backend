@@ -5,93 +5,95 @@ import Account from "../models/account.model";
 import Session from "../models/session.model";
 import { generateToken } from "../middleware/auth";
 import axios from "axios";
+import { generateTokens } from "../utils/jwt.utils";
+import { OAuth2Client } from "google-auth-library";
+import bcrypt from "bcryptjs";
+import { generateOTP } from "../utils/otp.utils";
+import sendEmail from "../utils/sendMail.utils";
 
 // Register user with email and password
 export const register = async (req: Request, res: Response): Promise<void> => {
-  const { name, email, password, confirmPassword } = req.body;
-
   try {
-    if (password !== confirmPassword) {
-      res.status(400).json({ message: "Passwords do not match" });
-      return;
-    }
+    const { email, password, firstName, lastName, username } = req.body;
 
-    const userExists = await User.findOne({ email: email?.toLowerCase() });
-
-    if (userExists) {
+    // Check if user already exists
+    const existingUser = await User.findOne({
+      $or: [{ email }, { "profile.username": username }],
+    });
+    if (existingUser) {
       res.status(400).json({ message: "User already exists" });
       return;
     }
 
-    const username = email.split("@")[0] + Math.floor(Math.random() * 1000);
-
-    const user = await User.create({
-      name,
-      email: email?.toLowerCase(),
-      password,
-      username,
+    // Create new user
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = new User({
+      email,
+      password: hashedPassword,
+      profile: {
+        firstName,
+        lastName,
+        username,
+      },
+      isVerified: false,
     });
 
-    if (user) {
-      const token = generateToken(user._id.toString());
+    await user.save();
 
-      res.status(201).json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        username: user.username,
-        role: user.role,
-        token,
-      });
-    } else {
-      res.status(400).json({ message: "Invalid user data" });
-    }
+    const otp = generateOTP();
+    await sendEmail({
+      to: email,
+      subject: "Verify your email",
+      html: `Your verification code is: ${otp}`,
+    });
+
+    res.status(201).json({
+      message: "User registered successfully. Please verify your email.",
+    });
   } catch (error) {
-    console.error("Registration error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Error registering user", error });
   }
 };
 
 // Login user with email/username and password
 export const login = async (req: Request, res: Response): Promise<void> => {
-  const { emailOrUsername, password } = req.body;
-
   try {
-    const user = await User.findOne({
-      $or: [
-        { email: emailOrUsername?.toLowerCase() },
-        { username: emailOrUsername },
-      ],
-    });
+    const { email, password } = req.body;
 
-    if (!user || !(await user.comparePassword(password))) {
+    // Find user
+    const user = await User.findOne({ email });
+    if (!user) {
       res.status(401).json({ message: "Invalid credentials" });
       return;
     }
 
-    const token = generateToken(user._id.toString());
+    // Check password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      res.status(401).json({ message: "Invalid credentials" });
+      return;
+    }
 
-    // Create session
-    const expiresDate = new Date();
-    expiresDate.setDate(expiresDate.getDate() + 7);
+    // Check if user is verified
+    if (!user.isVerified) {
+      res.status(401).json({ message: "Please verify your email first" });
+      return;
+    }
 
-    await Session.create({
-      sessionToken: crypto.randomBytes(32).toString("hex"),
-      userId: user._id,
-      expires: expiresDate,
-    });
-
-    res.json({
-      _id: user._id,
-      name: user.name,
+    // Generate tokens
+    const tokens = generateTokens({
+      userId: user._id.toString(),
       email: user.email,
-      username: user.username,
-      role: user.role,
-      token,
+      roles: user.roles.map((role) => role.role),
     });
+
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
+
+    res.json(tokens);
   } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Error logging in", error });
   }
 };
 
@@ -100,15 +102,11 @@ export const githubAuth = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { code } = req.body;
-
-  if (!code) {
-    res.status(400).json({ message: "Authorization code is required" });
-    return;
-  }
-
   try {
-    const tokenResponse = await axios.post(
+    const { code } = req.body;
+
+    // Exchange code for access token
+    const { data: tokenData } = await axios.post(
       "https://github.com/login/oauth/access_token",
       {
         client_id: process.env.GITHUB_CLIENT_ID,
@@ -122,97 +120,54 @@ export const githubAuth = async (
       },
     );
 
-    const { access_token } = tokenResponse.data;
-
-    if (!access_token) {
-      res.status(400).json({ message: "Failed to get access token" });
-      return;
-    }
-
     // Get user data from GitHub
-    const userResponse = await axios.get("https://api.github.com/user", {
+    const { data: userData } = await axios.get("https://api.github.com/user", {
       headers: {
-        Authorization: `token ${access_token}`,
+        Authorization: `Bearer ${tokenData.access_token}`,
       },
     });
 
-    const { id, login, name, avatar_url, email } = userResponse.data;
+    const { email, id, name, avatar_url } = userData;
 
-    let primaryEmail = email;
-    if (!primaryEmail) {
-      const emailsResponse = await axios.get(
-        "https://api.github.com/user/emails",
-        {
-          headers: {
-            Authorization: `token ${access_token}`,
-          },
+    // Find or create user
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = new User({
+        email,
+        profile: {
+          firstName: name?.split(" ")[0] || "",
+          lastName: name?.split(" ")[1] || "",
+          username: email.split("@")[0],
+          avatar: avatar_url,
         },
-      );
-
-      const primaryEmailObj = emailsResponse.data.find((e: any) => e.primary);
-      primaryEmail = primaryEmailObj ? primaryEmailObj.email : null;
+      });
+      await user.save();
     }
 
-    let account = await Account.findOne({
-      provider: "github",
-      providerAccountId: id.toString(),
-    });
-
-    let user: IUser | null = null;
-
-    if (account) {
-      user = await User.findById(account.userId);
-    } else {
-      if (primaryEmail) {
-        user = await User.findOne({ email: primaryEmail });
-      }
-
-      if (!user) {
-        user = await User.create({
-          name: name || login,
-          email: primaryEmail,
-          username: login,
-          image: avatar_url,
-        });
-      }
-
-      account = await Account.create({
+    // Create or update GitHub account
+    await Account.findOneAndUpdate(
+      { provider: "github", providerAccountId: id.toString() },
+      {
         userId: user._id,
         type: "oauth",
         provider: "github",
         providerAccountId: id.toString(),
-        access_token,
-      });
-    }
+      },
+      { upsert: true },
+    );
 
-    if (!user) {
-      res.status(500).json({ message: "Failed to create or find user" });
-      return;
-    }
-
-    const token = generateToken(user._id.toString());
-
-    const expiresDate = new Date();
-    expiresDate.setDate(expiresDate.getDate() + 7);
-
-    await Session.create({
-      sessionToken: crypto.randomBytes(32).toString("hex"),
-      userId: user._id,
-      expires: expiresDate,
-    });
-
-    res.json({
-      _id: user._id,
-      name: user.name,
+    // Generate tokens
+    const tokens = generateTokens({
+      userId: user._id.toString(),
       email: user.email,
-      username: user.username,
-      image: user.image,
-      role: user.role,
-      token,
+      roles: user.roles.map((role) => role.role),
     });
+
+    res.json(tokens);
   } catch (error) {
-    console.error("GitHub auth error:", error);
-    res.status(500).json({ message: "Server error" });
+    res
+      .status(500)
+      .json({ message: "Error with GitHub authentication", error });
   }
 };
 
@@ -221,106 +176,63 @@ export const googleAuth = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { code } = req.body;
-
-  if (!code) {
-    res.status(400).json({ message: "Authorization code is required" });
-    return;
-  }
-
   try {
-    const tokenResponse = await axios.post(
-      "https://oauth2.googleapis.com/token",
-      {
-        client_id: process.env.GOOGLE_CLIENT_ID,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET,
-        code,
-        redirect_uri: process.env.GOOGLE_REDIRECT_URI,
-        grant_type: "authorization_code",
-      },
-    );
+    const { token } = req.body;
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-    const { access_token, id_token } = tokenResponse.data;
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
 
-    if (!access_token) {
-      res.status(400).json({ message: "Failed to get access token" });
+    const payload = ticket.getPayload();
+    if (!payload) {
+      res.status(400).json({ message: "Invalid Google token" });
       return;
     }
 
-    const userResponse = await axios.get(
-      "https://www.googleapis.com/oauth2/v2/userinfo",
-      {
-        headers: {
-          Authorization: `Bearer ${access_token}`,
+    const { email, sub, name, picture } = payload;
+
+    // Find or create user
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = new User({
+        email,
+        profile: {
+          firstName: name?.split(" ")[0] || "",
+          lastName: name?.split(" ")[1] || "",
+          username: email?.split("@")[0] || "",
+          avatar: picture,
         },
-      },
-    );
+        isVerified: true,
+      });
+      await user.save();
+    }
 
-    const { id, email, name, picture } = userResponse.data;
-
-    let account = await Account.findOne({
-      provider: "google",
-      providerAccountId: id,
-    });
-
-    let user: IUser | null = null;
-
-    if (account) {
-      user = await User.findById(account.userId);
-    } else {
-      if (email) {
-        user = await User.findOne({ email });
-      }
-
-      if (!user) {
-        const username = email.split("@")[0] + Math.floor(Math.random() * 1000);
-
-        user = await User.create({
-          name,
-          email,
-          username,
-          image: picture,
-        });
-      }
-
-      account = await Account.create({
+    // Create or update Google account
+    await Account.findOneAndUpdate(
+      { provider: "google", providerAccountId: sub },
+      {
         userId: user._id,
         type: "oauth",
         provider: "google",
-        providerAccountId: id,
-        access_token,
-        id_token,
-      });
-    }
+        providerAccountId: sub,
+      },
+      { upsert: true },
+    );
 
-    if (!user) {
-      res.status(500).json({ message: "Failed to create or find user" });
-      return;
-    }
-
-    const token = generateToken(user._id.toString());
-
-    const expiresDate = new Date();
-    expiresDate.setDate(expiresDate.getDate() + 7);
-
-    await Session.create({
-      sessionToken: crypto.randomBytes(32).toString("hex"),
-      userId: user._id,
-      expires: expiresDate,
-    });
-
-    res.json({
-      _id: user._id,
-      name: user.name,
+    // Generate tokens
+    const tokens = generateTokens({
+      userId: user._id.toString(),
       email: user.email,
-      username: user.username,
-      image: user.image,
-      role: user.role,
-      token,
+      roles: user.roles.map((role) => role.role),
     });
+
+    res.json(tokens);
   } catch (error) {
-    console.error("Google auth error:", error);
-    res.status(500).json({ message: "Server error" });
+    res
+      .status(500)
+      .json({ message: "Error with Google authentication", error });
   }
 };
 
@@ -349,5 +261,68 @@ export const logout = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const forgotPassword = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    // Generate reset token
+    const resetToken = generateOTP();
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = new Date(Date.now() + 3600000); // 1 hour
+    await user.save();
+
+    // Send reset email
+    await sendEmail({
+      to: email,
+      subject: "Password Reset",
+      html: `Your password reset code is: ${resetToken}`,
+    });
+
+    res.json({ message: "Password reset email sent" });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error processing forgot password request", error });
+  }
+};
+
+export const resetPassword = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { token, newPassword } = req.body;
+
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+      res.status(400).json({ message: "Invalid or expired reset token" });
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    res.json({ message: "Password reset successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Error resetting password", error });
   }
 };

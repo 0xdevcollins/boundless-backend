@@ -1,54 +1,126 @@
 # Boundless Backend
 
-Boundless is a crowdfunding platform built on the **Stellar blockchain**, using **Soroban smart contracts** to facilitate transparent and decentralized project funding. This repository contains the backend implementation that powers the platform's core functionalities, smart contract interactions, and user management.
+A comprehensive backend system for the Boundless project with a robust authentication system.
 
-## 🚀 Features
+## Features
 
-- **Decentralized Crowdfunding**
-  - Smart contract-based project funding
-  - Transparent fund management
-  - Milestone-based fund release
-  - Automated escrow system
+- Email/Password Authentication
+  - User registration with email verification
+  - Secure login with JWT tokens
+  - Password reset functionality
+  - Email verification with OTP
 
-- **Multi-provider Authentication**
-  - Email/Password login
+- Social Authentication
   - Google OAuth integration
   - GitHub OAuth integration
-  - Secure wallet connection
 
-- **Project Management**
-  - Project creation and verification
-  - Voting
-  - Milestone tracking
-  - Fund allocation
-  - Progress reporting
+- Security Features
+  - JWT-based authentication
+  - Role-based access control
+  - Rate limiting
+  - CORS protection
+  - Helmet security headers
 
-- **Smart Contract Integration**
-  - Direct integration with Soroban contracts
-  - Automated fund distribution
-  - Transparent transaction history
-  - Smart contract event monitoring
+## Prerequisites
 
-- **Additional Features**
-  - Real-time Notifications
-  - Cloud-based File Management
-  - Blog System
-  - Comment System
-  - Activity Tracking
-  - Contribution Management
+- Node.js >= 14.0.0
+- MongoDB
+- SMTP server (for email functionality)
+- Google OAuth credentials
+- GitHub OAuth credentials
 
-## 🛠 Tech Stack
+## Installation
 
-- **Runtime Environment:** Node.js
-- **Framework:** Express.js
-- **Database:** MongoDB
-- **Blockchain:** Stellar/Soroban
-- **Authentication:** 
-  - JWT
-  - Passport.js (Google, GitHub OAuth)
-  - Email/Password
-- **File Storage:** Cloudinary
-- **Real-time:** Socket.io
-- **Email Service:** Nodemailer
-- **Testing:** Jest
-- **Documentation:** Swagger/OpenAPI
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/boundless-backend.git
+cd boundless-backend
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Create a `.env` file in the root directory with the following variables:
+```env
+# Server Configuration
+PORT=3000
+MONGO_URI=mongodb://localhost:27017/boundless
+
+# JWT Configuration
+JWT_ACCESS_TOKEN_SECRET=your-access-token-secret
+JWT_REFRESH_TOKEN_SECRET=your-refresh-token-secret
+JWT_ACCESS_TOKEN_EXPIRY=15m
+JWT_REFRESH_TOKEN_EXPIRY=7d
+
+# Email Configuration
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_SECURE=false
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASSWORD=your-app-specific-password
+EMAIL_FROM=noreply@boundless.com
+
+# Google OAuth Configuration
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_REDIRECT_URI=http://localhost:3000/auth/google/callback
+
+# GitHub OAuth Configuration
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
+GITHUB_REDIRECT_URI=http://localhost:3000/auth/github/callback
+
+# CORS Configuration
+CORS_ORIGIN=http://localhost:3000
+```
+
+4. Start the development server:
+```bash
+npm run dev
+```
+
+## API Endpoints
+
+### Authentication
+
+- `POST /api/auth/register` - Register a new user
+- `POST /api/auth/login` - Login with email/password
+- `POST /api/auth/forgot-password` - Request password reset
+- `POST /api/auth/reset-password` - Reset password with token
+- `POST /api/auth/google` - Google OAuth login
+- `POST /api/auth/github` - GitHub OAuth login
+- `GET /api/auth/me` - Get current user profile
+
+## Security
+
+The authentication system includes several security features:
+
+- Password hashing with bcrypt
+- JWT token-based authentication
+- Rate limiting to prevent brute force attacks
+  - CORS protection
+- Helmet security headers
+- Input validation
+- Email verification
+- Secure password reset flow
+
+## Testing
+
+Run the test suite:
+```bash
+npm test
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
