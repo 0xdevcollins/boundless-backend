@@ -1,3 +1,7 @@
+import dotenv from "dotenv";
+
+dotenv.config();
+
 // eslint-disable-next-line no-unused-vars
 type Transformer<T> = (value: string) => T;
 
@@ -20,6 +24,28 @@ export class Config {
   public readonly SMTP_PORT: number;
   public readonly SMTP_USER: string;
   public readonly SMTP_PASS: string;
+
+  public readonly cloudinary: {
+    cloudName: string;
+    apiKey: string;
+    apiSecret: string;
+  };
+
+  public readonly fileUpload: {
+    maxFileSize: number;
+    allowedFileTypes: string[];
+  };
+
+  public readonly cors: {
+    origin: string;
+    methods: string[];
+    allowedHeaders: string[];
+  };
+
+  public readonly rateLimit: {
+    windowMs: number;
+    max: number;
+  };
 
   private constructor() {
     this.NODE_ENV = this.getEnvVariable("NODE_ENV", true);
@@ -44,6 +70,32 @@ export class Config {
     this.SMTP_PORT = this.getEnvVariable("SMTP_PORT", true, parseInt);
     this.SMTP_USER = this.getEnvVariable("SMTP_USER", true);
     this.SMTP_PASS = this.getEnvVariable("SMTP_PASS", true);
+
+    this.cloudinary = {
+      cloudName: this.getEnvVariable("CLOUDINARY_CLOUD_NAME", true),
+      apiKey: this.getEnvVariable("CLOUDINARY_API_KEY", true),
+      apiSecret: this.getEnvVariable("CLOUDINARY_API_SECRET", true),
+    };
+
+    this.fileUpload = {
+      maxFileSize: this.getEnvVariable("MAX_FILE_SIZE", true, parseInt),
+      allowedFileTypes: (
+        this.getEnvVariable("ALLOWED_FILE_TYPES", true) ||
+        "image/jpeg,image/png,application/pdf"
+      ).split(","),
+    };
+
+    this.cors = {
+      origin:
+        this.getEnvVariable("CORS_ORIGIN", true) || "http://localhost:3000",
+      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization"],
+    };
+
+    this.rateLimit = {
+      windowMs: this.getEnvVariable("RATE_LIMIT_WINDOW_MS", true, parseInt),
+      max: this.getEnvVariable("RATE_LIMIT_MAX", true, parseInt),
+    };
   }
 
   public static getInstance(): Config {

@@ -36,6 +36,9 @@ export interface IUser extends Document {
   _id: mongoose.Types.ObjectId;
   email: string;
   password: string;
+  isVerified: boolean;
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
   profile: {
     firstName: string;
     lastName: string;
@@ -76,7 +79,7 @@ export interface IUser extends Document {
     };
   }>;
   roles: Array<{
-    type: UserRole;
+    role: UserRole;
     grantedAt: Date;
     grantedBy: {
       type: mongoose.Types.ObjectId;
@@ -89,6 +92,9 @@ export interface IUser extends Document {
       type: mongoose.Types.ObjectId;
       ref: "Project";
     };
+    amount: number;
+    currency: string;
+    contributedAt: Date;
   }>;
   lastLogin: Date;
   comparePassword(enteredPassword: string): Promise<boolean>;
@@ -98,6 +104,9 @@ const userSchema = new Schema<IUser>(
   {
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
+    isVerified: { type: Boolean, default: false },
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date },
     profile: {
       firstName: { type: String, required: true },
       lastName: { type: String, required: true },
@@ -155,7 +164,7 @@ const userSchema = new Schema<IUser>(
         badge: {
           type: { type: Schema.Types.ObjectId, ref: "Badge" },
         },
-        earnedAt: { type: Date, required: true },
+        earnedAt: { type: Date, default: Date.now },
         status: {
           type: String,
           enum: ["ACTIVE", "REVOKED"],
@@ -166,14 +175,15 @@ const userSchema = new Schema<IUser>(
     ],
     roles: [
       {
-        type: {
+        role: {
           type: String,
           enum: Object.values(UserRole),
           required: true,
         },
-        grantedAt: { type: Date, required: true },
+        grantedAt: { type: Date, default: Date.now },
         grantedBy: {
-          type: { type: Schema.Types.ObjectId, ref: "User" },
+          type: Schema.Types.ObjectId,
+          ref: "User",
         },
         status: {
           type: String,
@@ -185,20 +195,19 @@ const userSchema = new Schema<IUser>(
     contributedProjects: [
       {
         project: {
-          type: { type: Schema.Types.ObjectId, ref: "Project" },
+          type: Schema.Types.ObjectId,
+          ref: "Project",
+          required: true,
         },
+        amount: { type: Number, required: true },
+        currency: { type: String, required: true, default: "USD" },
+        contributedAt: { type: Date, default: Date.now },
       },
     ],
     lastLogin: { type: Date },
   },
-
   { timestamps: true },
 );
-
-// Indexes for faster queries
-userSchema.index({ "profile.username": 1 });
-userSchema.index({ email: 1 });
-userSchema.index({ "wallet.address": 1 });
 
 // Password comparison method
 userSchema.methods.comparePassword = async function (
