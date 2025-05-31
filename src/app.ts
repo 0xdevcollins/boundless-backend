@@ -15,6 +15,7 @@ import { protect } from "./middleware/auth";
 import analyticsRoutes from "./routes/analytics.route";
 import reportsRoutes from "./routes/report.route";
 import projectRoutes from "./routes/project.route";
+import adminRoutes from "./routes/admin.routes";
 dotenv.config();
 
 connectDB();
@@ -46,7 +47,7 @@ app.use("/api/analytics", authMiddleware, analyticsRoutes);
 app.use("/api/reports", authMiddleware, reportsRoutes);
 app.use("/api/comments", authMiddleware, commentRoutes);
 app.use("/api/projects", authMiddleware, projectRoutes);
-
+app.use("/api/admin", adminRoutes);
 // Setup Swagger
 setupSwagger(app);
 
