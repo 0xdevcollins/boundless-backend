@@ -47,7 +47,7 @@ app.use("/api/analytics", authMiddleware, analyticsRoutes);
 app.use("/api/reports", authMiddleware, reportsRoutes);
 app.use("/api/comments", authMiddleware, commentRoutes);
 app.use("/api/projects", authMiddleware, projectRoutes);
-app.use("/api/admin", adminRoutes);
+app.use("/api/admin", authMiddleware, adminRoutes);
 // Setup Swagger
 setupSwagger(app);
 
