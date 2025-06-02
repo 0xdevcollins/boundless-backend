@@ -41,7 +41,12 @@ const TransactionSchema = new Schema<ITransaction>(
     amount: { type: Number, required: true },
     fromAddress: { type: String, required: true },
     toAddress: { type: String, required: true },
-    transactionHash: { type: String, required: true },
+    transactionHash: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
     status: {
       type: String,
       enum: Object.values(TransactionStatus),
@@ -53,9 +58,8 @@ const TransactionSchema = new Schema<ITransaction>(
   { timestamps: true },
 );
 
-// Indexes for faster queries
-TransactionSchema.index({ projectId: 1 });
-TransactionSchema.index({ transactionHash: 1 }, { unique: true });
-TransactionSchema.index({ status: 1 });
+// Optimized compound indexes for frequently queried combinations
+TransactionSchema.index({ projectId: 1, status: 1, timestamp: -1 });
+TransactionSchema.index({ type: 1, status: 1, timestamp: -1 });
 
 export default mongoose.model<ITransaction>("Transaction", TransactionSchema);

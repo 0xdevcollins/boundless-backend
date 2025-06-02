@@ -14,6 +14,9 @@ import {
 
 const router = express.Router();
 
+// Apply protect and admin middleware to all routes
+router.use(protect, admin);
+
 /**
  * @swagger
  * /api/admin/funding/transactions:
@@ -73,8 +76,6 @@ const router = express.Router();
  */
 router.get(
   "/transactions",
-  protect,
-  admin,
   validateRequest(listTransactionsSchema),
   listTransactions,
 );
@@ -116,8 +117,6 @@ router.get(
  */
 router.get(
   "/transactions/:projectId",
-  protect,
-  admin,
   validateRequest(getProjectTransactionsSchema),
   getProjectTransactions,
 );
@@ -162,8 +161,6 @@ router.get(
  */
 router.get(
   "/pending",
-  protect,
-  admin,
   validateRequest(getPendingTransactionsSchema),
   getPendingTransactions,
 );
@@ -202,8 +199,6 @@ router.get(
  */
 router.get(
   "/statistics",
-  protect,
-  admin,
   validateRequest(getFundingStatisticsSchema),
   getFundingStatistics,
 );

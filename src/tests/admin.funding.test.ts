@@ -6,7 +6,7 @@ import Project from "../models/project.model";
 import Transaction, {
   TransactionType,
   TransactionStatus,
-} from "../models/transaction.model";
+} from "../models/admin.transaction.model";
 import { generateTokens } from "../utils/jwt.utils";
 
 describe("Admin Funding Endpoints", () => {
@@ -74,7 +74,7 @@ describe("Admin Funding Endpoints", () => {
     });
     projectId = project._id;
 
-    // Create test transactions
+    // Create test transactions with unique hashes
     await Transaction.create([
       {
         projectId,
@@ -138,6 +138,36 @@ describe("Admin Funding Endpoints", () => {
         res.body.data.transactions.every((t: any) => t.status === "CONFIRMED"),
       ).toBe(true);
     });
+
+    it("should sort transactions by timestamp", async () => {
+      const res = await request(app)
+        .get("/api/admin/funding/transactions?sortBy=timestamp&sortOrder=desc")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(res.status).toBe(200);
+      const transactions = res.body.data.transactions;
+      const sortedTransactions = [...transactions].sort(
+        (a: any, b: any) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+      );
+      expect(transactions).toEqual(sortedTransactions);
+    });
+
+    it("should filter transactions by date range", async () => {
+      const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // 7 days ago
+      const endDate = new Date();
+      const res = await request(app)
+        .get(
+          `/api/admin/funding/transactions?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
+        )
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(res.status).toBe(200);
+      expect(
+        res.body.data.transactions.every((t: any) => {
+          const timestamp = new Date(t.timestamp);
+          return timestamp >= startDate && timestamp <= endDate;
+        }),
+      ).toBe(true);
+    });
   });
 
   describe("GET /api/admin/funding/transactions/:projectId", () => {
@@ -158,6 +188,21 @@ describe("Admin Funding Endpoints", () => {
       expect(res.body.data.transactions).toBeInstanceOf(Array);
       expect(res.body.data.statistics).toBeDefined();
     });
+
+    it("should return transactions sorted by timestamp", async () => {
+      const res = await request(app)
+        .get(
+          `/api/admin/funding/transactions/${projectId}?sortBy=timestamp&sortOrder=desc`,
+        )
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(res.status).toBe(200);
+      const transactions = res.body.data.transactions;
+      const sortedTransactions = [...transactions].sort(
+        (a: any, b: any) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+      );
+      expect(transactions).toEqual(sortedTransactions);
+    });
   });
 
   describe("GET /api/admin/funding/pending", () => {
@@ -169,6 +214,18 @@ describe("Admin Funding Endpoints", () => {
       expect(
         res.body.data.transactions.every((t: any) => t.status === "PENDING"),
       ).toBe(true);
+    });
+
+    it("should sort pending transactions by amount", async () => {
+      const res = await request(app)
+        .get("/api/admin/funding/pending?sortBy=amount&sortOrder=desc")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(res.status).toBe(200);
+      const transactions = res.body.data.transactions;
+      const sortedTransactions = [...transactions].sort(
+        (a: any, b: any) => b.amount - a.amount,
+      );
+      expect(transactions).toEqual(sortedTransactions);
     });
   });
 
@@ -189,6 +246,18 @@ describe("Admin Funding Endpoints", () => {
     it("should filter statistics by period", async () => {
       const res = await request(app)
         .get("/api/admin/funding/statistics?period=day")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(res.status).toBe(200);
+      expect(res.body.data.overview).toBeDefined();
+    });
+
+    it("should filter statistics by date range", async () => {
+      const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
+      const endDate = new Date();
+      const res = await request(app)
+        .get(
+          `/api/admin/funding/statistics?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
+        )
         .set("Authorization", `Bearer ${adminToken}`);
       expect(res.status).toBe(200);
       expect(res.body.data.overview).toBeDefined();
@@ -220,6 +289,20 @@ describe("Admin Funding Endpoints", () => {
     it("should validate status enum", async () => {
       const res = await request(app)
         .get("/api/admin/funding/transactions?status=INVALID")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(res.status).toBe(400);
+    });
+
+    it("should validate sortBy parameter", async () => {
+      const res = await request(app)
+        .get("/api/admin/funding/transactions?sortBy=invalid")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(res.status).toBe(400);
+    });
+
+    it("should validate sortOrder parameter", async () => {
+      const res = await request(app)
+        .get("/api/admin/funding/transactions?sortOrder=invalid")
         .set("Authorization", `Bearer ${adminToken}`);
       expect(res.status).toBe(400);
     });

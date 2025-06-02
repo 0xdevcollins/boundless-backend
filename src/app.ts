@@ -18,7 +18,9 @@ import projectRoutes from "./routes/project.route";
 import adminFundingRoutes from "./routes/admin.funding.route";
 dotenv.config();
 
-connectDB();
+if (process.env.NODE_ENV !== "test") {
+  connectDB();
+}
 
 const app: Application = express();
 

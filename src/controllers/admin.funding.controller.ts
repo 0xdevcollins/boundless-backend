@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import TransactionModel, {
   TransactionType,
   TransactionStatus,
-} from "../models/transaction.model";
+} from "../models/admin.transaction.model";
 import ProjectModel from "../models/project.model";
 import { validateRequest } from "../middleware/validateRequest";
 import { query } from "express-validator";

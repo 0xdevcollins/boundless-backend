@@ -1,27 +1,32 @@
+import "jest-extended";
 import mongoose from "mongoose";
 import { config } from "../config";
+import { MongoMemoryServer } from "mongodb-memory-server";
 
 process.env.NODE_ENV = "test";
 process.env.MONGODB_URI =
   process.env.MONGODB_URI || "mongodb://localhost:27017/boundless-test";
 process.env.JWT_SECRET = "test_jwt_secret";
 
+let mongoServer: MongoMemoryServer;
+
 // Connect to test database
 beforeAll(async () => {
-  await mongoose.connect(process.env.MONGODB_URI as string);
+  mongoServer = await MongoMemoryServer.create();
+  const mongoUri = mongoServer.getUri();
+  await mongoose.connect(mongoUri);
 });
 
 // Clear database between tests
 beforeEach(async () => {
-  if (mongoose.connection.db) {
-    const collections = await mongoose.connection.db.collections();
-    for (const collection of collections) {
-      await collection.deleteMany({});
-    }
+  const collections = mongoose.connection.collections;
+  for (const key in collections) {
+    await collections[key].deleteMany({});
   }
 });
 
 // Close database connection after all tests
 afterAll(async () => {
-  await mongoose.connection.close();
+  await mongoose.disconnect();
+  await mongoServer.stop();
 });
