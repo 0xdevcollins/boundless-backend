@@ -15,10 +15,16 @@ import { protect } from "./middleware/auth";
 import analyticsRoutes from "./routes/analytics.route";
 import reportsRoutes from "./routes/report.route";
 import projectRoutes from "./routes/project.route";
-import adminRoutes from "./routes/admin.routes";
+
+import adminFundingRoutes from "./routes/admin.funding.route";
+
+import adminRoutes from "./routes/admin.route";
+
 dotenv.config();
 
-connectDB();
+if (process.env.NODE_ENV !== "test") {
+  connectDB();
+}
 
 const app: Application = express();
 
@@ -47,7 +53,11 @@ app.use("/api/analytics", authMiddleware, analyticsRoutes);
 app.use("/api/reports", authMiddleware, reportsRoutes);
 app.use("/api/comments", authMiddleware, commentRoutes);
 app.use("/api/projects", authMiddleware, projectRoutes);
+
+app.use("/api/admin/funding", adminFundingRoutes);
+
 app.use("/api/admin", authMiddleware, adminRoutes);
+
 // Setup Swagger
 setupSwagger(app);
 

@@ -35,16 +35,21 @@ declare module "../models/user.model" {
  * @access  Private
  */
 export const getUserProfile = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
-) => {
+): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({ message: "Not authorized" });
+      return;
+    }
     const user = await User.findById(req.user._id).select(
       "-password -settings -badges -roles -status",
     );
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      res.status(404).json({ message: "User not found" });
+      return;
     }
 
     res.status(200).json(user);
@@ -60,10 +65,14 @@ export const getUserProfile = async (
  * @access  Private
  */
 export const updateUserProfile = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
-) => {
+): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({ message: "Not authorized" });
+      return;
+    }
     const {
       firstName,
       lastName,
@@ -81,7 +90,8 @@ export const updateUserProfile = async (
         _id: { $ne: req.user._id },
       });
       if (existingUser) {
-        return res.status(400).json({ message: "Username is already taken" });
+        res.status(400).json({ message: "Username is already taken" });
+        return;
       }
     }
 
@@ -114,12 +124,17 @@ export const updateUserProfile = async (
  * @access  Private
  */
 export const updateUserAvatar = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
-) => {
+): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({ message: "Not authorized" });
+      return;
+    }
     if (!req.file) {
-      return res.status(400).json({ message: "No file uploaded" });
+      res.status(400).json({ message: "No file uploaded" });
+      return;
     }
 
     // Upload to Cloudinary or your preferred storage
@@ -143,10 +158,14 @@ export const updateUserAvatar = async (
  * @access  Private
  */
 export const getUserActivity = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
-) => {
+): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({ message: "Not authorized" });
+      return;
+    }
     const activities = await Activity.find({ "userId.type": req.user._id })
       .sort({ createdAt: -1 }) // Sort by most recent first
       .populate({
@@ -168,14 +187,19 @@ export const getUserActivity = async (
  * @access  Private
  */
 export const getUserSettings = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
-) => {
+): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({ message: "Not authorized" });
+      return;
+    }
     const user = await User.findById(req.user._id).select("settings");
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      res.status(404).json({ message: "User not found" });
+      return;
     }
 
     res.status(200).json(user.settings);
@@ -191,10 +215,14 @@ export const getUserSettings = async (
  * @access  Private
  */
 export const updateUserSettings = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
-) => {
+): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({ message: "Not authorized" });
+      return;
+    }
     const { notifications, privacy, preferences } = req.body;
 
     const updatedUser = await User.findByIdAndUpdate(
@@ -222,22 +250,28 @@ export const updateUserSettings = async (
  * @access  Private
  */
 export const updateUserSecurity = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
-) => {
+): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({ message: "Not authorized" });
+      return;
+    }
     const { currentPassword, newPassword, twoFactorEnabled, twoFactorCode } =
       req.body;
     const user = await User.findById(req.user._id);
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      res.status(404).json({ message: "User not found" });
+      return;
     }
 
     // Verify current password
     const isMatch = await user.comparePassword(currentPassword);
     if (!isMatch) {
-      return res.status(400).json({ message: "Current password is incorrect" });
+      res.status(400).json({ message: "Current password is incorrect" });
+      return;
     }
 
     // Initialize security settings if they don't exist

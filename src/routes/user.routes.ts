@@ -10,6 +10,7 @@ import {
   updateUserSecurity,
 } from "../controllers/user.controller";
 import { protect } from "../middleware/auth";
+import { asyncHandler } from "../utils/asyncHandler";
 
 const router = express.Router();
 
@@ -28,27 +29,38 @@ type RequestHandlerWithUpload = express.RequestHandler[];
 // Profile routes
 router
   .route("/profile")
-  .get(protect, getUserProfile as RequestHandler)
-  .put(protect, updateUserProfile as RequestHandler);
+  // @ts-ignore
+  .get(asyncHandler(protect), asyncHandler(getUserProfile))
+  // @ts-ignore
+  .put(asyncHandler(protect), asyncHandler(updateUserProfile));
 
 // Avatar upload route
+// @ts-ignore
 router.put(
   "/avatar",
-  protect,
+  asyncHandler(protect),
   upload.single("avatar"),
-  updateUserAvatar as RequestHandler,
+  asyncHandler(updateUserAvatar),
 );
 
 // Activity route
-router.get("/activity", protect, getUserActivity as RequestHandler);
+// @ts-ignore
+router.get("/activity", asyncHandler(protect), asyncHandler(getUserActivity));
 
 // Settings routes
 router
   .route("/settings")
-  .get(protect, getUserSettings as RequestHandler)
-  .put(protect, updateUserSettings as RequestHandler);
+  // @ts-ignore
+  .get(asyncHandler(protect), asyncHandler(getUserSettings))
+  // @ts-ignore
+  .put(asyncHandler(protect), asyncHandler(updateUserSettings));
 
 // Security route
-router.put("/security", protect, updateUserSecurity as RequestHandler);
+// @ts-ignore
+router.put(
+  "/security",
+  asyncHandler(protect),
+  asyncHandler(updateUserSecurity),
+);
 
 export default router;

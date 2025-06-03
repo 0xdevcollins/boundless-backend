@@ -1,7 +1,9 @@
-import jwt, { SignOptions } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
 import User, { IUser, UserRole } from "../models/user.model";
-import { config } from "../config";
+
+// Always read the JWT secret from process.env at runtime
+const getJwtSecret = () => process.env.JWT_SECRET || "fallback_secret";
 
 export interface JwtPayload {
   userId: string;
@@ -10,54 +12,42 @@ export interface JwtPayload {
 }
 
 export const generateTokens = (payload: JwtPayload) => {
-  const signOptions: SignOptions = {
-    expiresIn: "15m" as const,
-  };
-
-  const accessToken = jwt.sign(
-    payload,
-    config.jwt.accessTokenSecret,
-    signOptions,
-  );
-
-  const refreshToken = jwt.sign(
-    payload,
-    config.jwt.refreshTokenSecret,
-    signOptions,
-  );
-
+  const secret = getJwtSecret();
+  const accessToken = jwt.sign(payload, secret, { expiresIn: "1h" });
+  const refreshToken = jwt.sign(payload, secret, { expiresIn: "7d" });
   return { accessToken, refreshToken };
 };
 
-export const verifyToken = (token: string, secret: string): JwtPayload => {
-  return jwt.verify(token, secret) as JwtPayload;
+export const verifyToken = (token: string) => {
+  const secret = getJwtSecret();
+  return jwt.verify(token, secret);
 };
 
 export const authMiddleware = async (
-  req: Request & { user?: IUser },
+  req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      res.status(401).json({ message: "No token provided" });
+      res.status(401).json({ message: "Not authorized, no token" });
       return;
     }
-
     const token = authHeader.split(" ")[1];
-    const decoded = verifyToken(token, config.jwt.accessTokenSecret);
-
+    const decoded = verifyToken(token) as any;
+    console.log("Decoded JWT:", decoded);
     const user = await User.findById(decoded.userId);
-    req.user = user as IUser;
-    if (!req.user) {
-      res.status(401).json({ message: "User not found" });
+    console.log("User found:", user);
+    if (!user) {
+      res.status(401).json({ message: "Not authorized, user not found" });
       return;
     }
-
+    req.user = user;
     next();
   } catch (error) {
-    res.status(401).json({ message: "Invalid token" });
+    console.error(error);
+    res.status(401).json({ message: "Not authorized, token failed" });
   }
 };
 
