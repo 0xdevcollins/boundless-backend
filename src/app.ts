@@ -58,7 +58,6 @@ app.use("/api/admin/funding", adminFundingRoutes);
 
 app.use("/api/admin", authMiddleware, adminRoutes);
 
-
 // Setup Swagger
 setupSwagger(app);
 
