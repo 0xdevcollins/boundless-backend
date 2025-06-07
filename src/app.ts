@@ -11,7 +11,6 @@ import notificationRoutes from "./routes/notification.route";
 import commentRoutes from "./routes/comment.route";
 import { config } from "./config";
 import { setupSwagger } from "./config/swagger";
-import { protect } from "./middleware/auth";
 import analyticsRoutes from "./routes/analytics.route";
 import reportsRoutes from "./routes/report.route";
 import projectRoutes from "./routes/project.route";
@@ -19,6 +18,7 @@ import projectRoutes from "./routes/project.route";
 import adminFundingRoutes from "./routes/admin.funding.route";
 
 import adminRoutes from "./routes/admin.route";
+import blogRoutes from "./routes/blog.route";
 
 dotenv.config();
 
@@ -57,6 +57,8 @@ app.use("/api/projects", authMiddleware, projectRoutes);
 app.use("/api/admin/funding", adminFundingRoutes);
 
 app.use("/api/admin", authMiddleware, adminRoutes);
+
+app.use("/api/admin/blogs", blogRoutes);
 
 // Setup Swagger
 setupSwagger(app);
