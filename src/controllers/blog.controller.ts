@@ -11,6 +11,7 @@ import {
   PaginatedBlogResponse,
   BlogAnalytics,
 } from "../types/blog";
+import { resourceChecker } from "../utils/resourceChecker.util";
 
 export class BlogController {
   static async getAllBlogs(req: Request, res: Response): Promise<void> {
@@ -93,16 +94,10 @@ export class BlogController {
   static async createBlog(req: Request, res: Response): Promise<void> {
     try {
       const blogData: CreateBlogRequest = req.body;
-      const userId = req.user?.id; // Assuming auth middleware sets user
+      const userId = req.user?.id;
 
       const categoryExists = await BlogCategory.findById(blogData.category);
-      if (!categoryExists) {
-        res.status(400).json({
-          success: false,
-          message: "Invalid category ID",
-        });
-        return;
-      }
+      resourceChecker(res, !categoryExists, "Invalid category ID", 400);
 
       const blog = new Blog({
         ...blogData,
@@ -145,26 +140,19 @@ export class BlogController {
     try {
       const { id } = req.params;
 
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        res.status(400).json({
-          success: false,
-          message: "Invalid blog ID",
-        });
-        return;
-      }
+      resourceChecker(
+        res,
+        !mongoose.Types.ObjectId.isValid(id),
+        "Invalid blog ID",
+        400,
+      );
 
       const blog = await Blog.findById(id)
         .populate("category", "name slug description color icon")
         .populate("authors", "name email avatar bio")
         .populate("revisions.editedBy", "name email");
 
-      if (!blog) {
-        res.status(404).json({
-          success: false,
-          message: "Blog post not found",
-        });
-        return;
-      }
+      resourceChecker(res, !blog, "Blog post not found", 404);
 
       res.status(200).json({
         success: true,
@@ -186,13 +174,12 @@ export class BlogController {
       const updateData: UpdateBlogRequest = req.body;
       const userId = req.user?.id;
 
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        res.status(400).json({
-          success: false,
-          message: "Invalid blog ID",
-        });
-        return;
-      }
+      resourceChecker(
+        res,
+        !mongoose.Types.ObjectId.isValid(id),
+        "Invalid blog ID",
+        400,
+      );
 
       const existingBlog = await Blog.findById(id);
       if (!existingBlog) {
@@ -205,13 +192,7 @@ export class BlogController {
 
       if (updateData.category) {
         const categoryExists = await BlogCategory.findById(updateData.category);
-        if (!categoryExists) {
-          res.status(400).json({
-            success: false,
-            message: "Invalid category ID",
-          });
-          return;
-        }
+        resourceChecker(res, !categoryExists, "Invalid category ID", 400);
 
         if (updateData.category !== existingBlog.category.toString()) {
           await Promise.all([
@@ -269,13 +250,12 @@ export class BlogController {
         redirectUrl,
       }: DeleteBlogRequest = req.body;
 
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        res.status(400).json({
-          success: false,
-          message: "Invalid blog ID",
-        });
-        return;
-      }
+      resourceChecker(
+        res,
+        !mongoose.Types.ObjectId.isValid(id),
+        "Invalid blog ID",
+        400,
+      );
 
       const blog = await Blog.findById(id);
       if (!blog) {
