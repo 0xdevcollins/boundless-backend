@@ -10,7 +10,7 @@
     "test": "jest",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
-    "prepare": "husky install",
+    "prepare": "if [ \"$RENDER\" != \"true\" ]; then husky install; fi",
     "format": "prettier --write \"src/**/*.ts\""
   },
   "keywords": [],
