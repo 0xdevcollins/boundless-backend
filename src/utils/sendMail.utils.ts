@@ -19,7 +19,7 @@ const transporter = nodemailer.createTransport({
 });
 
 export default async function sendMail({
-  from = "info@defipulsex.org",
+  from = "info@boundlesssfi.xyz",
   to,
   subject,
   html,
