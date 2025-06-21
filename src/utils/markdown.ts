@@ -6,15 +6,13 @@ const window = new JSDOM("").window;
 const purify = DOMPurify(window);
 
 marked.setOptions({
-  headerIds: true,
-  mangle: false,
   breaks: true,
   gfm: true,
 });
 
 const renderer = new marked.Renderer();
 
-renderer.link = (href, title, text) => {
+renderer.link = ({ href, title, text }) => {
   const isExternal = href && (href.startsWith("http") || href.startsWith("//"));
   const titleAttr = title ? ` title="${title}"` : "";
   const relAttr = isExternal ? ' rel="noopener noreferrer"' : "";
@@ -23,18 +21,18 @@ renderer.link = (href, title, text) => {
   return `<a href="${href}"${titleAttr}${relAttr}${targetAttr}>${text}</a>`;
 };
 
-renderer.image = (href, title, text) => {
+renderer.image = ({ href, title, text }) => {
   const titleAttr = title ? ` title="${title}"` : "";
   const altAttr = text ? ` alt="${text}"` : "";
 
   return `<img src="${href}"${altAttr}${titleAttr} loading="lazy" />`;
 };
 
-renderer.code = (code, language) => {
-  const validLanguage = language && /^[a-zA-Z0-9-_]+$/.test(language);
-  const langClass = validLanguage ? ` class="language-${language}"` : "";
+renderer.code = ({ text, lang }) => {
+  const validLanguage = lang && /^[a-zA-Z0-9-_]+$/.test(lang);
+  const langClass = validLanguage ? ` class="language-${lang}"` : "";
 
-  return `<pre><code${langClass}>${code}</code></pre>`;
+  return `<pre><code${langClass}>${text}</code></pre>`;
 };
 
 marked.use({ renderer });
@@ -52,9 +50,9 @@ export interface MarkdownProcessResult {
 }
 
 export class MarkdownProcessor {
-  static toHtml(markdown: string): string {
+  static async toHtml(markdown: string): Promise<string> {
     try {
-      const html = marked(markdown);
+      const html = await marked.parse(markdown);
       return purify.sanitize(html, {
         ALLOWED_TAGS: [
           "h1",
@@ -188,8 +186,8 @@ export class MarkdownProcessor {
     return toc;
   }
 
-  static process(markdown: string): MarkdownProcessResult {
-    const html = this.toHtml(markdown);
+  static async process(markdown: string): Promise<MarkdownProcessResult> {
+    const html = await this.toHtml(markdown);
     const plainText = this.toPlainText(markdown);
     const wordCount = this.getWordCount(markdown);
     const readingTime = this.calculateReadingTime(markdown);
@@ -207,32 +205,37 @@ export class MarkdownProcessor {
   static validate(markdown: string): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
 
-    if (!markdown || markdown.trim().length === 0) {
-      errors.push("Markdown content cannot be empty");
-    }
+    try {
+      // Basic validation
+      if (!markdown || markdown.trim().length === 0) {
+        errors.push("Markdown content is empty");
+      }
 
-    if (markdown.length > 100000) {
-      errors.push(
-        "Markdown content exceeds maximum length of 100,000 characters",
-      );
-    }
-
-    const dangerousPatterns = [
-      /<script[^>]*>.*?<\/script>/gi,
-      /javascript:/gi,
-      /vbscript:/gi,
-      /data:text\/html/gi,
-    ];
-
-    dangerousPatterns.forEach((pattern) => {
-      if (pattern.test(markdown)) {
+      // Check for potentially dangerous content
+      if (markdown.includes("<script>") || markdown.includes("javascript:")) {
         errors.push("Markdown contains potentially dangerous content");
       }
-    });
 
-    return {
-      isValid: errors.length === 0,
-      errors,
-    };
+      // Check for excessive length (optional)
+      if (markdown.length > 100000) {
+        errors.push("Markdown content is too long (max 100,000 characters)");
+      }
+
+      // Try to parse the markdown
+      marked.parse(markdown);
+
+      return {
+        isValid: errors.length === 0,
+        errors,
+      };
+    } catch (error) {
+      errors.push(
+        `Markdown parsing error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+      return {
+        isValid: false,
+        errors,
+      };
+    }
   }
 }
