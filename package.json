@@ -36,7 +36,8 @@
     "nodemailer": "^6.10.1",
     "soroban-client": "^1.0.1",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "ts-node": "^10.9.2"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -66,7 +67,6 @@
     "prettier": "^3.5.3",
     "supertest": "^7.1.0",
     "ts-jest": "^29.3.4",
-    "ts-node": "^10.9.2",
     "typescript": "^5.8.2"
   },
   "lint-staged": {
