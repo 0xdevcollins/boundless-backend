@@ -43,6 +43,20 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         firstName,
         lastName,
         username,
+        avatar: "",
+        bio: "",
+        location: "",
+        website: "",
+        socialLinks: {},
+      },
+      settings: {
+        notifications: { email: true, push: true, inApp: true },
+        privacy: {
+          profileVisibility: "PUBLIC",
+          showWalletAddress: false,
+          showContributions: true,
+        },
+        preferences: { language: "en", timezone: "UTC", theme: "SYSTEM" },
       },
       isVerified: false,
     });
@@ -79,7 +93,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Check password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       sendUnauthorized(res, "Invalid credentials");
@@ -151,8 +164,22 @@ export const githubAuth = async (
           firstName: name?.split(" ")[0] || "",
           lastName: name?.split(" ")[1] || "",
           username: email.split("@")[0],
-          avatar: avatar_url,
+          avatar: avatar_url || "",
+          bio: "",
+          location: "",
+          website: "",
+          socialLinks: {},
         },
+        settings: {
+          notifications: { email: true, push: true, inApp: true },
+          privacy: {
+            profileVisibility: "PUBLIC",
+            showWalletAddress: false,
+            showContributions: true,
+          },
+          preferences: { language: "en", timezone: "UTC", theme: "SYSTEM" },
+        },
+        isVerified: true,
       });
       await user.save();
     }
@@ -214,7 +241,20 @@ export const googleAuth = async (
           firstName: name?.split(" ")[0] || "",
           lastName: name?.split(" ")[1] || "",
           username: email?.split("@")[0] || "",
-          avatar: picture,
+          avatar: picture || "",
+          bio: "",
+          location: "",
+          website: "",
+          socialLinks: {},
+        },
+        settings: {
+          notifications: { email: true, push: true, inApp: true },
+          privacy: {
+            profileVisibility: "PUBLIC",
+            showWalletAddress: false,
+            showContributions: true,
+          },
+          preferences: { language: "en", timezone: "UTC", theme: "SYSTEM" },
         },
         isVerified: true,
       });

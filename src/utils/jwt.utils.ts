@@ -38,7 +38,7 @@ export const authMiddleware = async (
     const decoded = verifyToken(token) as any;
     console.log("Decoded JWT:", decoded);
     const user = await User.findById(decoded.userId);
-    console.log("User found:", user);
+    // console.log("User found:", user);
     if (!user) {
       res.status(401).json({ message: "Not authorized, user not found" });
       return;

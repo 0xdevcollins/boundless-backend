@@ -11,7 +11,8 @@ const options: swaggerJsdoc.Options = {
     },
     servers: [
       {
-        url: "https://boundless-backend.onrender.com",
+        // url: "http://localhost:8000/api",
+        url: "https://api.boundlessfi.xyz/api",
         description: "Development server",
       },
     ],

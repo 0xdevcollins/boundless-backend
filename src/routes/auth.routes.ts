@@ -8,6 +8,8 @@ import {
   githubAuth,
   verifyOtp,
   resendOtp,
+  getMe,
+  logout,
 } from "../controllers/auth.controller";
 import { authMiddleware } from "../utils/jwt.utils";
 import {
@@ -272,8 +274,20 @@ router.post("/resend-otp", resendOtp);
  *       200:
  *         description: Current user details
  */
-router.get("/me", authMiddleware, (req, res) => {
-  res.json({ user: req.user });
-});
+router.get("/me", authMiddleware, getMe);
+
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: Logout user (invalidate all sessions)
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logged out successfully
+ */
+router.post("/logout", authMiddleware, logout);
 
 export default router;
