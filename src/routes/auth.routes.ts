@@ -6,6 +6,8 @@ import {
   resetPassword,
   googleAuth,
   githubAuth,
+  verifyOtp,
+  resendOtp,
 } from "../controllers/auth.controller";
 import { authMiddleware } from "../utils/jwt.utils";
 import {
@@ -197,6 +199,66 @@ router.post("/google", validateRequest(googleAuthSchema), googleAuth);
  *         description: GitHub authentication successful
  */
 router.post("/github", validateRequest(githubAuthSchema), githubAuth);
+
+/**
+ * @swagger
+ * /auth/verify-otp:
+ *   post:
+ *     summary: Verify OTP for email verification
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - otp
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               otp:
+ *                 type: string
+ *                 description: One-time password for email verification
+ *     responses:
+ *       200:
+ *         description: Email verified successfully
+ *       400:
+ *         description: Invalid OTP or missing fields
+ *       404:
+ *         description: User not found
+ */
+router.post("/verify-otp", verifyOtp);
+
+/**
+ * @swagger
+ * /auth/resend-otp:
+ *   post:
+ *     summary: Resend OTP for email verification
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: OTP resent successfully
+ *       400:
+ *         description: User already verified or missing email
+ *       404:
+ *         description: User not found
+ */
+router.post("/resend-otp", resendOtp);
 
 /**
  * @swagger
