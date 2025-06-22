@@ -4,6 +4,16 @@ import { uploadToCloudinary } from "../utils/user.upload";
 import { IUser } from "../models/user.model";
 import mongoose from "mongoose";
 import Activity from "../models/activity.model";
+import {
+  sendSuccess,
+  sendNotFound,
+  sendUnauthorized,
+  sendBadRequest,
+  sendInternalServerError,
+  sendConflict,
+  checkResource,
+} from "../utils/apiResponse";
+
 // Extend the Express Request type to include our custom properties
 interface AuthenticatedRequest extends Request {
   user: IUser;
@@ -40,22 +50,22 @@ export const getUserProfile = async (
 ): Promise<void> => {
   try {
     if (!req.user) {
-      res.status(401).json({ message: "Not authorized" });
+      sendUnauthorized(res, "Not authorized");
       return;
     }
+
     const user = await User.findById(req.user._id).select(
       "-password -settings -badges -roles -status",
     );
 
-    if (!user) {
-      res.status(404).json({ message: "User not found" });
+    if (checkResource(res, !user, "User not found", 404)) {
       return;
     }
 
-    res.status(200).json(user);
+    sendSuccess(res, user, "User profile retrieved successfully");
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Server Error" });
+    sendInternalServerError(res, "Server Error");
   }
 };
 
@@ -70,9 +80,10 @@ export const updateUserProfile = async (
 ): Promise<void> => {
   try {
     if (!req.user) {
-      res.status(401).json({ message: "Not authorized" });
+      sendUnauthorized(res, "Not authorized");
       return;
     }
+
     const {
       firstName,
       lastName,
@@ -90,7 +101,7 @@ export const updateUserProfile = async (
         _id: { $ne: req.user._id },
       });
       if (existingUser) {
-        res.status(400).json({ message: "Username is already taken" });
+        sendConflict(res, "Username is already taken");
         return;
       }
     }
@@ -111,10 +122,10 @@ export const updateUserProfile = async (
       { new: true },
     ).select("-password");
 
-    res.status(200).json(updatedUser);
+    sendSuccess(res, updatedUser, "Profile updated successfully");
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Server Error" });
+    sendInternalServerError(res, "Server Error");
   }
 };
 
@@ -129,11 +140,12 @@ export const updateUserAvatar = async (
 ): Promise<void> => {
   try {
     if (!req.user) {
-      res.status(401).json({ message: "Not authorized" });
+      sendUnauthorized(res, "Not authorized");
       return;
     }
+
     if (!req.file) {
-      res.status(400).json({ message: "No file uploaded" });
+      sendBadRequest(res, "No file uploaded");
       return;
     }
 
@@ -146,12 +158,13 @@ export const updateUserAvatar = async (
       { new: true },
     ).select("-password");
 
-    res.status(200).json(updatedUser);
+    sendSuccess(res, updatedUser, "Avatar updated successfully");
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Server Error" });
+    sendInternalServerError(res, "Server Error");
   }
 };
+
 /**
  * @desc    Get user activity
  * @route   GET /api/users/activity
@@ -163,9 +176,10 @@ export const getUserActivity = async (
 ): Promise<void> => {
   try {
     if (!req.user) {
-      res.status(401).json({ message: "Not authorized" });
+      sendUnauthorized(res, "Not authorized");
       return;
     }
+
     const activities = await Activity.find({ "userId.type": req.user._id })
       .sort({ createdAt: -1 }) // Sort by most recent first
       .populate({
@@ -174,10 +188,10 @@ export const getUserActivity = async (
       })
       .lean();
 
-    res.status(200).json(activities);
+    sendSuccess(res, activities, "User activity retrieved successfully");
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Server Error" });
+    sendInternalServerError(res, "Server Error");
   }
 };
 
@@ -192,20 +206,22 @@ export const getUserSettings = async (
 ): Promise<void> => {
   try {
     if (!req.user) {
-      res.status(401).json({ message: "Not authorized" });
+      sendUnauthorized(res, "Not authorized");
       return;
     }
+
     const user = await User.findById(req.user._id).select("settings");
 
-    if (!user) {
-      res.status(404).json({ message: "User not found" });
+    if (checkResource(res, !user, "User not found", 404)) {
       return;
     }
 
-    res.status(200).json(user.settings);
+    if (!user) return; // TypeScript guard
+
+    sendSuccess(res, user.settings, "User settings retrieved successfully");
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Server Error" });
+    sendInternalServerError(res, "Server Error");
   }
 };
 
@@ -220,9 +236,10 @@ export const updateUserSettings = async (
 ): Promise<void> => {
   try {
     if (!req.user) {
-      res.status(401).json({ message: "Not authorized" });
+      sendUnauthorized(res, "Not authorized");
       return;
     }
+
     const { notifications, privacy, preferences } = req.body;
 
     const updatedUser = await User.findByIdAndUpdate(
@@ -237,10 +254,14 @@ export const updateUserSettings = async (
       { new: true },
     ).select("settings");
 
-    res.status(200).json(updatedUser?.settings);
+    if (checkResource(res, !updatedUser, "User not found", 404)) {
+      return;
+    }
+
+    sendSuccess(res, updatedUser?.settings, "Settings updated successfully");
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Server Error" });
+    sendInternalServerError(res, "Server Error");
   }
 };
 
@@ -255,27 +276,47 @@ export const updateUserSecurity = async (
 ): Promise<void> => {
   try {
     if (!req.user) {
-      res.status(401).json({ message: "Not authorized" });
+      sendUnauthorized(res, "Not authorized");
       return;
     }
+
     const { currentPassword, newPassword, twoFactorEnabled, twoFactorCode } =
       req.body;
     const user = await User.findById(req.user._id);
 
-    if (!user) {
-      res.status(404).json({ message: "User not found" });
+    if (checkResource(res, !user, "User not found", 404)) {
       return;
     }
+
+    // At this point, user is guaranteed to be non-null
+    if (!user) return; // TypeScript guard
 
     // Verify current password
     const isMatch = await user.comparePassword(currentPassword);
     if (!isMatch) {
-      res.status(400).json({ message: "Current password is incorrect" });
+      sendBadRequest(res, "Current password is incorrect");
       return;
     }
 
     // Initialize security settings if they don't exist
     if (!user.settings) {
+      user.settings = {
+        notifications: {
+          email: true,
+          push: true,
+          inApp: true,
+        },
+        privacy: {
+          profileVisibility: "PUBLIC",
+          showWalletAddress: false,
+          showContributions: true,
+        },
+        preferences: {
+          language: "en",
+          timezone: "UTC",
+          theme: "LIGHT",
+        },
+      };
     }
 
     // Update password if new password is provided
@@ -284,9 +325,13 @@ export const updateUserSecurity = async (
     }
 
     await user.save();
-    res.status(200).json({ message: "Security settings updated successfully" });
+    sendSuccess(
+      res,
+      { message: "Security settings updated successfully" },
+      "Security settings updated successfully",
+    );
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Server Error" });
+    sendInternalServerError(res, "Server Error");
   }
 };

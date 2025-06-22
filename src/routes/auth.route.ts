@@ -6,6 +6,8 @@ import {
   googleAuth,
   getMe,
   logout,
+  verifyOtp,
+  resendOtp,
 } from "../controllers/auth.controller";
 import { protect } from "../middleware/auth";
 
@@ -17,5 +19,7 @@ router.post("/github", githubAuth);
 router.post("/google", googleAuth);
 router.get("/me", protect, getMe);
 router.post("/logout", protect, logout);
+router.post("/verify-otp", verifyOtp);
+router.post("/resend-otp", resendOtp);
 
 export default router;

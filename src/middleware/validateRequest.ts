@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { validationResult, body, ValidationChain } from "express-validator";
+import { sendValidationError } from "../utils/apiResponse";
 
 export const validateRequestMarkdown = (
   req: Request,
@@ -15,11 +16,7 @@ export const validateRequestMarkdown = (
       value: error.type === "field" ? error.value : undefined,
     }));
 
-    res.status(400).json({
-      success: false,
-      message: "Validation failed",
-      errors: formattedErrors,
-    });
+    sendValidationError(res, "Validation failed", formattedErrors);
     return;
   }
 
@@ -31,7 +28,7 @@ export const validateRequest = (validations: ValidationChain[]) => {
     await Promise.all(validations.map((validation) => validation.run(req)));
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      res.status(400).json({ errors: errors.mapped() });
+      sendValidationError(res, "Validation failed", errors.mapped());
       return;
     }
     next();
