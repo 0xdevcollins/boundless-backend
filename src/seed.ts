@@ -400,6 +400,119 @@ const seedDatabase = async () => {
       },
     });
 
+    // Create test grants
+    const grantCreatorUser = await User.create({
+      email: "grantcreator@boundless.com",
+      password: hashedPassword,
+      profile: {
+        firstName: "Grant",
+        lastName: "Creator",
+        username: "grantcreator",
+        avatar: "https://example.com/avatar4.jpg",
+        bio: "Grant Program Manager",
+        location: "London",
+        website: "https://grantcreator.com",
+        socialLinks: {
+          twitter: "https://twitter.com/grantcreator",
+        },
+      },
+      settings: {
+        notifications: { email: true, push: true, inApp: true },
+        privacy: {
+          profileVisibility: "PUBLIC",
+          showWalletAddress: true,
+          showContributions: true,
+        },
+        preferences: {
+          language: "en",
+          timezone: "Europe/London",
+          theme: "DARK",
+        },
+      },
+      stats: {
+        projectsCreated: 0,
+        projectsFunded: 0,
+        totalContributed: 0,
+        reputation: 90,
+        communityScore: 95,
+      },
+      status: UserStatus.ACTIVE,
+      roles: [
+        {
+          role: UserRole.CREATOR,
+          grantedAt: new Date(),
+          status: "ACTIVE",
+        },
+      ],
+    });
+
+    const grantProject = await Project.create({
+      title: "Open Source Grant Program",
+      description: "Funding open source blockchain projects.",
+      category: "Grant",
+      status: ProjectStatus.FUNDING,
+      owner: {
+        type: grantCreatorUser._id,
+        ref: "User",
+      },
+      funding: {
+        goal: 200000,
+        raised: 50000,
+        currency: "USDC",
+        endDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+        contributors: [
+          {
+            user: backerUser._id,
+            amount: 50000,
+            date: new Date(),
+            transactionHash: "0xabcdef1234567890",
+          },
+        ],
+      },
+      grant: {
+        isGrant: true,
+        applications: [
+          {
+            applicant: creatorUser._id,
+            status: "SUBMITTED",
+            submittedAt: new Date(),
+            nextAction: "Review Application",
+            escrowedAmount: 10000,
+            milestonesCompleted: 1,
+          },
+        ],
+        totalBudget: 200000,
+        totalDisbursed: 10000,
+        proposalsReceived: 1,
+        proposalsApproved: 0,
+        status: "OPEN",
+      },
+      milestones: [
+        {
+          title: "Grant Application Review",
+          description: "Review and approve grant applications.",
+          amount: 10000,
+          dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+          status: "PENDING",
+        },
+      ],
+      team: [
+        {
+          userId: grantCreatorUser._id,
+          role: "Grant Manager",
+          joinedAt: new Date(),
+        },
+      ],
+      media: {
+        banner: "https://example.com/grantbanner.jpg",
+        logo: "https://example.com/grantlogo.jpg",
+      },
+      documents: {
+        whitepaper: "https://example.com/grantwhitepaper.pdf",
+        pitchDeck: "https://example.com/grantpitchdeck.pdf",
+      },
+    });
+
     console.log("Database seeded successfully!");
     process.exit(0);
   } catch (error) {

@@ -1,12 +1,12 @@
 import { Request, Response } from "express";
-import crypto from "crypto";
+
 import User, { IUser } from "../models/user.model";
 import Account from "../models/account.model";
 import Session from "../models/session.model";
 import { generateTokens } from "../utils/jwt.utils";
 import axios from "axios";
 import { OAuth2Client } from "google-auth-library";
-import bcrypt from "bcryptjs";
+
 import { generateOTP } from "../utils/otp.utils";
 import sendEmail from "../utils/sendMail.utils";
 import {
@@ -35,10 +35,9 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Create new user
-    const hashedPassword = await bcrypt.hash(password, 10);
     const user = new User({
       email,
-      password: hashedPassword,
+      password,
       profile: {
         firstName,
         lastName,
@@ -93,7 +92,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       sendUnauthorized(res, "Invalid credentials");
       return;
@@ -340,11 +339,20 @@ export const forgotPassword = async (
     user.resetPasswordExpires = new Date(Date.now() + 3600000); // 1 hour
     await user.save();
 
-    // Send reset email
+    // Construct reset password link
+    // Use config.cors.origin as the frontend base URL
+    const { config } = await import("../config/index");
+    const resetLink = `${config.cors.origin}/auth/reset-password?token=${resetToken}`;
+
+    // Send reset email with link
     await sendEmail({
       to: email,
       subject: "Password Reset",
-      html: `Your password reset code is: ${resetToken}`,
+      html: `
+        <p>You requested a password reset. Click the link below to reset your password:</p>
+        <p><a href="${resetLink}">${resetLink}</a></p>
+        <p>If you did not request this, please ignore this email.</p>
+      `,
     });
 
     sendSuccess(
@@ -376,8 +384,7 @@ export const resetPassword = async (
 
     if (!user) return; // TypeScript guard
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.password = hashedPassword;
+    user.password = newPassword;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();

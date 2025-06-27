@@ -33,6 +33,7 @@ interface Config {
     origin: string;
     methods: string[];
     allowedHeaders: string[];
+    credentials: boolean;
   };
   rateLimit: {
     windowMs: number;
@@ -77,6 +78,7 @@ export const config: Config = {
     origin: process.env.CORS_ORIGIN || "http://localhost:3000",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
   },
   rateLimit: {
     windowMs: 15 * 60 * 1000, // 15 minutes

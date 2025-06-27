@@ -1,5 +1,6 @@
 import mongoose, { Document, Schema } from "mongoose";
 import bcrypt from "bcryptjs";
+import Badge from "./badge.model";
 
 export enum UserStatus {
   ACTIVE = "ACTIVE",
@@ -69,10 +70,7 @@ export interface IUser extends Document {
   };
   status: UserStatus;
   badges: Array<{
-    badge: {
-      type: mongoose.Types.ObjectId;
-      ref: "Badge";
-    };
+    badge: mongoose.Types.ObjectId;
     earnedAt: Date;
     status: "ACTIVE" | "REVOKED";
     metadata: {
@@ -163,9 +161,7 @@ const userSchema = new Schema<IUser>(
     },
     badges: [
       {
-        badge: {
-          type: { type: Schema.Types.ObjectId, ref: "Badge" },
-        },
+        badge: { type: Schema.Types.ObjectId, ref: "Badge" },
         earnedAt: { type: Date, default: Date.now },
         status: {
           type: String,
@@ -229,5 +225,5 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
-const User = mongoose.model<IUser>("User", userSchema);
-export default User;
+export default (mongoose.models.User as mongoose.Model<IUser>) ||
+  mongoose.model<IUser>("User", userSchema);

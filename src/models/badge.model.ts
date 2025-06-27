@@ -55,5 +55,7 @@ const badgeSchema = new Schema<IBadge>(
   { timestamps: true },
 );
 
-const Badge = mongoose.model<IBadge>("Badge", badgeSchema);
+const Badge =
+  (mongoose.models.Badge as mongoose.Model<IBadge>) ||
+  mongoose.model<IBadge>("Badge", badgeSchema);
 export default Badge;

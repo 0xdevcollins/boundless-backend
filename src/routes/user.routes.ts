@@ -8,6 +8,7 @@ import {
   getUserSettings,
   updateUserSettings,
   updateUserSecurity,
+  getDashboardOverview,
 } from "../controllers/user.controller";
 import { protect } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -61,6 +62,13 @@ router.put(
   "/security",
   asyncHandler(protect),
   asyncHandler(updateUserSecurity),
+);
+
+// Dashboard route
+router.get(
+  "/dashboard/overview",
+  asyncHandler(protect),
+  asyncHandler(getDashboardOverview),
 );
 
 export default router;

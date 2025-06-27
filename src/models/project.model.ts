@@ -80,6 +80,22 @@ export interface IProject extends Document {
     pitchDeck: string;
   };
   creationTxHash?: string;
+  grant?: {
+    isGrant: boolean;
+    applications: Array<{
+      applicant: { type: mongoose.Types.ObjectId; ref: "User" };
+      status: "SUBMITTED" | "REVIEWING" | "APPROVED" | "REJECTED";
+      submittedAt: Date;
+      nextAction?: string;
+      escrowedAmount: number;
+      milestonesCompleted: number;
+    }>;
+    totalBudget: number;
+    totalDisbursed: number;
+    proposalsReceived: number;
+    proposalsApproved: number;
+    status: "OPEN" | "CLOSED" | "IN_PROGRESS";
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -152,6 +168,32 @@ const ProjectSchema = new Schema<IProject>(
       pitchDeck: { type: String },
     },
     creationTxHash: { type: String },
+    grant: {
+      isGrant: { type: Boolean, default: false },
+      applications: [
+        {
+          applicant: { type: Schema.Types.ObjectId, ref: "User" },
+          status: {
+            type: String,
+            enum: ["SUBMITTED", "REVIEWING", "APPROVED", "REJECTED"],
+            default: "SUBMITTED",
+          },
+          submittedAt: { type: Date },
+          nextAction: { type: String },
+          escrowedAmount: { type: Number, default: 0 },
+          milestonesCompleted: { type: Number, default: 0 },
+        },
+      ],
+      totalBudget: { type: Number, default: 0 },
+      totalDisbursed: { type: Number, default: 0 },
+      proposalsReceived: { type: Number, default: 0 },
+      proposalsApproved: { type: Number, default: 0 },
+      status: {
+        type: String,
+        enum: ["OPEN", "CLOSED", "IN_PROGRESS"],
+        default: "OPEN",
+      },
+    },
   },
   { timestamps: true },
 );

@@ -62,4 +62,5 @@ const TransactionSchema = new Schema<ITransaction>(
 TransactionSchema.index({ projectId: 1, status: 1, timestamp: -1 });
 TransactionSchema.index({ type: 1, status: 1, timestamp: -1 });
 
-export default mongoose.model<ITransaction>("Transaction", TransactionSchema);
+export default (mongoose.models.Transaction as mongoose.Model<ITransaction>) ||
+  mongoose.model<ITransaction>("Transaction", TransactionSchema);

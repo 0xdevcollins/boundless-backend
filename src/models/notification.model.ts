@@ -99,7 +99,6 @@ NotificationSchema.index({ type: 1 });
 NotificationSchema.index({ read: 1 });
 NotificationSchema.index({ createdAt: -1 });
 
-export default mongoose.model<INotification>(
-  "Notification",
-  NotificationSchema,
-);
+export default (mongoose.models
+  .Notification as mongoose.Model<INotification>) ||
+  mongoose.model<INotification>("Notification", NotificationSchema);
