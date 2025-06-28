@@ -56,7 +56,7 @@ app.use("/api/projects", projectIdeaRoutes);
 
 // app.use("/api/admin", authMiddleware, adminRoutes);
 
-app.use("/api/admin/blogs", blogRoutes);
+// app.use("/api/admin/blogs", blogRoutes);
 
 // Setup Swagger
 setupSwagger(app);
