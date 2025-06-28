@@ -1,17 +1,28 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema, type Document } from "mongoose";
 
 export enum ProjectStatus {
+  IDEA = "idea",
+  REVIEWING = "reviewing",
+  REJECTED = "rejected",
+  VALIDATED = "validated",
+  CAMPAIGNING = "campaigning",
+  LIVE = "live",
+  COMPLETED = "completed",
+  // Keep existing statuses for backward compatibility
   DRAFT = "DRAFT",
   AWAITING_BOUNDLESS_VERIFICATION = "AWAITING_BOUNDLESS_VERIFICATION",
   PENDING_DEPLOYMENT = "PENDING_DEPLOYMENT",
   VOTING = "VOTING",
   FUNDING = "FUNDING",
   FUNDED = "FUNDED",
-  REJECTED = "REJECTED",
-  REFUND_PENDING = "REFUND_PENDING",
-  COMPLETED = "COMPLETED",
   CANCELLED = "CANCELLED",
   PAUSED = "PAUSED",
+  REFUND_PENDING = "REFUND_PENDING",
+}
+
+export enum ProjectType {
+  CROWDFUND = "crowdfund",
+  GRANT = "grant",
 }
 
 export interface IProject extends Document {
@@ -98,6 +109,11 @@ export interface IProject extends Document {
   };
   createdAt: Date;
   updatedAt: Date;
+  summary?: string;
+  type: ProjectType;
+  whitepaperUrl?: string;
+  pitchVideoUrl?: string;
+  votes: number;
 }
 
 const ProjectSchema = new Schema<IProject>(
@@ -194,6 +210,15 @@ const ProjectSchema = new Schema<IProject>(
         default: "OPEN",
       },
     },
+    summary: { type: String },
+    type: {
+      type: String,
+      enum: Object.values(ProjectType),
+      required: true,
+    },
+    whitepaperUrl: { type: String },
+    pitchVideoUrl: { type: String },
+    votes: { type: Number, default: 0 },
   },
   { timestamps: true },
 );

@@ -15,3 +15,4 @@ import "./blog.category";
 import "./blog";
 import "./contract.model";
 import "./otp.model";
+import "./crowdfund.model";
