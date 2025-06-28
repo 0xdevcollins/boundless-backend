@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import contractService from "../services/contract.service";
-import Contract from "../models/contract.model";
-import Milestone from "../models/milestone.model";
+import Contract from "../models.archive/contract.model";
+import Milestone from "../models.archive/milestone.model";
 import { Types } from "mongoose";
 
 /**

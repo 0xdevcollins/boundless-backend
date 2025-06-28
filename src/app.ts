@@ -12,14 +12,9 @@ import notificationRoutes from "./routes/notification.route";
 import commentRoutes from "./routes/comment.route";
 import { config } from "./config";
 import { setupSwagger } from "./config/swagger";
-import analyticsRoutes from "./routes/analytics.route";
-import reportsRoutes from "./routes/report.route";
-import projectRoutes from "./routes/project.route";
+import projectRoutes from "./routes.archive/project.route";
 import projectIdeaRoutes from "./routes/project-idea.route";
 
-import adminFundingRoutes from "./routes/admin.funding.route";
-
-import adminRoutes from "./routes/admin.route";
 import blogRoutes from "./routes/blog.route";
 
 dotenv.config();
@@ -53,8 +48,8 @@ app.use("/api/users", router);
 app.use("/api/notifications", authMiddleware, notificationRoutes);
 // app.use("/api/analytics", authMiddleware, analyticsRoutes);
 // app.use("/api/reports", authMiddleware, reportsRoutes);
-app.use("/api/comments", authMiddleware, commentRoutes);
-app.use("/api/projects", authMiddleware, projectRoutes);
+// app.use("/api/comments", authMiddleware, commentRoutes);
+// app.use("/api/projects", authMiddleware, projectRoutes);
 app.use("/api/projects", projectIdeaRoutes);
 
 // app.use("/api/admin/funding", adminFundingRoutes);
