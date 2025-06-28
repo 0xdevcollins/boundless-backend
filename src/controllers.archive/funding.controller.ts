@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import ProjectModel, { ProjectStatus } from "../models/project.model";
+import ProjectModel, { ProjectStatus } from "../models.archive/project.model";
 import contractService from "../services/contract.service";
 import TransactionModel from "../models/transaction.model";
 import { isValidStellarAddress } from "../utils/wallet";

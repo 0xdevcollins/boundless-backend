@@ -19,14 +19,14 @@ import {
   MAX_TX_RETRIES,
 } from "../config/soroban";
 
-import ContractModel from "../models/contract.model";
+import ContractModel from "../models.archive/contract.model";
 import TransactionModel, {
   TransactionStatus as DbTransactionStatus,
   TransactionType,
 } from "../models/transaction.model";
 import MilestoneModel, {
   MilestoneStatus as DbMilestoneStatus,
-} from "../models/milestone.model";
+} from "../models.archive/milestone.model";
 import { Types } from "mongoose";
 
 // Interface definitions

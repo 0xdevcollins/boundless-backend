@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import User, { UserRole } from "../models/user.model";
-import Project, { ProjectStatus } from "../models/project.model";
+import Project, { ProjectStatus } from "../models.archive/project.model";
 import Report from "../models/report.model";
 import Comment from "../models/comment.model";
 import mongoose from "mongoose";

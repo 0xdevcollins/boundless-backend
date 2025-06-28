@@ -3,7 +3,7 @@ import TransactionModel, {
   TransactionType,
   TransactionStatus,
 } from "../models/admin.transaction.model";
-import ProjectModel from "../models/project.model";
+import ProjectModel from "../models.archive/project.model";
 import { validateRequest } from "../middleware/validateRequest";
 import { query } from "express-validator";
 import mongoose from "mongoose";

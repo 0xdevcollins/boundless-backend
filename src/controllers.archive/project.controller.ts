@@ -1,5 +1,8 @@
 import { Request, Response } from "express";
-import Project, { IProject, ProjectStatus } from "../models/project.model";
+import Project, {
+  IProject,
+  ProjectStatus,
+} from "../models.archive/project.model";
 import { v2 as cloudinary } from "cloudinary";
 import { config } from "../config/main.config";
 import { Types } from "mongoose";

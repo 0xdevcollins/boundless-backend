@@ -8,7 +8,7 @@ import {
   addMilestone,
   addTeamMember,
   uploadDocument,
-} from "../controllers/project.controller";
+} from "../controllers.archive/project.controller";
 import { protect } from "../middleware/auth";
 import { validateRequest } from "../middleware/validateRequest";
 import { body } from "express-validator";
