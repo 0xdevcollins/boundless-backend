@@ -16,6 +16,7 @@ interface EmailOptions {
   subject: string;
   text: string;
   html?: string;
+  data?: Record<string, any>;
 }
 
 export const sendEmail = async (options: EmailOptions): Promise<void> => {
