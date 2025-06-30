@@ -12,8 +12,12 @@ import compression from "compression";
 import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
 
+// Configs
 import connectDB from "./config/db";
+import { config } from "./config/main.config";
 import { setupSwagger } from "./config/swagger";
+
+// Utils
 import { sendError } from "./utils/apiResponse";
 import { authMiddleware } from "./utils/jwt.utils";
 
@@ -31,17 +35,17 @@ import adminFundingRoutes from "./routes/admin.funding.route";
 import analyticsRoutes from "./routes/analytics.route";
 import reportRoutes from "./routes/report.route";
 import notificationRoutes from "./routes/notification.route";
-import { config } from "./config/main.config";
 
 dotenv.config();
 
+// Connect to DB unless in test
 if (config.NODE_ENV !== "test") {
   connectDB();
 }
 
 const app: Application = express();
 
-// Middlewares
+// Middleware
 app.use(helmet());
 app.use(
   cors({
@@ -65,7 +69,7 @@ if (config.NODE_ENV !== "test") {
   app.use(morgan("combined"));
 }
 
-// Health Check
+// Health check
 app.get("/health", (req: Request, res: Response) => {
   res.status(200).json({
     success: true,
@@ -76,35 +80,40 @@ app.get("/health", (req: Request, res: Response) => {
 });
 
 // Root
-app.get("/", (req, res) => {
+app.get("/", (req: Request, res: Response) => {
   res.send("API is running...");
 });
 
-// Routes
+// Auth routes
 app.use("/api/auth", authRoutes);
+
+// User routes
 app.use("/api/users", userRoutes);
+
+// Project routes (different modules)
 app.use("/api/projects", projectRoutes);
 app.use("/api/projects", projectIdeaRoutes);
 app.use("/api/projects", projectVotingRoutes);
 app.use("/api/projects", projectCommentRoutes);
+
+// Other public/private routes
 app.use("/api/blogs", blogRoutes);
 app.use("/api/comments", commentRoutes);
-app.use("/api/funding", adminFundingRoutes); // Assuming this is for funding, else move to admin
-app.use("/api/admin", authMiddleware, adminRoutes);
-app.use("/api/admin/funding", adminFundingRoutes);
+app.use("/api/notifications", authMiddleware, notificationRoutes);
 app.use("/api/analytics", authMiddleware, analyticsRoutes);
 app.use("/api/reports", authMiddleware, reportRoutes);
-app.use("/api/notifications", authMiddleware, notificationRoutes);
+app.use("/api/admin", authMiddleware, adminRoutes);
+app.use("/api/admin/funding", adminFundingRoutes);
 
-// Swagger Docs
+// Swagger
 setupSwagger(app);
 
-// 404 Handler
-app.use("*", (req, res) => {
+// 404 handler
+app.use("*", (req: Request, res: Response) => {
   sendError(res, `Route ${req.originalUrl} not found`, 404);
 });
 
-// Global Error Handler
+// Global error handler
 app.use((error: any, req: Request, res: Response, next: NextFunction) => {
   console.error("Global error handler:", error);
 
