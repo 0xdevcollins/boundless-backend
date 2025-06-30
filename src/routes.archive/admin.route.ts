@@ -3,7 +3,7 @@ import {
   getDashboardOverview,
   getUserStatistics,
   getProjectStatistics,
-} from "../controllers/admin.controller";
+} from "../controllers.archive/admin.controller";
 import { protect, admin } from "../middleware/auth";
 
 const router = express.Router();

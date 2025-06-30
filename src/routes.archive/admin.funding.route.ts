@@ -10,7 +10,7 @@ import {
   getProjectTransactionsSchema,
   getPendingTransactionsSchema,
   getFundingStatisticsSchema,
-} from "../controllers/admin.funding.controller";
+} from "../controllers.archive/admin.funding.controller";
 
 const router = express.Router();
 
