@@ -22,16 +22,16 @@ import { config } from "./config/main.config";
 // Routes
 import authRoutes from "./routes/auth.route";
 import userRoutes from "./routes/user.routes";
-import projectRoutes from "./routes/project.route"; // <- use the current, not archive
+// import projectRoutes from "./routes/project.route"; // <- use the current, not archive
 import projectIdeaRoutes from "./routes/project-idea.route";
 import projectVotingRoutes from "./routes/project-voting.route";
 import projectCommentRoutes from "./routes/project-comment.route";
 import blogRoutes from "./routes/blog.route";
 import commentRoutes from "./routes/comment.route";
-import adminRoutes from "./routes/admin.route";
-import adminFundingRoutes from "./routes/admin.funding.route";
-import analyticsRoutes from "./routes/analytics.route";
-import reportRoutes from "./routes/report.route";
+// import adminRoutes from "./routes/admin.route";
+// import adminFundingRoutes from "./routes/admin.funding.route";
+// import analyticsRoutes from "./routes/analytics.route";
+// import reportRoutes from "./routes/report.route";
 import notificationRoutes from "./routes/notification.route";
 
 dotenv.config();
@@ -84,17 +84,17 @@ app.get("/", (req, res) => {
 // Public & Protected Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/projects", projectRoutes);
+// app.use("/api/projects", projectRoutes);
 app.use("/api/projects", projectIdeaRoutes);
 app.use("/api/projects", projectVotingRoutes);
 app.use("/api/projects", projectCommentRoutes);
 app.use("/api/blogs", blogRoutes);
 app.use("/api/comments", commentRoutes);
-app.use("/api/funding", adminFundingRoutes);
-app.use("/api/admin", authMiddleware, adminRoutes);
-app.use("/api/admin/funding", adminFundingRoutes);
-app.use("/api/analytics", authMiddleware, analyticsRoutes);
-app.use("/api/reports", authMiddleware, reportRoutes);
+// app.use("/api/funding", adminFundingRoutes);
+// app.use("/api/admin", authMiddleware, adminRoutes);
+// app.use("/api/admin/funding", adminFundingRoutes);
+// app.use("/api/analytics", authMiddleware, analyticsRoutes);
+// app.use("/api/reports", authMiddleware, reportRoutes);
 app.use("/api/notifications", authMiddleware, notificationRoutes);
 
 // Swagger Docs
@@ -118,7 +118,12 @@ app.use((error: any, req: Request, res: Response, next: NextFunction) => {
   }
 
   if (error.code === 11000) {
-    return sendError(res, "Duplicate field value", 409, "Resource already exists");
+    return sendError(
+      res,
+      "Duplicate field value",
+      409,
+      "Resource already exists",
+    );
   }
 
   if (error.name === "JsonWebTokenError") {
