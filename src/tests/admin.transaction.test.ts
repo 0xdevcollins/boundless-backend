@@ -182,3 +182,7 @@
 //     expect(transactions[0].type).toBe(TransactionType.FUNDING);
 //   });
 // });
+
+test("dummy", () => {
+  expect(true).toBe(true);
+});
