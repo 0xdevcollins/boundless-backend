@@ -226,3 +226,80 @@ export const backCampaign = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Internal server error." });
   }
 };
+
+export const approveCampaignV2 = async (req: Request, res: Response) => {
+  try {
+    const user = req.user;
+    if (!user || !user.roles.some((r) => r.role === UserRole.ADMIN)) {
+      res.status(403).json({ message: "Only admins can approve campaigns." });
+      return;
+    }
+    const { id } = req.params;
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({ message: "Valid campaignId is required." });
+      return;
+    }
+    const campaign = await Campaign.findById(id);
+    if (!campaign) {
+      res.status(404).json({ message: "Campaign not found." });
+      return;
+    }
+    // Validate milestones
+    const milestones = await Milestone.find({ campaignId: campaign._id });
+    if (!milestones.length) {
+      res
+        .status(400)
+        .json({ message: "Campaign must have at least one milestone." });
+      return;
+    }
+    // Validate deadline and goalAmount
+    if (
+      !campaign.deadline ||
+      isNaN(new Date(campaign.deadline).getTime()) ||
+      new Date(campaign.deadline) < new Date()
+    ) {
+      res
+        .status(400)
+        .json({ message: "Campaign deadline must be a valid future date." });
+      return;
+    }
+    if (
+      !campaign.goalAmount ||
+      typeof campaign.goalAmount !== "number" ||
+      campaign.goalAmount <= 0
+    ) {
+      res
+        .status(400)
+        .json({ message: "Campaign goalAmount must be a positive number." });
+      return;
+    }
+    // Validate required documents (whitepaper or pitchDeck)
+    if (
+      !campaign.documents ||
+      (!campaign.documents.whitepaper && !campaign.documents.pitchDeck)
+    ) {
+      res.status(400).json({
+        message: "Campaign must have a whitepaper or pitch deck attached.",
+      });
+      return;
+    }
+    // Approve campaign
+    campaign.status = "live";
+    campaign.approvedBy = user._id;
+    campaign.approvedAt = new Date();
+    // Placeholder for Soroban deployment
+    campaign.smartContractAddress = `soroban_contract_${campaign._id}`;
+    await campaign.save();
+    // Log approval for audit
+    console.log(
+      `Campaign ${campaign._id} approved by admin ${user._id} at ${campaign.approvedAt}`,
+    );
+    res.status(200).json({
+      message: "Campaign approved and deployed to Soroban (placeholder).",
+      campaign,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};

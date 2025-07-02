@@ -111,58 +111,20 @@ npm run dev
   - **Response:**
     - 201 Created, campaign and milestones created, status set to `pending_approval`.
 
-- `PATCH /api/campaigns/:campaignId/approve` - Approve and deploy a campaign (admin only)
+- `PATCH /api/campaigns/:id/approve` - Admin approves a campaign (admin only)
+  - **Validations:**
+    - Campaign must have at least one milestone
+    - Deadline must be a valid future date
+    - goalAmount must be a positive number
+    - Must have a whitepaper or pitch deck attached
+  - **On success:**
+    - Sets status to `live`, records `approvedBy` and `approvedAt`, and triggers Soroban deployment (placeholder)
   - **Response:**
-    - 200 OK, campaign status set to `live`, `smartContractAddress` set (placeholder for Soroban deployment).
+    - 200 OK, updated campaign returned
 
-- `POST /api/campaigns/:id/back` - Back a campaign (authenticated users)
-  - **Request Body:**
-    ```json
-    {
-      "amount": 100,
-      "txHash": "<soroban_transaction_hash>"
-    }
-    ```
-  - **Response:**
-    - 201 Created, funding record and updated campaign returned.
+#### Approval Workflow
+- Admin reviews campaign details and milestones
+- If all validations pass, campaign is approved and goes live
+- Approval is logged for audit/debugging
 
-#### Campaign Workflow
-1. Project creator submits a campaign (status: `pending_approval`).
-2. Admin reviews and approves the campaign (status: `live`, deployed to Soroban).
-3. Campaign and milestones are now active for funding and progress tracking.
-
-#### Funding Workflow
-- Users can back campaigns using their Stellar wallet.
-- Each funding logs the Soroban txHash and updates the campaign's funds raised atomically.
-
-## Security
-
-The authentication system includes several security features:
-
-- Password hashing with bcrypt
-- JWT token-based authentication
-- Rate limiting to prevent brute force attacks
-  - CORS protection
-- Helmet security headers
-- Input validation
-- Email verification
-- Secure password reset flow
-
-## Testing
-
-Run the test suite:
-```bash
-npm test
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+- `POST /api/campaigns/:id/back`
