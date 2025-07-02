@@ -93,6 +93,33 @@ npm run dev
 - `POST /api/auth/github` - GitHub OAuth login
 - `GET /api/auth/me` - Get current user profile
 
+### Campaigns
+
+- `POST /api/campaigns` - Create a new campaign (creator only)
+  - **Request Body:**
+    ```json
+    {
+      "projectId": "<projectObjectId>",
+      "goalAmount": 10000,
+      "deadline": "2024-12-31T23:59:59.000Z",
+      "milestones": [
+        { "title": "M1", "description": "First milestone" },
+        { "title": "M2", "description": "Second milestone" }
+      ]
+    }
+    ```
+  - **Response:**
+    - 201 Created, campaign and milestones created, status set to `pending_approval`.
+
+- `PATCH /api/campaigns/:campaignId/approve` - Approve and deploy a campaign (admin only)
+  - **Response:**
+    - 200 OK, campaign status set to `live`, `smartContractAddress` set (placeholder for Soroban deployment).
+
+#### Campaign Workflow
+1. Project creator submits a campaign (status: `pending_approval`).
+2. Admin reviews and approves the campaign (status: `live`, deployed to Soroban).
+3. Campaign and milestones are now active for funding and progress tracking.
+
 ## Security
 
 The authentication system includes several security features:
