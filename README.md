@@ -115,10 +115,25 @@ npm run dev
   - **Response:**
     - 200 OK, campaign status set to `live`, `smartContractAddress` set (placeholder for Soroban deployment).
 
+- `POST /api/campaigns/:id/back` - Back a campaign (authenticated users)
+  - **Request Body:**
+    ```json
+    {
+      "amount": 100,
+      "txHash": "<soroban_transaction_hash>"
+    }
+    ```
+  - **Response:**
+    - 201 Created, funding record and updated campaign returned.
+
 #### Campaign Workflow
 1. Project creator submits a campaign (status: `pending_approval`).
 2. Admin reviews and approves the campaign (status: `live`, deployed to Soroban).
 3. Campaign and milestones are now active for funding and progress tracking.
+
+#### Funding Workflow
+- Users can back campaigns using their Stellar wallet.
+- Each funding logs the Soroban txHash and updates the campaign's funds raised atomically.
 
 ## Security
 
