@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import app from "../app";
 import User, { UserRole, UserStatus } from "../models/user.model";
 import Grant from "../models/grant.model";
-import { generateToken } from "../utils/jwt.utils";
+import { generateTokens } from "../utils/jwt.utils";
 import bcrypt from "bcryptjs";
 
 describe("Grant API", () => {

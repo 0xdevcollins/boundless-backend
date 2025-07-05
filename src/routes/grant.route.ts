@@ -1,6 +1,9 @@
 import { Router } from "express";
 import { body } from "express-validator";
-import { createGrant } from "../controllers/grant.controller";
+import {
+  createGrant,
+  updateGrantStatus,
+} from "../controllers/grant.controller";
 import { protect } from "../middleware/auth";
 import { validateRequest } from "../middleware/validateRequest";
 
@@ -51,5 +54,20 @@ const createGrantSchema = [
 
 // POST /api/grants - Create a new grant
 router.post("/", protect, validateRequest(createGrantSchema), createGrant);
+
+// Validation schema for grant status update
+const updateGrantStatusSchema = [
+  body("status")
+    .isIn(["open", "closed"])
+    .withMessage("Status must be either 'open' or 'closed'"),
+];
+
+// PATCH /api/grants/:id/status - Update grant status
+router.patch(
+  "/:id/status",
+  protect,
+  validateRequest(updateGrantStatusSchema),
+  updateGrantStatus,
+);
 
 export default router;

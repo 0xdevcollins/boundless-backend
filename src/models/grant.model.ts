@@ -11,7 +11,7 @@ export interface IGrant extends Document {
     description: string;
     expectedPayout: number;
   }>;
-  status: "draft" | "published" | "closed" | "archived";
+  status: "draft" | "open" | "closed" | "archived";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -74,8 +74,8 @@ const GrantSchema = new Schema<IGrant>(
     status: {
       type: String,
       enum: {
-        values: ["draft", "published", "closed", "archived"],
-        message: "Status must be one of: draft, published, closed, archived",
+        values: ["draft", "open", "closed", "archived"],
+        message: "Status must be one of: draft, open, closed, archived",
       },
       default: "draft",
     },
