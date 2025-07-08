@@ -93,34 +93,38 @@ npm run dev
 - `POST /api/auth/github` - GitHub OAuth login
 - `GET /api/auth/me` - Get current user profile
 
-## Security
+### Campaigns
 
-The authentication system includes several security features:
+- `POST /api/campaigns` - Create a new campaign (creator only)
+  - **Request Body:**
+    ```json
+    {
+      "projectId": "<projectObjectId>",
+      "goalAmount": 10000,
+      "deadline": "2024-12-31T23:59:59.000Z",
+      "milestones": [
+        { "title": "M1", "description": "First milestone" },
+        { "title": "M2", "description": "Second milestone" }
+      ]
+    }
+    ```
+  - **Response:**
+    - 201 Created, campaign and milestones created, status set to `pending_approval`.
 
-- Password hashing with bcrypt
-- JWT token-based authentication
-- Rate limiting to prevent brute force attacks
-  - CORS protection
-- Helmet security headers
-- Input validation
-- Email verification
-- Secure password reset flow
+- `PATCH /api/campaigns/:id/approve` - Admin approves a campaign (admin only)
+  - **Validations:**
+    - Campaign must have at least one milestone
+    - Deadline must be a valid future date
+    - goalAmount must be a positive number
+    - Must have a whitepaper or pitch deck attached
+  - **On success:**
+    - Sets status to `live`, records `approvedBy` and `approvedAt`, and triggers Soroban deployment (placeholder)
+  - **Response:**
+    - 200 OK, updated campaign returned
 
-## Testing
+#### Approval Workflow
+- Admin reviews campaign details and milestones
+- If all validations pass, campaign is approved and goes live
+- Approval is logged for audit/debugging
 
-Run the test suite:
-```bash
-npm test
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+- `POST /api/campaigns/:id/back`
