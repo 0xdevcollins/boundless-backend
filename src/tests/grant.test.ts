@@ -127,7 +127,7 @@ describe("Grant API", () => {
       status: UserStatus.ACTIVE,
       roles: [
         {
-          role: UserRole.USER,
+          role: UserRole.BACKER,
           grantedAt: new Date(),
           status: "ACTIVE",
         },
@@ -135,8 +135,19 @@ describe("Grant API", () => {
     });
 
     // Generate tokens
-    creatorToken = generateToken({ userId: creatorUser._id.toString() });
-    regularToken = generateToken({ userId: regularUser._id.toString() });
+    const creatorTokens = generateTokens({
+      userId: creatorUser._id.toString(),
+      email: creatorUser.email,
+      roles: creatorUser.roles.map((r: any) => r.role),
+    });
+    const regularTokens = generateTokens({
+      userId: regularUser._id.toString(),
+      email: regularUser.email,
+      roles: regularUser.roles.map((r: any) => r.role),
+    });
+
+    creatorToken = creatorTokens.accessToken;
+    regularToken = regularTokens.accessToken;
   });
 
   afterAll(async () => {
@@ -202,8 +213,7 @@ describe("Grant API", () => {
 
     describe("Validation", () => {
       it("should return 400 when title is missing", async () => {
-        const invalidData = { ...validGrantData };
-        delete invalidData.title;
+        const { title, ...invalidData } = validGrantData;
 
         const response = await request(app)
           .post("/api/grants")
@@ -234,8 +244,7 @@ describe("Grant API", () => {
       });
 
       it("should return 400 when description is missing", async () => {
-        const invalidData = { ...validGrantData };
-        delete invalidData.description;
+        const { description, ...invalidData } = validGrantData;
 
         const response = await request(app)
           .post("/api/grants")
@@ -266,8 +275,7 @@ describe("Grant API", () => {
       });
 
       it("should return 400 when totalBudget is missing", async () => {
-        const invalidData = { ...validGrantData };
-        delete invalidData.totalBudget;
+        const { totalBudget, ...invalidData } = validGrantData;
 
         const response = await request(app)
           .post("/api/grants")
@@ -298,8 +306,7 @@ describe("Grant API", () => {
       });
 
       it("should return 400 when rules are missing", async () => {
-        const invalidData = { ...validGrantData };
-        delete invalidData.rules;
+        const { rules, ...invalidData } = validGrantData;
 
         const response = await request(app)
           .post("/api/grants")
@@ -330,8 +337,7 @@ describe("Grant API", () => {
       });
 
       it("should return 400 when milestones array is missing", async () => {
-        const invalidData = { ...validGrantData };
-        delete invalidData.milestones;
+        const { milestones, ...invalidData } = validGrantData;
 
         const response = await request(app)
           .post("/api/grants")
