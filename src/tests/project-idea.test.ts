@@ -12,7 +12,7 @@ describe("Project Idea Endpoints", () => {
   let otherUserToken: string;
   let otherUserId: mongoose.Types.ObjectId;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Create test users
     const user = await User.create({
       email: "creator@test.com",
@@ -53,6 +53,10 @@ describe("Project Idea Endpoints", () => {
       roles: [UserRole.BACKER],
     });
     otherUserToken = otherTokens.accessToken;
+
+    // Clean up projects and crowdfunds before each test
+    await Project.deleteMany({});
+    await Crowdfund.deleteMany({});
   });
 
   afterAll(async () => {
@@ -60,17 +64,11 @@ describe("Project Idea Endpoints", () => {
     await mongoose.connection.close();
   });
 
-  beforeEach(async () => {
-    // Clean up before each test
-    await Project.deleteMany({});
-    await Crowdfund.deleteMany({});
-  });
-
   describe("POST /api/projects", () => {
     it("should create a new project idea with default values", async () => {
       const projectData = {
         title: "Test Project Idea",
-        summary: "This is a test project summary",
+        description: "This is a test project description",
         category: "Technology",
       };
 
@@ -93,7 +91,7 @@ describe("Project Idea Endpoints", () => {
     it("should create a grant project without crowdfund record", async () => {
       const projectData = {
         title: "Test Grant Project",
-        summary: "This is a test grant project",
+        description: "This is a test grant project",
         type: ProjectType.GRANT,
         category: "Research",
       };
@@ -117,14 +115,17 @@ describe("Project Idea Endpoints", () => {
 
       expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
-      expect(res.body.message).toContain("Title is required");
+      expect(res.body.message).toBe("Validation failed");
+      expect(res.body.data.errors).toBeDefined();
     });
 
     it("should validate URL formats", async () => {
       const projectData = {
         title: "Test Project",
+        description: "Test description",
+        category: "Technology",
         whitepaperUrl: "invalid-url",
-        pitchVideoUrl: "also-invalid",
+        thumbnail: "also-invalid",
       };
 
       const res = await request(app)
@@ -139,6 +140,8 @@ describe("Project Idea Endpoints", () => {
     it("should require authentication", async () => {
       const projectData = {
         title: "Test Project",
+        description: "Test description",
+        category: "Technology",
       };
 
       const res = await request(app).post("/api/projects").send(projectData);
@@ -153,12 +156,12 @@ describe("Project Idea Endpoints", () => {
       await Project.create([
         {
           title: "Project 1",
-          summary: "Summary 1",
+          description: "Description 1",
           type: ProjectType.CROWDFUND,
           status: ProjectStatus.IDEA,
           votes: 10,
           owner: { type: userId, ref: "User" },
-          description: "Description 1",
+          category: "Technology",
           funding: {
             goal: 1000,
             raised: 0,
@@ -181,12 +184,12 @@ describe("Project Idea Endpoints", () => {
         },
         {
           title: "Project 2",
-          summary: "Summary 2",
+          description: "Description 2",
           type: ProjectType.GRANT,
           status: ProjectStatus.REVIEWING,
           votes: 5,
           owner: { type: otherUserId, ref: "User" },
-          description: "Description 2",
+          category: "Research",
           funding: {
             goal: 2000,
             raised: 0,
@@ -241,7 +244,7 @@ describe("Project Idea Endpoints", () => {
       expect(res.body.data.projects[0].type).toBe(ProjectType.GRANT);
     });
 
-    it("should search in title and summary", async () => {
+    it("should search in title and description", async () => {
       const res = await request(app)
         .get("/api/projects")
         .query({ search: "Project 1" });
@@ -268,12 +271,12 @@ describe("Project Idea Endpoints", () => {
     beforeEach(async () => {
       const project = await Project.create({
         title: "Test Project",
-        summary: "Test Summary",
+        description: "Test Description",
         type: ProjectType.CROWDFUND,
         status: ProjectStatus.IDEA,
         votes: 0,
         owner: { type: userId, ref: "User" },
-        description: "Test Description",
+        category: "Technology",
         funding: {
           goal: 1000,
           raised: 0,
@@ -336,12 +339,12 @@ describe("Project Idea Endpoints", () => {
     beforeEach(async () => {
       const project = await Project.create({
         title: "Original Title",
-        summary: "Original Summary",
+        description: "Original Description",
         type: ProjectType.CROWDFUND,
         status: ProjectStatus.IDEA,
         votes: 0,
         owner: { type: userId, ref: "User" },
-        description: "Original Description",
+        category: "Original Category",
         funding: {
           goal: 1000,
           raised: 0,
@@ -368,7 +371,7 @@ describe("Project Idea Endpoints", () => {
     it("should update project idea successfully", async () => {
       const updateData = {
         title: "Updated Title",
-        summary: "Updated Summary",
+        description: "Updated Description",
         category: "Updated Category",
       };
 
@@ -380,7 +383,7 @@ describe("Project Idea Endpoints", () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.project.title).toBe(updateData.title);
-      expect(res.body.data.project.summary).toBe(updateData.summary);
+      expect(res.body.data.project.description).toBe(updateData.description);
     });
 
     it("should not allow non-owner to update", async () => {
@@ -422,12 +425,12 @@ describe("Project Idea Endpoints", () => {
     beforeEach(async () => {
       const project = await Project.create({
         title: "To Be Deleted",
-        summary: "This will be deleted",
+        description: "This will be deleted",
         type: ProjectType.CROWDFUND,
         status: ProjectStatus.IDEA,
         votes: 0,
         owner: { type: userId, ref: "User" },
-        description: "Delete Description",
+        category: "Delete Category",
         funding: {
           goal: 1000,
           raised: 0,

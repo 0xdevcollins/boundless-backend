@@ -28,6 +28,7 @@ export enum ProjectType {
 export interface IProject extends Document {
   _id: mongoose.Types.ObjectId;
   title: string;
+  tagline?: string; // Short one-liner description
   description: string;
   category: string;
   status: ProjectStatus;
@@ -85,11 +86,13 @@ export interface IProject extends Document {
   media: {
     banner: string;
     logo: string;
+    thumbnail?: string; // Project thumbnail image
   };
   documents: {
     whitepaper: string;
     pitchDeck: string;
   };
+  tags?: string[]; // Array of tags for the project
   creationTxHash?: string;
   grant?: {
     isGrant: boolean;
@@ -119,6 +122,7 @@ export interface IProject extends Document {
 const ProjectSchema = new Schema<IProject>(
   {
     title: { type: String, required: true },
+    tagline: { type: String }, // Short one-liner description
     description: { type: String, required: true },
     category: { type: String, required: true },
     status: {
@@ -178,11 +182,13 @@ const ProjectSchema = new Schema<IProject>(
     media: {
       banner: { type: String },
       logo: { type: String },
+      thumbnail: { type: String }, // Project thumbnail image
     },
     documents: {
       whitepaper: { type: String },
       pitchDeck: { type: String },
     },
+    tags: [{ type: String }], // Array of tags for the project
     creationTxHash: { type: String },
     grant: {
       isGrant: { type: Boolean, default: false },

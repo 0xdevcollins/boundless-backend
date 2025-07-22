@@ -20,28 +20,45 @@ const createProjectIdeaSchema = [
     .isLength({ min: 3, max: 100 })
     .withMessage("Title must be between 3 and 100 characters")
     .trim(),
-  body("summary")
+  body("description")
+    .notEmpty()
+    .withMessage("Description is required")
+    .isLength({ min: 10, max: 2000 })
+    .withMessage("Description must be between 10 and 2000 characters")
+    .trim(),
+  body("tagline")
     .optional()
-    .isLength({ max: 500 })
-    .withMessage("Summary cannot exceed 500 characters")
+    .isLength({ max: 200 })
+    .withMessage("Tagline cannot exceed 200 characters")
     .trim(),
   body("type")
     .optional()
     .isIn(["crowdfund", "grant"])
     .withMessage("Type must be either 'crowdfund' or 'grant'"),
   body("category")
-    .optional()
+    .notEmpty()
+    .withMessage("Category is required")
     .isLength({ max: 50 })
     .withMessage("Category cannot exceed 50 characters")
     .trim(),
+  body("fundAmount")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Fund amount must be a positive number"),
   body("whitepaperUrl")
     .optional()
     .isURL({ protocols: ["http", "https"] })
     .withMessage("Whitepaper URL must be a valid URL"),
-  body("pitchVideoUrl")
+  body("thumbnail")
     .optional()
     .isURL({ protocols: ["http", "https"] })
-    .withMessage("Pitch video URL must be a valid URL"),
+    .withMessage("Thumbnail URL must be a valid URL"),
+  body("tags").optional().isArray().withMessage("Tags must be an array"),
+  body("tags.*")
+    .optional()
+    .isString()
+    .isLength({ min: 1, max: 50 })
+    .withMessage("Each tag must be between 1 and 50 characters"),
 ];
 
 const updateProjectIdeaSchema = [
@@ -50,16 +67,25 @@ const updateProjectIdeaSchema = [
     .isLength({ min: 3, max: 100 })
     .withMessage("Title must be between 3 and 100 characters")
     .trim(),
-  body("summary")
+  body("description")
     .optional()
-    .isLength({ max: 500 })
-    .withMessage("Summary cannot exceed 500 characters")
+    .isLength({ min: 10, max: 2000 })
+    .withMessage("Description must be between 10 and 2000 characters")
+    .trim(),
+  body("tagline")
+    .optional()
+    .isLength({ max: 200 })
+    .withMessage("Tagline cannot exceed 200 characters")
     .trim(),
   body("category")
     .optional()
     .isLength({ max: 50 })
     .withMessage("Category cannot exceed 50 characters")
     .trim(),
+  body("fundAmount")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Fund amount must be a positive number"),
   body("whitepaperUrl")
     .optional()
     .custom((value) => {
@@ -73,7 +99,7 @@ const updateProjectIdeaSchema = [
       }
       return true;
     }),
-  body("pitchVideoUrl")
+  body("thumbnail")
     .optional()
     .custom((value) => {
       if (value && value.trim() !== "") {
@@ -81,11 +107,17 @@ const updateProjectIdeaSchema = [
           new URL(value);
           return true;
         } catch {
-          throw new Error("Pitch video URL must be a valid URL");
+          throw new Error("Thumbnail URL must be a valid URL");
         }
       }
       return true;
     }),
+  body("tags").optional().isArray().withMessage("Tags must be an array"),
+  body("tags.*")
+    .optional()
+    .isString()
+    .isLength({ min: 1, max: 50 })
+    .withMessage("Each tag must be between 1 and 50 characters"),
 ];
 
 const getProjectIdeasSchema = [

@@ -34,16 +34,29 @@ export const createProjectIdea = async (
   try {
     const {
       title,
-      summary,
+      tagline,
+      description,
       type = ProjectType.CROWDFUND,
       category,
+      fundAmount,
       whitepaperUrl,
-      pitchVideoUrl,
+      thumbnail,
+      tags,
     } = req.body;
 
     // Validate required fields
     if (!title?.trim()) {
       sendBadRequest(res, "Title is required");
+      return;
+    }
+
+    if (!description?.trim()) {
+      sendBadRequest(res, "Description is required");
+      return;
+    }
+
+    if (!category?.trim()) {
+      sendBadRequest(res, "Category is required");
       return;
     }
 
@@ -59,6 +72,13 @@ export const createProjectIdea = async (
       return;
     }
 
+    // Validate fund amount if provided
+    if (fundAmount !== undefined && (isNaN(fundAmount) || fundAmount < 0)) {
+      sendBadRequest(res, "Fund amount must be a positive number");
+      await session.abortTransaction();
+      return;
+    }
+
     // Validate URLs if provided
     if (whitepaperUrl && !isValidUrl(whitepaperUrl)) {
       sendBadRequest(res, "Invalid whitepaper URL format");
@@ -66,8 +86,15 @@ export const createProjectIdea = async (
       return;
     }
 
-    if (pitchVideoUrl && !isValidUrl(pitchVideoUrl)) {
-      sendBadRequest(res, "Invalid pitch video URL format");
+    if (thumbnail && !isValidUrl(thumbnail)) {
+      sendBadRequest(res, "Invalid thumbnail URL format");
+      await session.abortTransaction();
+      return;
+    }
+
+    // Validate tags if provided
+    if (tags && !Array.isArray(tags)) {
+      sendBadRequest(res, "Tags must be an array");
       await session.abortTransaction();
       return;
     }
@@ -75,21 +102,22 @@ export const createProjectIdea = async (
     // Create the Project
     const projectData: Partial<IProject> = {
       title: title.trim(),
-      summary: summary?.trim(),
+      tagline: tagline?.trim(),
+      description: description.trim(),
       type,
-      category: category?.trim(),
+      category: category.trim(),
       status: ProjectStatus.IDEA,
       whitepaperUrl: whitepaperUrl?.trim(),
-      pitchVideoUrl: pitchVideoUrl?.trim(),
+      tags: tags?.filter((tag: string) => tag?.trim()) || [],
       votes: 0,
       owner: {
         type: req.user._id,
         ref: "User",
       },
       // Initialize other required fields with defaults
-      description: summary?.trim() || "",
+      summary: tagline?.trim() || description.trim(),
       funding: {
-        goal: 0,
+        goal: fundAmount || 0,
         raised: 0,
         currency: "USD",
         endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days default
@@ -108,6 +136,7 @@ export const createProjectIdea = async (
       media: {
         banner: "",
         logo: "",
+        thumbnail: thumbnail?.trim() || "",
       },
       documents: {
         whitepaper: whitepaperUrl?.trim() || "",
@@ -158,12 +187,14 @@ export const createProjectIdea = async (
       project: {
         _id: project._id,
         title: project.title,
-        summary: project.summary,
+        tagline: project.tagline,
+        description: project.description,
         type: project.type,
         category: project.category,
         status: project.status,
         whitepaperUrl: project.whitepaperUrl,
-        pitchVideoUrl: project.pitchVideoUrl,
+        thumbnail: project.media?.thumbnail,
+        tags: project.tags,
         votes: project.votes,
         owner: project.owner,
         createdAt: project.createdAt,
@@ -254,10 +285,12 @@ export const getProjectIdeas = async (
     }
 
     if (search) {
+      const searchString = Array.isArray(search) ? search[0] : search;
       filter.$or = [
-        { title: { $regex: search, $options: "i" } },
-        { summary: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } },
+        { title: { $regex: searchString, $options: "i" } },
+        { tagline: { $regex: searchString, $options: "i" } },
+        { description: { $regex: searchString, $options: "i" } },
+        { tags: { $in: [new RegExp(searchString as string, "i")] } },
       ];
     }
 
@@ -285,7 +318,7 @@ export const getProjectIdeas = async (
           },
         ])
         .select(
-          "title summary type category status whitepaperUrl pitchVideoUrl votes owner createdAt updatedAt",
+          "title tagline description type category status whitepaperUrl thumbnail tags votes owner createdAt updatedAt",
         )
         .sort(sortOptions)
         .skip(skip)
@@ -395,7 +428,16 @@ export const updateProjectIdea = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const { title, summary, category, whitepaperUrl, pitchVideoUrl } = req.body;
+    const {
+      title,
+      tagline,
+      description,
+      category,
+      fundAmount,
+      whitepaperUrl,
+      thumbnail,
+      tags,
+    } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       sendBadRequest(res, "Invalid project ID format");
@@ -425,28 +467,46 @@ export const updateProjectIdea = async (
       return;
     }
 
+    // Validate fund amount if provided
+    if (fundAmount !== undefined && (isNaN(fundAmount) || fundAmount < 0)) {
+      sendBadRequest(res, "Fund amount must be a positive number");
+      return;
+    }
+
     // Validate URLs if provided
     if (whitepaperUrl && !isValidUrl(whitepaperUrl)) {
       sendBadRequest(res, "Invalid whitepaper URL format");
       return;
     }
 
-    if (pitchVideoUrl && !isValidUrl(pitchVideoUrl)) {
-      sendBadRequest(res, "Invalid pitch video URL format");
+    if (thumbnail && !isValidUrl(thumbnail)) {
+      sendBadRequest(res, "Invalid thumbnail URL format");
+      return;
+    }
+
+    // Validate tags if provided
+    if (tags && !Array.isArray(tags)) {
+      sendBadRequest(res, "Tags must be an array");
       return;
     }
 
     // Update fields
     const updateData: any = {};
     if (title?.trim()) updateData.title = title.trim();
-    if (summary !== undefined) updateData.summary = summary?.trim();
+    if (tagline !== undefined) updateData.tagline = tagline?.trim();
+    if (description !== undefined) updateData.description = description?.trim();
     if (category !== undefined) updateData.category = category?.trim();
+    if (fundAmount !== undefined) updateData["funding.goal"] = fundAmount;
     if (whitepaperUrl !== undefined) {
       updateData.whitepaperUrl = whitepaperUrl?.trim();
       updateData["documents.whitepaper"] = whitepaperUrl?.trim() || "";
     }
-    if (pitchVideoUrl !== undefined)
-      updateData.pitchVideoUrl = pitchVideoUrl?.trim();
+    if (thumbnail !== undefined) {
+      updateData["media.thumbnail"] = thumbnail?.trim();
+    }
+    if (tags !== undefined) {
+      updateData.tags = tags?.filter((tag: string) => tag?.trim()) || [];
+    }
 
     // If project was rejected and is being updated, reset status to idea
     if (project.status === ProjectStatus.REJECTED) {

@@ -1,21 +1,43 @@
 import "jest-extended";
 import mongoose from "mongoose";
 import { config } from "../config";
-import { MongoMemoryServer } from "mongodb-memory-server";
+import { MongoMemoryReplSet } from "mongodb-memory-server";
 
 process.env.NODE_ENV = "test";
 process.env.MONGODB_URI =
   process.env.MONGODB_URI || "mongodb://localhost:27017/boundless-test";
 process.env.JWT_SECRET = "test_jwt_secret";
 
-let mongoServer: MongoMemoryServer;
+let mongoServer: MongoMemoryReplSet;
 
 // Connect to test database
 beforeAll(async () => {
-  mongoServer = await MongoMemoryServer.create();
+  // Create a replica set with 1 member to support transactions
+  mongoServer = await MongoMemoryReplSet.create({
+    replSet: { count: 1 },
+    instanceOpts: [
+      {
+        args: [
+          "--wiredTigerCacheSizeGB",
+          "1",
+          "--setParameter",
+          "transactionLifetimeLimitSeconds=300",
+          "--setParameter",
+          "maxTransactionLockRequestTimeoutMillis=5000",
+        ],
+      },
+    ],
+  });
   const mongoUri = mongoServer.getUri();
-  await mongoose.connect(mongoUri);
-});
+
+  // Connect with transaction support
+  await mongoose.connect(mongoUri, {
+    maxPoolSize: 10,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
+    bufferCommands: false,
+  });
+}, 30000); // 30 second timeout
 
 // Clear database between tests
 beforeEach(async () => {
