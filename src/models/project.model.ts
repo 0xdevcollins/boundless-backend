@@ -110,6 +110,11 @@ export interface IProject extends Document {
     proposalsApproved: number;
     status: "OPEN" | "CLOSED" | "IN_PROGRESS";
   };
+  approvedBy?: {
+    type: mongoose.Types.ObjectId;
+    ref: "User";
+  };
+  approvedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
   summary?: string;
@@ -215,6 +220,13 @@ const ProjectSchema = new Schema<IProject>(
         enum: ["OPEN", "CLOSED", "IN_PROGRESS"],
         default: "OPEN",
       },
+    },
+    approvedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
+    approvedAt: {
+      type: Date,
     },
     summary: { type: String },
     type: {
