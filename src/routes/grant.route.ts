@@ -3,6 +3,7 @@ import { body } from "express-validator";
 import {
   createGrant,
   updateGrantStatus,
+  submitGrantApplication,
 } from "../controllers/grant.controller";
 import { protect } from "../middleware/auth";
 import { validateRequest } from "../middleware/validateRequest";
@@ -69,5 +70,8 @@ router.patch(
   validateRequest(updateGrantStatusSchema),
   updateGrantStatus,
 );
+
+// Grant application submission endpoint
+router.post("/grant-applications", protect, submitGrantApplication);
 
 export default router;

@@ -7,6 +7,7 @@ import {
   sendSuccess,
   sendValidationError,
 } from "../utils/apiResponse";
+import GrantApplication from "../models/grant-application.model";
 
 /**
  * @swagger
@@ -114,30 +115,33 @@ export const createGrant = async (req: Request, res: Response) => {
       (role) => role.role === UserRole.CREATOR && role.status === "ACTIVE",
     );
     if (!hasCreatorRole) {
-      return sendError(
-        res,
-        "Only creators can create grants",
-        403,
-        "User does not have creator role",
-      );
+      res
+        .status(403)
+        .json({ success: false, message: "Only creators can create grants" });
+      return;
     }
 
     // Validate request body
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return sendValidationError(res, "Validation failed", errors.mapped());
+      res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: errors.mapped(),
+      });
+      return;
     }
 
     const { title, description, totalBudget, rules, milestones } = req.body;
 
     // Validate milestones
     if (!Array.isArray(milestones) || milestones.length === 0) {
-      return sendError(
-        res,
-        "At least one milestone is required",
-        400,
-        "Milestones array cannot be empty",
-      );
+      res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: { milestones: "Milestones array cannot be empty" },
+      });
+      return;
     }
 
     // Validate total budget vs milestone payouts
@@ -147,12 +151,11 @@ export const createGrant = async (req: Request, res: Response) => {
     );
 
     if (totalMilestonePayouts > totalBudget) {
-      return sendError(
-        res,
-        "Total milestone payouts cannot exceed total budget",
-        400,
-        `Total payouts: ${totalMilestonePayouts}, Total budget: ${totalBudget}`,
-      );
+      res.status(400).json({
+        success: false,
+        message: "Total milestone payouts cannot exceed total budget",
+      });
+      return;
     }
 
     // Create the grant
@@ -172,7 +175,12 @@ export const createGrant = async (req: Request, res: Response) => {
       "profile.firstName profile.lastName profile.username",
     );
 
-    return sendSuccess(res, grant, "Grant created successfully", 201);
+    res.status(201).json({
+      success: true,
+      message: "Grant created successfully",
+      data: grant,
+    });
+    return;
   } catch (error: any) {
     console.error("Error creating grant:", error);
 
@@ -182,20 +190,29 @@ export const createGrant = async (req: Request, res: Response) => {
       Object.keys(error.errors).forEach((key) => {
         validationErrors[key] = error.errors[key].message;
       });
-      return sendError(res, "Validation failed", 400, validationErrors);
+      res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: validationErrors,
+      });
+      return;
     }
 
     // Handle duplicate key errors
     if (error.code === 11000) {
-      return sendError(
-        res,
-        "Grant with this title already exists",
-        409,
-        "Duplicate grant title",
-      );
+      res.status(409).json({
+        success: false,
+        message: "Grant with this title already exists",
+      });
+      return;
     }
 
-    return sendError(res, "Failed to create grant", 500, error.message);
+    res.status(500).json({
+      success: false,
+      message: "Failed to create grant",
+      error: error.message,
+    });
+    return;
   }
 };
 
@@ -336,7 +353,12 @@ export const updateGrantStatus = async (req: Request, res: Response) => {
       "profile.firstName profile.lastName profile.username",
     );
 
-    return sendSuccess(res, grant, `Grant status updated to ${status}`, 200);
+    res.status(200).json({
+      success: true,
+      message: "Grant status updated successfully",
+      data: grant,
+    });
+    return;
   } catch (error: any) {
     console.error("Error updating grant status:", error);
 
@@ -350,6 +372,187 @@ export const updateGrantStatus = async (req: Request, res: Response) => {
     }
 
     return sendError(res, "Failed to update grant status", 500, error.message);
+  }
+};
+
+/**
+ * @swagger
+ * /api/grant-applications:
+ *   post:
+ *     summary: Submit a new grant application
+ *     description: Allows grant applicants to submit their application for a specific grant.
+ *     tags: [Grant Applications]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - grantId
+ *               - title
+ *               - summary
+ *               - milestones
+ *             properties:
+ *               grantId:
+ *                 type: string
+ *                 description: ID of the grant being applied for.
+ *               title:
+ *                 type: string
+ *                 description: Title of the application.
+ *               summary:
+ *                 type: string
+ *                 description: Brief summary of the application.
+ *               milestones:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - title
+ *                     - description
+ *                     - expectedPayout
+ *                   properties:
+ *                     title:
+ *                       type: string
+ *                       maxLength: 100
+ *                       description: Title of the milestone.
+ *                     description:
+ *                       type: string
+ *                       maxLength: 500
+ *                       description: Description of the milestone.
+ *                     expectedPayout:
+ *                       type: number
+ *                       minimum: 0
+ *                       description: Expected payout for this milestone.
+ *                     supportingDocuments:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                         description: URL of the supporting document.
+ *     responses:
+ *       201:
+ *         description: Grant application submitted successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: '#/components/schemas/GrantApplication'
+ *       400:
+ *         description: Validation error or missing required fields.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 errors:
+ *                   type: object
+ *       401:
+ *         description: Unauthorized - No applicantId found.
+ *       403:
+ *         description: Forbidden - User is not the applicant.
+ *       404:
+ *         description: Grant not found.
+ *       409:
+ *         description: You have already applied for this grant.
+ *       500:
+ *         description: Internal server error.
+ */
+export const submitGrantApplication = async (req: Request, res: Response) => {
+  try {
+    // Extract applicantId from authenticated user context
+    const applicantId = req.user?._id;
+    if (!applicantId) {
+      res.status(401).json({
+        success: false,
+        message: "Unauthorized: No applicantId found.",
+      });
+      return;
+    }
+
+    const { grantId, title, summary, milestones } = req.body;
+
+    // Validate required fields
+    if (
+      !grantId ||
+      !title ||
+      !summary ||
+      !Array.isArray(milestones) ||
+      milestones.length === 0
+    ) {
+      res.status(400).json({
+        success: false,
+        message:
+          "Missing required fields: grantId, title, summary, milestones.",
+      });
+      return;
+    }
+
+    // Validate each milestone
+    for (const [i, milestone] of milestones.entries()) {
+      if (
+        !milestone.title ||
+        !milestone.description ||
+        typeof milestone.expectedPayout !== "number"
+      ) {
+        res.status(400).json({
+          success: false,
+          message: `Milestone at index ${i} is missing required fields.`,
+        });
+        return;
+      }
+      if (
+        milestone.supportingDocuments &&
+        !Array.isArray(milestone.supportingDocuments)
+      ) {
+        res.status(400).json({
+          success: false,
+          message: `Milestone at index ${i} has invalid supportingDocuments.`,
+        });
+        return;
+      }
+    }
+
+    // Create the grant application
+    const application = await GrantApplication.create({
+      grantId,
+      title,
+      summary,
+      applicantId,
+      milestones,
+      status: "submitted",
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Grant application submitted successfully.",
+      application,
+    });
+    return;
+  } catch (error: any) {
+    if (error.code === 11000) {
+      res.status(409).json({
+        success: false,
+        message: "You have already applied for this grant.",
+      });
+      return;
+    }
+    res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error.",
+    });
+    return;
   }
 };
 

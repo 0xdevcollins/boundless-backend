@@ -45,7 +45,6 @@ const TransactionSchema = new Schema<ITransaction>(
       type: String,
       required: true,
       unique: true,
-      index: true,
     },
     status: {
       type: String,
