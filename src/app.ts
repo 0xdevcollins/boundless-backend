@@ -35,6 +35,7 @@ import commentRoutes from "./routes/comment.route";
 import notificationRoutes from "./routes/notification.route";
 import campaignRoutes from "./routes/campaign.route";
 import grantRoutes from "./routes/grant.route";
+import grantApplicationRoutes from "./routes/grant-application.route";
 
 dotenv.config();
 
@@ -100,6 +101,7 @@ app.use("/api/comments", commentRoutes);
 app.use("/api/notifications", authMiddleware, notificationRoutes);
 app.use("/api/campaigns", campaignRoutes);
 app.use("/api/grants", grantRoutes);
+app.use("/api/grant-applications", grantApplicationRoutes);
 
 // Swagger Docs
 setupSwagger(app);
