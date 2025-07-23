@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { validationResult, body, ValidationChain } from "express-validator";
+import { RequestHandler } from "express";
 import { sendValidationError } from "../utils/apiResponse";
 
 export const validateRequestMarkdown = (
@@ -23,8 +24,10 @@ export const validateRequestMarkdown = (
   next();
 };
 
-export const validateRequest = (validations: ValidationChain[]) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
+export const validateRequest = (
+  validations: ValidationChain[],
+): RequestHandler => {
+  return async (req, res, next) => {
     await Promise.all(validations.map((validation) => validation.run(req)));
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
