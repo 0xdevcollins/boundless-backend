@@ -3,8 +3,17 @@ import mongoose from "mongoose";
 import app from "../app";
 import User, { UserRole, UserStatus } from "../models/user.model";
 import Grant from "../models/grant.model";
+import GrantApplication from "../models/grant-application.model";
 import { generateTokens } from "../utils/jwt.utils";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+
+// Helper to create a JWT for a user
+function generateToken(userId: mongoose.Types.ObjectId) {
+  return jwt.sign({ userId }, process.env.JWT_SECRET || "testsecret", {
+    expiresIn: "1h",
+  });
+}
 
 describe("Grant API", () => {
   let creatorUser: any;
@@ -156,6 +165,7 @@ describe("Grant API", () => {
       email: { $in: ["creator@test.com", "regular@test.com"] },
     });
     await Grant.deleteMany({});
+    await GrantApplication.deleteMany({});
     await mongoose.connection.close();
   });
 
@@ -619,5 +629,249 @@ describe("Grant API", () => {
         expect(grants).toHaveLength(2);
       });
     });
+  });
+});
+
+describe("POST /api/grant-applications", () => {
+  let user: any;
+  let grant: any;
+  let token: string;
+
+  beforeAll(async () => {
+    // await mongoose.connect(process.env.MONGO_URL || "mongodb://localhost:27017/testdb"); // Remove this line, setup.ts handles connection
+    user = await User.create({
+      email: "testuser@example.com",
+      password: "password123",
+      profile: { firstName: "Test", lastName: "User", username: "testuser" },
+    });
+    grant = await Grant.create({
+      creatorId: user._id,
+      title: "Test Grant",
+      description: "A grant for testing",
+      totalBudget: 10000,
+      rules: "Test rules",
+      milestones: [
+        { title: "M1", description: "Desc1", expectedPayout: 5000 },
+        { title: "M2", description: "Desc2", expectedPayout: 5000 },
+      ],
+      status: "open",
+    });
+    token = generateToken(user._id);
+  });
+
+  afterAll(async () => {
+    await GrantApplication.deleteMany({});
+    await Grant.deleteMany({});
+    await User.deleteMany({});
+    await mongoose.connection.close();
+  });
+
+  it("should submit a valid grant application", async () => {
+    const res = await request(app)
+      .post("/api/grant-applications")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        grantId: grant._id,
+        title: "Proposal Title",
+        summary: "A brief overview.",
+        milestones: [
+          { title: "M1", description: "Desc1", expectedPayout: 5000 },
+          {
+            title: "M2",
+            description: "Desc2",
+            expectedPayout: 5000,
+            supportingDocuments: ["http://doc.com/1"],
+          },
+        ],
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.application).toBeDefined();
+    expect(res.body.application.status).toBe("submitted");
+    expect(res.body.application.applicantId).toBe(user._id.toString());
+  });
+
+  it("should fail if required fields are missing", async () => {
+    const res = await request(app)
+      .post("/api/grant-applications")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ title: "Missing fields" });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/Missing required fields/);
+  });
+
+  it("should fail if a milestone is missing required fields", async () => {
+    const res = await request(app)
+      .post("/api/grant-applications")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        grantId: grant._id,
+        title: "Proposal Title",
+        summary: "A brief overview.",
+        milestones: [
+          { title: "M1", description: "Desc1" }, // missing expectedPayout
+        ],
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(
+      /Milestone at index 0 is missing required fields/,
+    );
+  });
+
+  it("should fail if supportingDocuments is not an array", async () => {
+    const res = await request(app)
+      .post("/api/grant-applications")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        grantId: grant._id,
+        title: "Proposal Title",
+        summary: "A brief overview.",
+        milestones: [
+          {
+            title: "M1",
+            description: "Desc1",
+            expectedPayout: 5000,
+            supportingDocuments: "not-an-array",
+          },
+        ],
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/invalid supportingDocuments/);
+  });
+
+  it("should not allow duplicate applications for the same grant and applicant", async () => {
+    // First application
+    await GrantApplication.create({
+      grantId: grant._id,
+      title: "Proposal Title",
+      summary: "A brief overview.",
+      applicantId: user._id,
+      milestones: [{ title: "M1", description: "Desc1", expectedPayout: 5000 }],
+      status: "submitted",
+    });
+    // Second application (duplicate)
+    const res = await request(app)
+      .post("/api/grant-applications")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        grantId: grant._id,
+        title: "Proposal Title",
+        summary: "A brief overview.",
+        milestones: [
+          { title: "M1", description: "Desc1", expectedPayout: 5000 },
+        ],
+      });
+    expect(res.status).toBe(409);
+    expect(res.body.message).toMatch(/already applied/);
+  });
+
+  it("should fail if not authenticated", async () => {
+    const res = await request(app)
+      .post("/api/grant-applications")
+      .send({
+        grantId: grant._id,
+        title: "Proposal Title",
+        summary: "A brief overview.",
+        milestones: [
+          { title: "M1", description: "Desc1", expectedPayout: 5000 },
+        ],
+      });
+    expect(res.status).toBe(401);
+  });
+});
+
+describe("GET /api/grants", () => {
+  let creatorUser: any;
+  let creatorToken: string;
+  let grant1: any;
+  let grant2: any;
+
+  beforeAll(async () => {
+    const hashedPassword = await bcrypt.hash("TestPassword123!", 10);
+    creatorUser = await User.create({
+      email: "creator2@test.com",
+      password: hashedPassword,
+      profile: {
+        firstName: "Alice",
+        lastName: "Creator",
+        username: "alicecreator",
+      },
+      status: UserStatus.ACTIVE,
+      roles: [
+        { role: UserRole.CREATOR, grantedAt: new Date(), status: "ACTIVE" },
+      ],
+    });
+    creatorToken = generateToken(creatorUser._id);
+    grant1 = await Grant.create({
+      creatorId: creatorUser._id,
+      title: "Grant One",
+      description: "First grant",
+      totalBudget: 1000,
+      rules: "Rule 1",
+      milestones: [{ title: "M1", description: "Desc1", expectedPayout: 500 }],
+      status: "open",
+    });
+    grant2 = await Grant.create({
+      creatorId: creatorUser._id,
+      title: "Grant Two",
+      description: "Second grant",
+      totalBudget: 2000,
+      rules: "Rule 2",
+      milestones: [{ title: "M2", description: "Desc2", expectedPayout: 1000 }],
+      status: "open",
+    });
+  });
+
+  afterAll(async () => {
+    await Grant.deleteMany({});
+    await User.deleteMany({ email: "creator2@test.com" });
+  });
+
+  it("should return all grants (public)", async () => {
+    const res = await request(app).get("/api/grants");
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("should return only the creator's grants for /my (protected)", async () => {
+    const res = await request(app)
+      .get("/api/grants/my")
+      .set("Authorization", `Bearer ${creatorToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data.length).toBeGreaterThanOrEqual(2);
+    res.body.data.forEach((grant: any) => {
+      expect(grant.creatorId).toBe(creatorUser._id.toString());
+    });
+  });
+
+  it("should return 401 for /my if not authenticated", async () => {
+    const res = await request(app).get("/api/grants/my");
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
+  });
+
+  it("should return a grant by ID (public)", async () => {
+    const res = await request(app).get(`/api/grants/${grant1._id}`);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data._id).toBe(grant1._id.toString());
+  });
+
+  it("should return 404 for a non-existent grant ID", async () => {
+    const fakeId = new mongoose.Types.ObjectId();
+    const res = await request(app).get(`/api/grants/${fakeId}`);
+    expect(res.status).toBe(404);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toMatch(/not found/i);
+  });
+
+  it("should return 400 for an invalid grant ID", async () => {
+    const res = await request(app).get(`/api/grants/invalid-id`);
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toMatch(/invalid grant id/i);
   });
 });

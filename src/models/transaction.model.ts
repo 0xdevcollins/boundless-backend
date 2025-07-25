@@ -79,7 +79,6 @@ const transactionSchema = new Schema<ITransaction>(
 
 // Indexes
 transactionSchema.index({ projectId: 1, timestamp: -1 });
-transactionSchema.index({ transactionHash: 1 }, { unique: true });
 transactionSchema.index({ status: 1 });
 transactionSchema.index({ type: 1 });
 
