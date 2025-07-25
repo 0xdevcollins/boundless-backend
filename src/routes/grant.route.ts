@@ -7,6 +7,8 @@ import {
   getAllGrants,
   getMyGrants,
   getGrantById,
+  getGrantApplicationWithFeedback,
+  reviewGrantApplication,
 } from "../controllers/grant.controller";
 import { protect } from "../middleware/auth";
 import { validateRequest } from "../middleware/validateRequest";
@@ -85,5 +87,11 @@ router.get("/my", protect, getMyGrants);
 
 // Get details for a particular grant by its ID (public)
 router.get("/:id", getGrantById);
+
+// Grant application feedback (public)
+router.get("/grant-applications/:id", getGrantApplicationWithFeedback);
+
+// Grant application review (admin only)
+router.patch("/grant-applications/:id/review", protect, reviewGrantApplication);
 
 export default router;
