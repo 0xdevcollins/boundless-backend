@@ -8,6 +8,7 @@ import {
   sendValidationError,
 } from "../utils/apiResponse";
 import GrantApplication from "../models/grant-application.model";
+import mongoose from "mongoose";
 
 /**
  * @swagger
@@ -551,6 +552,72 @@ export const submitGrantApplication = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: error.message || "Internal server error.",
+    });
+    return;
+  }
+};
+
+// Get all grants (public)
+export const getAllGrants = async (req: Request, res: Response) => {
+  try {
+    const grants = await Grant.find().sort({ createdAt: -1 });
+    res.status(200).json({ success: true, data: grants });
+    return;
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch grants",
+      error: error.message,
+    });
+    return;
+  }
+};
+
+// Get grants created by the authenticated user (creator)
+export const getMyGrants = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId) {
+      res
+        .status(401)
+        .json({ success: false, message: "Authentication required" });
+      return;
+    }
+    const grants = await Grant.find({ creatorId: userId }).sort({
+      createdAt: -1,
+    });
+    res.status(200).json({ success: true, data: grants });
+    return;
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch your grants",
+      error: error.message,
+    });
+    return;
+  }
+};
+
+// Get details for a particular grant by its ID (public)
+export const getGrantById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({ success: false, message: "Invalid grant ID" });
+      return;
+    }
+    const grant = await Grant.findById(id);
+    if (!grant) {
+      res.status(404).json({ success: false, message: "Grant not found" });
+      return;
+    }
+    res.status(200).json({ success: true, data: grant });
+    return;
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch grant",
+      error: error.message,
     });
     return;
   }
