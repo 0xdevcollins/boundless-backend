@@ -26,8 +26,6 @@ const CrowdfundSchema = new Schema<ICrowdfund>(
       type: Schema.Types.ObjectId,
       ref: "Project",
       required: [true, "Project ID is required"],
-      unique: true,
-      index: true,
     },
     thresholdVotes: {
       type: Number,

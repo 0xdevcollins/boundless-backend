@@ -178,7 +178,6 @@ BlogSchema.index({ status: 1, publishedAt: -1 });
 BlogSchema.index({ category: 1, status: 1 });
 BlogSchema.index({ tags: 1, status: 1 });
 BlogSchema.index({ authors: 1, status: 1 });
-BlogSchema.index({ slug: 1 }, { unique: true });
 BlogSchema.index({ "stats.views": -1 });
 BlogSchema.index({ "stats.likes": -1 });
 BlogSchema.index({ title: "text", content: "text", excerpt: "text" });
