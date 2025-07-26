@@ -197,13 +197,21 @@ const ProjectSchema = new Schema<IProject>(
           applicant: { type: Schema.Types.ObjectId, ref: "User" },
           status: {
             type: String,
-            enum: ["SUBMITTED", "REVIEWING", "APPROVED", "REJECTED"],
+            enum: [
+              "SUBMITTED",
+              "REVIEWING",
+              "APPROVED",
+              "REJECTED",
+              "IN_PROGRESS",
+              "LOCKED",
+            ],
             default: "SUBMITTED",
           },
           submittedAt: { type: Date },
           nextAction: { type: String },
           escrowedAmount: { type: Number, default: 0 },
           milestonesCompleted: { type: Number, default: 0 },
+          txHash: { type: String }, // Add this line
         },
       ],
       totalBudget: { type: Number, default: 0 },
