@@ -14,6 +14,8 @@ export interface IGrantApplication extends Document {
   applicantId: Types.ObjectId;
   milestones: IGrantApplicationMilestone[];
   status: "submitted" | "reviewing" | "approved" | "rejected";
+  adminNote?: string;
+  archived?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,6 +39,8 @@ const GrantApplicationSchema = new Schema<IGrantApplication>(
       enum: ["submitted", "reviewing", "approved", "rejected"],
       default: "submitted",
     },
+    adminNote: { type: String },
+    archived: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
