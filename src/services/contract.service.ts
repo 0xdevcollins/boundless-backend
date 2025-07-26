@@ -1,3 +1,12 @@
+// Trigger Soroban payout for a milestone (stub for integration)
+export async function triggerSorobanPayout(milestone: any) {
+  // TODO: Integrate with Soroban payout logic
+  // This should call releaseMilestone or similar logic as needed
+  // For now, just log and resolve
+  console.log(`Triggering Soroban payout for milestone ${milestone._id}`);
+  // Example: await contractService.releaseMilestone({ ... });
+  return Promise.resolve();
+}
 import {
   Keypair,
   TransactionBuilder,
