@@ -8,6 +8,8 @@ import {
   sendValidationError,
 } from "../utils/apiResponse";
 import GrantApplication from "../models/grant-application.model";
+import Comment from "../models/comment.model";
+import Vote from "../models/vote.model";
 import mongoose from "mongoose";
 
 /**
@@ -552,6 +554,120 @@ export const submitGrantApplication = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: error.message || "Internal server error.",
+    });
+    return;
+  }
+};
+
+// GET /api/grant-applications/:id - Retrieve a grant application with feedback
+export const getGrantApplicationWithFeedback = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res
+        .status(400)
+        .json({ success: false, message: "Invalid application ID" });
+      return;
+    }
+    const application = await GrantApplication.findById(id);
+    if (!application) {
+      res
+        .status(404)
+        .json({ success: false, message: "Grant application not found" });
+      return;
+    }
+    // Fetch comments and votes related to this application (assuming models exist and are linked by applicationId)
+    const comments = await Comment.find({ grantApplicationId: id });
+    const votes = await Vote.find({ grantApplicationId: id });
+    res.status(200).json({
+      success: true,
+      data: {
+        application,
+        comments,
+        votes,
+        status: application.status,
+      },
+    });
+    return;
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch grant application feedback",
+      error: error.message,
+    });
+    return;
+  }
+};
+
+// PATCH /api/grant-applications/:id/review - Admin review action
+export const reviewGrantApplication = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { status, adminNote } = req.body;
+    const validStatuses = ["approved", "rejected"];
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res
+        .status(400)
+        .json({ success: false, message: "Invalid application ID" });
+      return;
+    }
+    if (!status || !validStatuses.includes(status)) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid status value. Must be 'approved' or 'rejected'.",
+      });
+      return;
+    }
+    // Only admin can review
+    if (!req.user || req.user.roles.every((r: any) => r.role !== "ADMIN")) {
+      res
+        .status(403)
+        .json({ success: false, message: "Admin privileges required" });
+      return;
+    }
+    const application = await GrantApplication.findById(id);
+    if (!application) {
+      res
+        .status(404)
+        .json({ success: false, message: "Grant application not found" });
+      return;
+    }
+    // Log admin action (for audit)
+    console.log(
+      `[ADMIN REVIEW] User ${req.user._id} set status to ${status} for application ${id}. Note: ${adminNote || "-"}`,
+    );
+    // Update application
+    application.status = status;
+    if (adminNote) {
+      (application as any).adminNote = adminNote;
+    }
+    await application.save();
+    // Archive if rejected
+    if (status === "rejected") {
+      // Move to archive (could be a flag or a separate collection, here we use a flag)
+      (application as any).archived = true;
+      await application.save();
+    }
+    // Advance to next stage if approved (could be a status update or workflow step)
+    if (status === "approved") {
+      // Example: set a field or trigger next workflow step
+      // (application as any).stage = "creator_review";
+      // await application.save();
+    }
+    res.status(200).json({
+      success: true,
+      message: `Application ${status}`,
+      data: application,
+    });
+    return;
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to review grant application",
+      error: error.message,
     });
     return;
   }
