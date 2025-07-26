@@ -43,7 +43,6 @@ const CommentSchema = new Schema<IComment>(
       type: Schema.Types.ObjectId,
       ref: "Project",
       required: true,
-      index: true,
     },
     author: {
       type: Schema.Types.ObjectId,

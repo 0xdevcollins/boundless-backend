@@ -40,6 +40,10 @@ import milestoneRoutes from "./routes/milestone.route";
 
 dotenv.config();
 
+if (process.env.NODE_ENV === "test") {
+  process.env.JWT_SECRET = "test_jwt_secret";
+}
+
 if (config.NODE_ENV !== "test") {
   connectDB();
 }
