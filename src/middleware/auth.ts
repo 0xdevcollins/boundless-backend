@@ -18,7 +18,9 @@ export const protect = async (
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      res.status(401).json({ message: "Not authorized, no token" });
+      res
+        .status(401)
+        .json({ success: false, message: "Authentication required" });
       return;
     }
 
@@ -27,7 +29,9 @@ export const protect = async (
     const user = await User.findById(decoded.userId).select("-password");
 
     if (!user) {
-      res.status(401).json({ message: "Not authorized, user not found" });
+      res
+        .status(401)
+        .json({ success: false, message: "Not authorized, user not found" });
       return;
     }
 
@@ -35,7 +39,9 @@ export const protect = async (
     next();
   } catch (error) {
     console.error("Auth error:", error);
-    res.status(401).json({ message: "Not authorized, token failed" });
+    res
+      .status(401)
+      .json({ success: false, message: "Not authorized, token failed" });
   }
 };
 
