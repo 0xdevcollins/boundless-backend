@@ -36,7 +36,7 @@ const GrantApplicationSchema = new Schema<IGrantApplication>(
     milestones: { type: [GrantApplicationMilestoneSchema], required: true },
     status: {
       type: String,
-      enum: ["submitted", "reviewing", "approved", "rejected"],
+      enum: ["submitted", "reviewing", "approved", "rejected", "paused", "cancelled"],
       default: "submitted",
     },
     adminNote: { type: String },
