@@ -9,9 +9,12 @@ export interface IMilestone extends Document {
   status:
     | "pending"
     | "submitted"
+    | "in-progress"
+    | "pending-review"
     | "approved"
     | "rejected"
-    | "revision-requested";
+    | "revision-requested"
+    | "completed";
   adminNote?: string;
 }
 
@@ -26,9 +29,12 @@ const MilestoneSchema = new Schema<IMilestone>({
     enum: [
       "pending",
       "submitted",
+      "in-progress",
+      "pending-review",
       "approved",
       "rejected",
       "revision-requested",
+      "completed",
     ],
     default: "pending",
   },
