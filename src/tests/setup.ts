@@ -7,6 +7,10 @@ process.env.NODE_ENV = "test";
 process.env.MONGODB_URI =
   process.env.MONGODB_URI || "mongodb://localhost:27017/boundless-test";
 process.env.JWT_SECRET = "test_jwt_secret";
+process.env.ADMIN_SECRET_KEY =
+  "SDUPS7MCL52JTACHZFKDDG3BUHNXU22WEOW2HBX4CIRDGAV6VY6NXWEM";
+process.env.STELLAR_RPC_URL = "https://soroban-testnet.stellar.org";
+process.env.PROJECT_FUNDING_CONTRACT_WASM_HASH = "test_contract_hash";
 
 let mongoServer: MongoMemoryReplSet;
 

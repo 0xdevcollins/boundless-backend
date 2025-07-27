@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import mongoose from "mongoose"; // Import mongoose for ObjectId validation
 import GrantApplication from "../models/grant-application.model";
 import { sendError, sendValidationError } from "../utils/apiResponse";
-import { sendSuccess} from "../utils/apiResponse";
+import { sendSuccess } from "../utils/apiResponse";
 import Project from "../models/project.model";
 import ContractService from "../services/contract.service";
 import Account from "../models/account.model";
@@ -15,10 +15,12 @@ enum ApplicationStatus {
 }
 
 const TRANSITION_RULES: { [key in ApplicationStatus]?: ApplicationStatus[] } = {
-  [ApplicationStatus.Submitted]: [ApplicationStatus.Paused, ApplicationStatus.Cancelled],
+  [ApplicationStatus.Submitted]: [
+    ApplicationStatus.Paused,
+    ApplicationStatus.Cancelled,
+  ],
   [ApplicationStatus.Paused]: [ApplicationStatus.Cancelled],
 };
-
 
 function isValidTransition(currentStatus: string, newStatus: string): boolean {
   const allowed = TRANSITION_RULES[currentStatus as ApplicationStatus];
@@ -26,7 +28,10 @@ function isValidTransition(currentStatus: string, newStatus: string): boolean {
   return allowed.includes(newStatus as ApplicationStatus);
 }
 
-export const updateGrantApplicationStatus = async (req: Request, res: Response) => {
+export const updateGrantApplicationStatus = async (
+  req: Request,
+  res: Response,
+) => {
   try {
     const { id } = req.params;
     const { status, reason } = req.body;
@@ -38,7 +43,12 @@ export const updateGrantApplicationStatus = async (req: Request, res: Response) 
 
     // Validate ID
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-      return sendError(res, "Invalid application ID", 400, "Application ID must be a valid MongoDB ObjectId");
+      return sendError(
+        res,
+        "Invalid application ID",
+        400,
+        "Application ID must be a valid MongoDB ObjectId",
+      );
     }
 
     // Validate status
@@ -47,7 +57,9 @@ export const updateGrantApplicationStatus = async (req: Request, res: Response) 
       !Object.values(ApplicationStatus).includes(status as ApplicationStatus)
     ) {
       return sendValidationError(res, "Invalid status", {
-        status: { msg: `Status must be one of: ${Object.values(ApplicationStatus).join(', ')}` },
+        status: {
+          msg: `Status must be one of: ${Object.values(ApplicationStatus).join(", ")}`,
+        },
       });
     }
 
@@ -61,13 +73,21 @@ export const updateGrantApplicationStatus = async (req: Request, res: Response) 
     // Fetch the application
     const application = await GrantApplication.findById(id);
     if (!application) {
-      return sendError(res, "Application not found", 404, "No application found with the provided ID");
+      return sendError(
+        res,
+        "Application not found",
+        404,
+        "No application found with the provided ID",
+      );
     }
 
     // Check if the transition is valid
     if (!isValidTransition(application.status, status)) {
-      return sendError(res, "Invalid status transition", 400, 
-        `Cannot change status from '${application.status}' to '${status}'.`
+      return sendError(
+        res,
+        "Invalid status transition",
+        400,
+        `Cannot change status from '${application.status}' to '${status}'.`,
       );
     }
 
@@ -87,7 +107,12 @@ export const updateGrantApplicationStatus = async (req: Request, res: Response) 
       });
       return sendError(res, "Validation failed", 400, validationErrors);
     }
-    return sendError(res, "Failed to update application status", 500, error.message);
+    return sendError(
+      res,
+      "Failed to update application status",
+      500,
+      error.message,
+    );
   }
 };
 
@@ -116,10 +141,12 @@ export const lockEscrow = async (req: Request, res: Response) => {
       "grant.applications._id": id,
       "grant.isGrant": true,
     });
-    if (!project) {
+    if (!project || !project.grant) {
       return sendError(res, "Grant application not found", 404);
     }
-    const application = project.grant.applications.id(id);
+    const application = project.grant.applications.find(
+      (app) => app._id?.toString() === id,
+    );
     if (!application) {
       return sendError(res, "Grant application not found in project", 404);
     }
@@ -139,9 +166,9 @@ export const lockEscrow = async (req: Request, res: Response) => {
     const walletAddress = account.providerAccountId;
 
     // Call Soroban/ContractService to lock funds in escrow
-    const contractService = new ContractService();
+    // ContractService is exported as a singleton instance
     try {
-      await contractService.fundProject({
+      await ContractService.fundProject({
         projectId: project._id.toString(),
         amount,
         walletAddress,

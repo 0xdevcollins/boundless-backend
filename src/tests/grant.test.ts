@@ -977,7 +977,7 @@ describe("Grant Application Feedback & Review Endpoints", () => {
     // Create a new application for rejection
     const grant = await Grant.findOne({ title: "Feedback Grant" });
     const rejectedApp = await GrantApplication.create({
-      grantId: grant._id,
+      grantId: grant!._id,
       title: "Reject Me",
       summary: "Should be rejected",
       applicantId: creatorUser._id,
