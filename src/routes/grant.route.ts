@@ -12,7 +12,6 @@ import {
 } from "../controllers/grant.controller";
 import { admin, protect } from "../middleware/auth";
 import { validateRequest } from "../middleware/validateRequest";
-import { updateGrantApplicationStatus } from "../controllers/grant-application.controller";
 
 const router = Router();
 
@@ -88,9 +87,6 @@ router.get("/my", protect, getMyGrants);
 
 // Get details for a particular grant by its ID (public)
 router.get("/:id", getGrantById);
-
-// Update grant application status (admin only)
-router.patch("/:id/status", protect, admin, updateGrantApplicationStatus);
 
 // Grant application feedback (public)
 router.get("/grant-applications/:id", getGrantApplicationWithFeedback);

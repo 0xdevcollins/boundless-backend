@@ -4,47 +4,7 @@ import mongoose, { Types } from "mongoose";
 import User, { UserRole, UserStatus, IUser } from "../models/user.model";
 import Campaign, { ICampaign } from "../models/campaign.model";
 import Milestone from "../models/milestone.model";
-
-async function createAndLoginUser(
-  email: string,
-  password: string,
-  role: UserRole,
-): Promise<{ user: IUser; token: string }> {
-  const user = await User.create({
-    email,
-    password,
-    isVerified: true,
-    profile: {
-      firstName: "Test",
-      lastName: "User",
-      username: email.split("@")[0],
-      avatar: "",
-      bio: "",
-      location: "",
-      website: "",
-      socialLinks: {},
-    },
-    settings: {
-      notifications: { email: true, push: true, inApp: true },
-      privacy: {
-        profileVisibility: "PUBLIC",
-        showWalletAddress: false,
-        showContributions: true,
-      },
-      preferences: { language: "en", timezone: "UTC", theme: "SYSTEM" },
-    },
-    stats: {},
-    status: UserStatus.ACTIVE,
-    badges: [],
-    roles: [{ role, grantedAt: new Date(), grantedBy: null, status: "ACTIVE" }],
-    contributedProjects: [],
-    lastLogin: new Date(),
-  });
-  const res = await request(app)
-    .post("/api/auth/login")
-    .send({ email, password });
-  return { user, token: res.body.data.accessToken };
-}
+import { TestUserFactory, cleanupTestData } from "./testHelpers";
 
 describe("PATCH /api/campaigns/:id/approve", () => {
   let adminToken: string;
@@ -53,25 +13,68 @@ describe("PATCH /api/campaigns/:id/approve", () => {
   let creatorId: Types.ObjectId;
   let campaignId: Types.ObjectId;
 
-  beforeAll(async () => {
-    if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(process.env.MONGO_URI || "", {});
-    }
-    // Create admin and creator users
-    const { user: admin, token: adminT } = await createAndLoginUser(
-      "admin@example.com",
-      "AdminPass123!",
-      UserRole.ADMIN,
-    );
-    adminToken = adminT;
-    adminId = admin._id;
-    const { user: creator, token: creatorT } = await createAndLoginUser(
-      "creator@example.com",
-      "CreatorPass123!",
-      UserRole.CREATOR,
-    );
-    creatorToken = creatorT;
-    creatorId = creator._id;
+  beforeEach(async () => {
+    // Clean up any existing data
+    await Campaign.deleteMany({});
+    await Milestone.deleteMany({});
+    await User.deleteMany({
+      email: { $in: ["admin@example.com", "creator@example.com"] },
+    });
+
+    // Create admin and creator users using TestUserFactory
+    const admin = await TestUserFactory.admin({
+      email: "admin@example.com",
+      profile: {
+        firstName: "Test",
+        lastName: "Admin",
+        username: "admin",
+        avatar: "",
+        bio: "",
+        location: "",
+        website: "",
+        socialLinks: {},
+      },
+      settings: {
+        notifications: { email: true, push: true, inApp: true },
+        privacy: {
+          profileVisibility: "PUBLIC",
+          showWalletAddress: false,
+          showContributions: true,
+        },
+        preferences: { language: "en", timezone: "UTC", theme: "SYSTEM" },
+      },
+      stats: {},
+    });
+
+    const creator = await TestUserFactory.creator({
+      email: "creator@example.com",
+      profile: {
+        firstName: "Test",
+        lastName: "Creator",
+        username: "creator",
+        avatar: "",
+        bio: "",
+        location: "",
+        website: "",
+        socialLinks: {},
+      },
+      settings: {
+        notifications: { email: true, push: true, inApp: true },
+        privacy: {
+          profileVisibility: "PUBLIC",
+          showWalletAddress: false,
+          showContributions: true,
+        },
+        preferences: { language: "en", timezone: "UTC", theme: "SYSTEM" },
+      },
+      stats: {},
+    });
+
+    adminToken = admin.token;
+    creatorToken = creator.token;
+    adminId = admin.user._id;
+    creatorId = creator.user._id;
+
     // Create a campaign (pending approval)
     const campaign = await Campaign.create({
       projectId: new mongoose.Types.ObjectId(),
@@ -84,6 +87,7 @@ describe("PATCH /api/campaigns/:id/approve", () => {
       createdAt: new Date(),
     });
     campaignId = campaign._id as Types.ObjectId;
+
     // Add a milestone
     await Milestone.create({
       campaignId: campaignId,
@@ -94,10 +98,7 @@ describe("PATCH /api/campaigns/:id/approve", () => {
   });
 
   afterAll(async () => {
-    await User.deleteMany({});
-    await Campaign.deleteMany({});
-    await Milestone.deleteMany({});
-    await mongoose.connection.close();
+    await cleanupTestData();
   });
 
   it("should require authentication", async () => {
@@ -214,25 +215,8 @@ describe("PATCH /api/campaigns/:id/approve", () => {
   });
 
   it("should approve a valid campaign", async () => {
-    // Create a valid campaign
-    const campaign = await Campaign.create({
-      projectId: new mongoose.Types.ObjectId(),
-      creatorId: creatorId,
-      goalAmount: 2000,
-      deadline: new Date(Date.now() + 86400000),
-      fundsRaised: 0,
-      status: "pending_approval",
-      documents: { whitepaper: "whitepaper.pdf", pitchDeck: "" },
-      createdAt: new Date(),
-    });
-    await Milestone.create({
-      campaignId: campaign._id,
-      title: "Milestone 1",
-      description: "First milestone",
-      index: 0,
-    });
     const res = await request(app)
-      .patch(`/api/campaigns/${campaign._id}/approve`)
+      .patch(`/api/campaigns/${campaignId}/approve`)
       .set("Authorization", `Bearer ${adminToken}`)
       .send();
     expect(res.status).toBe(200);

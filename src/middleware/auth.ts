@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { verifyToken, roleMiddleware } from "../utils/jwt.utils";
 import User, { IUser, UserRole } from "../models/user.model";
+import mongoose from "mongoose";
 
 declare global {
   namespace Express {
@@ -38,10 +39,43 @@ export const protect = async (
     req.user = user;
     next();
   } catch (error) {
-    console.error("Auth error:", error);
+    // Only log auth errors in non-test environments
+    if (process.env.NODE_ENV !== "test") {
+      console.error("Auth error:", error);
+    }
     res
       .status(401)
       .json({ success: false, message: "Not authorized, token failed" });
+  }
+};
+
+export const optionalAuth = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      // No token provided, continue without authentication
+      next();
+      return;
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decoded = verifyToken(token) as { userId: string };
+
+    // Use the already imported User model instead of dynamic import
+    const user = await User.findById(decoded.userId).select("-password");
+
+    if (user) {
+      req.user = user;
+    }
+    // Continue even if user is not found (invalid token)
+    next();
+  } catch (error) {
+    // Continue without authentication if token is invalid
+    next();
   }
 };
 

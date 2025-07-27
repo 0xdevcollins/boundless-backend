@@ -1,7 +1,7 @@
 import request from "supertest";
 import app from "../app";
 import mongoose from "mongoose";
-import Project from "../models/project.model";
+import Project, { ProjectType } from "../models/project.model";
 
 // Mock authentication middleware
 jest.mock("../middleware/auth", () => ({
@@ -14,16 +14,29 @@ jest.mock("../middleware/auth", () => ({
   },
 }));
 
+// Mock ContractService
+jest.mock("../services/contract.service", () => ({
+  fundProject: jest.fn().mockResolvedValue({ success: true }),
+}));
+
+// Mock Account model
+jest.mock("../models/account.model", () => ({
+  findOne: jest.fn().mockResolvedValue({
+    providerAccountId: "test-wallet-address",
+  }),
+}));
+
 describe("PATCH /api/grant-applications/:id/escrow", () => {
   let project: any;
   let applicationId: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Create a project with a grant application
     project = await Project.create({
       title: "Test Project",
       description: "desc",
       category: "cat",
+      type: ProjectType.GRANT,
       status: "DRAFT",
       owner: { type: new mongoose.Types.ObjectId(), ref: "User" },
       grant: {

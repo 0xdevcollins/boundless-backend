@@ -40,7 +40,7 @@ const addCommentSchema = [
     .notEmpty()
     .withMessage("Comment content is required")
     .isLength({ min: 1, max: 2000 })
-    .withMessage("Comment content must be between 1 and 2000 characters")
+    .withMessage("Comment content cannot exceed 2000 characters")
     .trim(),
   body("parentCommentId")
     .optional()

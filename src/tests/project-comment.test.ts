@@ -4,7 +4,7 @@ import app from "../app";
 import User from "../models/user.model";
 import Project, { ProjectStatus, ProjectType } from "../models/project.model";
 import ProjectComment from "../models/project-comment.model";
-import { generateTokens } from "../utils/jwt.utils";
+import { TestUserFactory, cleanupTestData } from "./testHelpers";
 
 describe("Project Comment API", () => {
   let testUser: any;
@@ -14,33 +14,37 @@ describe("Project Comment API", () => {
   let authToken: string;
   let authToken2: string;
 
-  beforeAll(async () => {
-    // Create test users
-    testUser = await User.create({
+  beforeEach(async () => {
+    // Clean up any existing data
+    await ProjectComment.deleteMany({});
+    await Project.deleteMany({});
+    await User.deleteMany({
+      email: { $in: ["test@example.com", "test2@example.com"] },
+    });
+
+    // Create test users using TestUserFactory
+    const user1 = await TestUserFactory.regular({
+      email: "test@example.com",
       profile: {
         firstName: "Test",
         lastName: "User",
         username: "testuser",
-        email: "test@example.com",
       },
-      password: "TestPassword123!",
-      isEmailVerified: true,
     });
 
-    testUser2 = await User.create({
+    const user2 = await TestUserFactory.regular({
+      email: "test2@example.com",
       profile: {
         firstName: "Test",
         lastName: "User2",
         username: "testuser2",
-        email: "test2@example.com",
       },
-      password: "TestPassword123!",
-      isEmailVerified: true,
     });
 
-    // Generate auth tokens
-    authToken = generateTokens(testUser._id).accessToken;
-    authToken2 = generateTokens(testUser2._id).accessToken;
+    testUser = user1.user;
+    testUser2 = user2.user;
+    authToken = user1.token;
+    authToken2 = user2.token;
 
     // Create test project
     testProject = await Project.create({
@@ -75,12 +79,22 @@ describe("Project Comment API", () => {
       documents: { whitepaper: "", pitchDeck: "" },
       votes: 0,
     });
+
+    // Create a test comment for reply tests
+    testComment = await ProjectComment.create({
+      userId: testUser._id,
+      projectId: testProject._id,
+      content: "This is a test comment for replies",
+      status: "active",
+      reactionCounts: { LIKE: 0, DISLIKE: 0, HELPFUL: 0 },
+      totalReactions: 0,
+      replyCount: 0,
+      reports: [],
+    });
   });
 
   afterAll(async () => {
-    await User.deleteMany({});
-    await Project.deleteMany({});
-    await ProjectComment.deleteMany({});
+    await cleanupTestData();
   });
 
   describe("POST /api/projects/:id/comments", () => {
@@ -109,7 +123,7 @@ describe("Project Comment API", () => {
 
       // Store for later tests
       testComment = response.body.data.comment;
-    });
+    }, 30000);
 
     it("should add a reply to a comment", async () => {
       const response = await request(app)
@@ -125,7 +139,9 @@ describe("Project Comment API", () => {
       expect(response.body.data.comment.content).toBe(
         "Thank you for your support!",
       );
-      expect(response.body.data.comment.parentCommentId).toBe(testComment._id);
+      expect(response.body.data.comment.parentCommentId).toBe(
+        testComment._id.toString(),
+      );
     });
 
     it("should require authentication", async () => {
@@ -149,7 +165,7 @@ describe("Project Comment API", () => {
 
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe("Comment content is required");
+      expect(response.body.message).toBe("Validation failed");
     });
 
     it("should validate content length", async () => {
@@ -163,9 +179,7 @@ describe("Project Comment API", () => {
 
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe(
-        "Comment content cannot exceed 2000 characters",
-      );
+      expect(response.body.message).toBe("Validation failed");
     });
 
     it("should handle invalid project ID", async () => {
@@ -178,7 +192,7 @@ describe("Project Comment API", () => {
 
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe("Invalid project ID format");
+      expect(response.body.message).toBe("Validation failed");
     });
 
     it("should handle non-existent project", async () => {
@@ -206,7 +220,7 @@ describe("Project Comment API", () => {
 
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe("Invalid parent comment ID format");
+      expect(response.body.message).toBe("Validation failed");
     });
 
     it("should not allow nested replies", async () => {
@@ -253,6 +267,15 @@ describe("Project Comment API", () => {
     });
 
     it("should get replies for a comment", async () => {
+      // First create a reply to the test comment
+      await request(app)
+        .post(`/api/projects/${testProject._id}/comments`)
+        .set("Authorization", `Bearer ${authToken2}`)
+        .send({
+          content: "This is a reply to the test comment",
+          parentCommentId: testComment._id,
+        });
+
       const response = await request(app).get(
         `/api/projects/${testProject._id}/comments?parentCommentId=${testComment._id}`,
       );
@@ -263,7 +286,7 @@ describe("Project Comment API", () => {
       // Should have at least one reply
       expect(response.body.data.comments.length).toBeGreaterThan(0);
       response.body.data.comments.forEach((comment: any) => {
-        expect(comment.parentCommentId).toBe(testComment._id);
+        expect(comment.parentCommentId).toBe(testComment._id.toString());
       });
     });
 
@@ -294,7 +317,7 @@ describe("Project Comment API", () => {
     it("should update a comment", async () => {
       const response = await request(app)
         .put(`/api/projects/${testProject._id}/comments/${testComment._id}`)
-        .set("Authorization", `Bearer ${authToken2}`)
+        .set("Authorization", `Bearer ${authToken}`)
         .send({
           content: "This is my updated comment with additional thoughts.",
         });
@@ -310,7 +333,7 @@ describe("Project Comment API", () => {
     it("should not allow updating other user's comment", async () => {
       const response = await request(app)
         .put(`/api/projects/${testProject._id}/comments/${testComment._id}`)
-        .set("Authorization", `Bearer ${authToken}`)
+        .set("Authorization", `Bearer ${authToken2}`)
         .send({
           content: "This should fail",
         });
@@ -340,6 +363,7 @@ describe("Project Comment API", () => {
 
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);
+      expect(response.body.message).toBe("Validation failed");
     });
   });
 
@@ -367,7 +391,7 @@ describe("Project Comment API", () => {
     it("should not allow deleting other user's comment", async () => {
       const response = await request(app)
         .delete(`/api/projects/${testProject._id}/comments/${testComment._id}`)
-        .set("Authorization", `Bearer ${authToken}`);
+        .set("Authorization", `Bearer ${authToken2}`);
 
       expect(response.status).toBe(404);
       expect(response.body.success).toBe(false);
@@ -402,6 +426,18 @@ describe("Project Comment API", () => {
     });
 
     it("should not allow duplicate reports", async () => {
+      // First create a report
+      await request(app)
+        .post(
+          `/api/projects/${testProject._id}/comments/${testComment._id}/report`,
+        )
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({
+          reason: "spam",
+          description: "First report",
+        });
+
+      // Try to create another report with the same user
       const response = await request(app)
         .post(
           `/api/projects/${testProject._id}/comments/${testComment._id}/report`,

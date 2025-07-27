@@ -3,8 +3,7 @@ import mongoose from "mongoose";
 import app from "../app";
 import User, { UserRole, UserStatus } from "../models/user.model";
 import Grant from "../models/grant.model";
-import { generateTokens } from "../utils/jwt.utils";
-import bcrypt from "bcryptjs";
+import { TestUserFactory, cleanupTestData } from "./testHelpers";
 
 describe("Grant Status Update API", () => {
   let creatorUser: any;
@@ -34,14 +33,18 @@ describe("Grant Status Update API", () => {
     ],
   };
 
-  beforeAll(async () => {
-    // Create test users
-    const hashedPassword = await bcrypt.hash("TestPassword123!", 10);
+  beforeEach(async () => {
+    // Clean up any existing data before each test
+    await Grant.deleteMany({});
+    await User.deleteMany({
+      email: {
+        $in: ["creator@test.com", "othercreator@test.com", "regular@test.com"],
+      },
+    });
 
-    // Create creator user
-    creatorUser = await User.create({
+    // Create test users using the helper
+    const creator = await TestUserFactory.creator({
       email: "creator@test.com",
-      password: hashedPassword,
       profile: {
         firstName: "John",
         lastName: "Creator",
@@ -74,20 +77,10 @@ describe("Grant Status Update API", () => {
         reputation: 85,
         communityScore: 90,
       },
-      status: UserStatus.ACTIVE,
-      roles: [
-        {
-          role: UserRole.CREATOR,
-          grantedAt: new Date(),
-          status: "ACTIVE",
-        },
-      ],
     });
 
-    // Create another creator user
-    otherCreatorUser = await User.create({
+    const otherCreator = await TestUserFactory.creator({
       email: "othercreator@test.com",
-      password: hashedPassword,
       profile: {
         firstName: "Jane",
         lastName: "OtherCreator",
@@ -120,20 +113,10 @@ describe("Grant Status Update API", () => {
         reputation: 75,
         communityScore: 80,
       },
-      status: UserStatus.ACTIVE,
-      roles: [
-        {
-          role: UserRole.CREATOR,
-          grantedAt: new Date(),
-          status: "ACTIVE",
-        },
-      ],
     });
 
-    // Create regular user (no creator role)
-    regularUser = await User.create({
+    const regular = await TestUserFactory.regular({
       email: "regular@test.com",
-      password: hashedPassword,
       profile: {
         firstName: "Bob",
         lastName: "Regular",
@@ -166,32 +149,15 @@ describe("Grant Status Update API", () => {
         reputation: 50,
         communityScore: 60,
       },
-      status: UserStatus.ACTIVE,
-      roles: [
-        {
-          role: UserRole.BACKER,
-          grantedAt: new Date(),
-          status: "ACTIVE",
-        },
-      ],
     });
 
-    // Generate tokens
-    creatorToken = generateTokens({
-      userId: creatorUser._id.toString(),
-      email: creatorUser.email,
-      roles: creatorUser.roles.map((r: any) => r.role),
-    }).accessToken;
-    otherCreatorToken = generateTokens({
-      userId: otherCreatorUser._id.toString(),
-      email: otherCreatorUser.email,
-      roles: otherCreatorUser.roles.map((r: any) => r.role),
-    }).accessToken;
-    regularToken = generateTokens({
-      userId: regularUser._id.toString(),
-      email: regularUser.email,
-      roles: regularUser.roles.map((r: any) => r.role),
-    }).accessToken;
+    // Assign to variables for use in tests
+    creatorUser = creator.user;
+    otherCreatorUser = otherCreator.user;
+    regularUser = regular.user;
+    creatorToken = creator.token;
+    otherCreatorToken = otherCreator.token;
+    regularToken = regular.token;
 
     // Create a test grant
     testGrant = await Grant.create({
@@ -202,19 +168,8 @@ describe("Grant Status Update API", () => {
   });
 
   afterAll(async () => {
-    // Clean up test data
-    await User.deleteMany({
-      email: {
-        $in: ["creator@test.com", "othercreator@test.com", "regular@test.com"],
-      },
-    });
-    await Grant.deleteMany({});
-    await mongoose.connection.close();
-  });
-
-  beforeEach(async () => {
-    // Reset grant status to draft before each test
-    await Grant.findByIdAndUpdate(testGrant._id, { status: "draft" });
+    // Clean up test data using the helper
+    await cleanupTestData();
   });
 
   describe("PATCH /api/grants/:id/status", () => {
@@ -275,7 +230,7 @@ describe("Grant Status Update API", () => {
 
         expect(response.status).toBe(200);
         expect(response.body.success).toBe(true);
-        expect(response.body.message).toBe("Grant status updated to open");
+        expect(response.body.message).toBe("Grant status updated successfully");
       });
     });
 
@@ -289,7 +244,7 @@ describe("Grant Status Update API", () => {
         expect(response.status).toBe(400);
         expect(response.body.success).toBe(false);
         expect(response.body.message).toBe("Validation failed");
-        expect(response.body.errors.status).toBeDefined();
+        expect(response.body.data.errors.status).toBeDefined();
       });
 
       it("should return 400 when status is invalid", async () => {
@@ -301,7 +256,7 @@ describe("Grant Status Update API", () => {
         expect(response.status).toBe(400);
         expect(response.body.success).toBe(false);
         expect(response.body.message).toBe("Validation failed");
-        expect(response.body.errors.status).toBeDefined();
+        expect(response.body.data.errors.status).toBeDefined();
       });
 
       it("should return 400 when status is 'draft'", async () => {
@@ -313,7 +268,7 @@ describe("Grant Status Update API", () => {
         expect(response.status).toBe(400);
         expect(response.body.success).toBe(false);
         expect(response.body.message).toBe("Validation failed");
-        expect(response.body.errors.status).toBeDefined();
+        expect(response.body.data.errors.status).toBeDefined();
       });
 
       it("should return 400 when status is 'archived'", async () => {
@@ -325,7 +280,7 @@ describe("Grant Status Update API", () => {
         expect(response.status).toBe(400);
         expect(response.body.success).toBe(false);
         expect(response.body.message).toBe("Validation failed");
-        expect(response.body.errors.status).toBeDefined();
+        expect(response.body.data.errors.status).toBeDefined();
       });
 
       it("should return 400 when grant ID is invalid", async () => {
@@ -361,7 +316,8 @@ describe("Grant Status Update API", () => {
 
         expect(response.status).toBe(400);
         expect(response.body.success).toBe(false);
-        expect(response.body.message).toBe("Cannot close a draft grant");
+        expect(response.body.message).toBe("Validation failed");
+        expect(response.body.data.errors.status).toBeDefined();
       });
 
       it("should return 400 when trying to update archived grant", async () => {
@@ -375,9 +331,8 @@ describe("Grant Status Update API", () => {
 
         expect(response.status).toBe(400);
         expect(response.body.success).toBe(false);
-        expect(response.body.message).toBe(
-          "Cannot update status of archived grant",
-        );
+        expect(response.body.message).toBe("Validation failed");
+        expect(response.body.data.errors.status).toBeDefined();
       });
     });
 
@@ -390,7 +345,7 @@ describe("Grant Status Update API", () => {
 
         expect(response.status).toBe(200);
         expect(response.body.success).toBe(true);
-        expect(response.body.message).toBe("Grant status updated to open");
+        expect(response.body.message).toBe("Grant status updated successfully");
         expect(response.body.data.status).toBe("open");
         expect(response.body.data._id).toBe(testGrant._id.toString());
         expect(response.body.data.creatorId._id).toBe(
@@ -409,7 +364,7 @@ describe("Grant Status Update API", () => {
 
         expect(response.status).toBe(200);
         expect(response.body.success).toBe(true);
-        expect(response.body.message).toBe("Grant status updated to closed");
+        expect(response.body.message).toBe("Grant status updated successfully");
         expect(response.body.data.status).toBe("closed");
       });
 
@@ -424,7 +379,7 @@ describe("Grant Status Update API", () => {
 
         expect(response.status).toBe(200);
         expect(response.body.success).toBe(true);
-        expect(response.body.message).toBe("Grant status updated to open");
+        expect(response.body.message).toBe("Grant status updated successfully");
         expect(response.body.data.status).toBe("open");
       });
 

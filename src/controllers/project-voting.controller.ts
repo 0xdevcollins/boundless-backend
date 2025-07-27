@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import Vote, { type IVote } from "../models/vote.model";
+import Vote, { IVote } from "../models/vote.model";
 import Project, { ProjectStatus } from "../models/project.model";
 import Crowdfund, { CrowdfundStatus } from "../models/crowdfund.model";
 import User from "../models/user.model";
@@ -106,15 +106,29 @@ export const voteOnProject = async (
       isNewVote = true;
     }
 
-    // Update project vote counts
-    const voteCounts = await Vote.getVoteCounts(
-      new mongoose.Types.ObjectId(projectId),
-    );
-    const voteData = voteCounts[0] || {
-      upvotes: 0,
-      downvotes: 0,
-      totalVotes: 0,
-      netVotes: 0,
+    // Update user voting stats
+    if (isNewVote) {
+      await User.findByIdAndUpdate(
+        userId,
+        {
+          $inc: { "stats.votesCast": 1 },
+        },
+        { session },
+      );
+    }
+
+    // Update project vote counts (after vote is saved)
+    // Count votes manually instead of using aggregation
+    const [upvotes, downvotes] = await Promise.all([
+      Vote.countDocuments({ projectId, value: 1 }).session(session),
+      Vote.countDocuments({ projectId, value: -1 }).session(session),
+    ]);
+
+    const voteData = {
+      upvotes,
+      downvotes,
+      totalVotes: upvotes + downvotes,
+      netVotes: upvotes - downvotes,
     };
 
     // Update project votes field
@@ -136,17 +150,6 @@ export const voteOnProject = async (
     if (crowdfund) {
       crowdfund.totalVotes = voteData.totalVotes;
       await crowdfund.save({ session });
-    }
-
-    // Update user voting stats
-    if (isNewVote) {
-      await User.findByIdAndUpdate(
-        userId,
-        {
-          $inc: { "stats.votesCast": 1 },
-        },
-        { session },
-      );
     }
 
     await session.commitTransaction();
@@ -259,7 +262,7 @@ export const getProjectVotes = async (
     const skip = (pageNum - 1) * limitNum;
 
     // Get votes and counts
-    const [votes, totalCount, voteCounts] = await Promise.all([
+    const [votes, totalCount, upvotes, downvotes] = await Promise.all([
       Vote.find(filter)
         .populate(
           "userId",
@@ -271,24 +274,25 @@ export const getProjectVotes = async (
         .limit(limitNum)
         .lean(),
       Vote.countDocuments(filter),
-      Vote.getVoteCounts(new mongoose.Types.ObjectId(projectId)),
+      Vote.countDocuments({ projectId, value: 1 }),
+      Vote.countDocuments({ projectId, value: -1 }),
     ]);
 
-    const voteData = voteCounts[0] || {
-      upvotes: 0,
-      downvotes: 0,
-      totalVotes: 0,
-      netVotes: 0,
+    const voteData = {
+      upvotes,
+      downvotes,
+      totalVotes: upvotes + downvotes,
+      netVotes: upvotes - downvotes,
     };
     const totalPages = Math.ceil(totalCount / limitNum);
 
     // Check if current user has voted (if authenticated)
     let userVote = null;
     if (req.user?._id) {
-      userVote = await Vote.getUserVote(
-        req.user._id,
-        new mongoose.Types.ObjectId(projectId),
-      );
+      userVote = await Vote.findOne({
+        userId: req.user._id,
+        projectId: new mongoose.Types.ObjectId(projectId),
+      }).lean();
     }
 
     interface VoteResponse {
@@ -493,14 +497,22 @@ async function checkAndUpdateProjectStatus(projectId: string): Promise<void> {
     }
 
     // Get current vote counts
-    const voteCounts = await Vote.getVoteCounts(
-      new mongoose.Types.ObjectId(projectId),
-    );
-    const voteData = voteCounts[0] || {
-      upvotes: 0,
-      downvotes: 0,
-      totalVotes: 0,
-      netVotes: 0,
+    const [upvotes, downvotes] = await Promise.all([
+      Vote.countDocuments({
+        projectId: new mongoose.Types.ObjectId(projectId),
+        value: 1,
+      }).session(session),
+      Vote.countDocuments({
+        projectId: new mongoose.Types.ObjectId(projectId),
+        value: -1,
+      }).session(session),
+    ]);
+
+    const voteData = {
+      upvotes,
+      downvotes,
+      totalVotes: upvotes + downvotes,
+      netVotes: upvotes - downvotes,
     };
 
     // Check if threshold is met

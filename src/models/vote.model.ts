@@ -68,22 +68,12 @@ VoteSchema.statics.getVoteCounts = function (projectId: Types.ObjectId) {
     { $match: { projectId } },
     {
       $group: {
-        _id: "$value",
-        count: { $sum: 1 },
-      },
-    },
-    {
-      $group: {
         _id: null,
         upvotes: {
-          $sum: {
-            $cond: [{ $eq: ["$_id", 1] }, "$count", 0],
-          },
+          $sum: { $cond: [{ $eq: ["$value", 1] }, 1, 0] },
         },
         downvotes: {
-          $sum: {
-            $cond: [{ $eq: ["$_id", -1] }, "$count", 0],
-          },
+          $sum: { $cond: [{ $eq: ["$value", -1] }, 1, 0] },
         },
       },
     },
