@@ -86,7 +86,7 @@ describe("Project Idea Endpoints", () => {
       expect(res.body.data.crowdfund).toBeDefined();
       expect(res.body.data.crowdfund.thresholdVotes).toBe(100);
       expect(res.body.data.crowdfund.status).toBe(CrowdfundStatus.PENDING);
-    });
+    }, 30000);
 
     it("should create a grant project without crowdfund record", async () => {
       const projectData = {

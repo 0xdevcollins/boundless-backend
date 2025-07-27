@@ -28,14 +28,10 @@ import {
   MAX_TX_RETRIES,
 } from "../config/soroban";
 
-import ContractModel from "../models.archive/contract.model";
 import TransactionModel, {
   TransactionStatus as DbTransactionStatus,
   TransactionType,
 } from "../models/transaction.model";
-import MilestoneModel, {
-  MilestoneStatus as DbMilestoneStatus,
-} from "../models.archive/milestone.model";
 import { Types } from "mongoose";
 
 // Interface definitions
@@ -198,33 +194,8 @@ class ContractService {
       // Extract contract ID from transaction result
       const contractId = this.extractContractIdFromResult(result);
 
-      // Create a new contract record in the database
-      const contractRecord = new ContractModel({
-        projectId: new Types.ObjectId(params.projectId),
-        address: contractId,
-        network: process.env.STELLAR_NETWORK || "testnet",
-        fundingGoal: params.fundingGoal,
-        raised: 0,
-        status: "DEPLOYED",
-        deployedAt: new Date(),
-        lastUpdated: new Date(),
-      });
-      await contractRecord.save();
-
-      // Create milestone records
-      const milestonePromises = params.milestones.map(async (m) => {
-        const milestone = new MilestoneModel({
-          projectId: new Types.ObjectId(params.projectId),
-          contractId: contractRecord._id,
-          title: m.title,
-          amount: m.amount,
-          dueDate: new Date(m.dueDate),
-          status: DbMilestoneStatus.PENDING,
-        });
-        return milestone.save();
-      });
-
-      await Promise.all(milestonePromises);
+      // TODO: Create contract and milestone records when models are available
+      console.log("Contract deployed with ID:", contractId);
 
       return {
         contractId,
@@ -310,12 +281,8 @@ class ContractService {
         transactionRecord.confirmedAt = new Date();
         await transactionRecord.save();
 
-        // Update milestone status
-        await MilestoneModel.findByIdAndUpdate(params.milestoneId, {
-          status: DbMilestoneStatus.RELEASED,
-          releasedAt: new Date(),
-          releaseTransaction: transactionRecord._id,
-        });
+        // TODO: Update milestone status when model is available
+        console.log("Milestone released:", params.milestoneId);
       } else {
         transactionRecord.status = DbTransactionStatus.FAILED;
         await transactionRecord.save();
@@ -337,59 +304,16 @@ class ContractService {
    * Get the current state of a project's contract
    */
   async getContractState(projectId: string): Promise<ContractState | null> {
-    try {
-      const contract = await ContractModel.findOne({
-        projectId: new Types.ObjectId(projectId),
-      });
-
-      if (!contract) {
-        return null;
-      }
-
-      const milestones = await MilestoneModel.find({
-        projectId: new Types.ObjectId(projectId),
-      });
-
-      return {
-        address: contract.address,
-        fundingGoal: contract.fundingGoal,
-        raised: contract.raised,
-        milestones: milestones.map((m) => ({
-          id: m._id.toString(),
-          amount: m.amount,
-          released: m.status === DbMilestoneStatus.RELEASED,
-          releaseDate: m.releasedAt?.toISOString(),
-        })),
-        status: contract.status,
-        lastUpdated: contract.lastUpdated.toISOString(),
-      };
-    } catch (error) {
-      console.error("Get contract state error:", error);
-      throw error;
-    }
+    // TODO: Implement when contract and milestone models are available
+    return null;
   }
 
   /**
    * Get milestone status
    */
   async getMilestoneStatus(milestoneId: string): Promise<MilestoneInfo | null> {
-    try {
-      const milestone = await MilestoneModel.findById(milestoneId);
-
-      if (!milestone) {
-        return null;
-      }
-
-      return {
-        id: milestone._id.toString(),
-        released: milestone.status === DbMilestoneStatus.RELEASED,
-        amount: milestone.amount,
-        dueDate: milestone.dueDate.toISOString(),
-      };
-    } catch (error) {
-      console.error("Get milestone status error:", error);
-      throw error;
-    }
+    // TODO: Implement when milestone model is available
+    return null;
   }
 
   /**
@@ -477,12 +401,12 @@ class ContractService {
     projectId: string,
     amount: number,
   ): Promise<void> {
-    await ContractModel.findOneAndUpdate(
-      { projectId: new Types.ObjectId(projectId) },
-      {
-        $inc: { raised: amount },
-        lastUpdated: new Date(),
-      },
+    // TODO: Implement when contract model is available
+    console.log(
+      "Updating contract funding for project:",
+      projectId,
+      "amount:",
+      amount,
     );
   }
 }

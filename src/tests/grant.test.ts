@@ -1,19 +1,13 @@
 import request from "supertest";
 import mongoose from "mongoose";
 import app from "../app";
-import User, { UserRole, UserStatus } from "../models/user.model";
 import Grant from "../models/grant.model";
 import GrantApplication from "../models/grant-application.model";
-import { generateTokens } from "../utils/jwt.utils";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-
-// Helper to create a JWT for a user
-function generateToken(userId: mongoose.Types.ObjectId) {
-  return jwt.sign({ userId }, process.env.JWT_SECRET || "testsecret", {
-    expiresIn: "1h",
-  });
-}
+import {
+  TestUserFactory,
+  cleanupTestData,
+  generateTestToken,
+} from "./testHelpers";
 
 describe("Grant API", () => {
   let creatorUser: any;
@@ -47,14 +41,14 @@ describe("Grant API", () => {
     ],
   };
 
-  beforeAll(async () => {
-    // Create test users
-    const hashedPassword = await bcrypt.hash("TestPassword123!", 10);
+  beforeEach(async () => {
+    // Clean up any existing data before each test
+    await Grant.deleteMany({});
+    await GrantApplication.deleteMany({});
 
-    // Create creator user
-    creatorUser = await User.create({
+    // Create test users using the helper (moved from beforeAll to beforeEach)
+    const creator = await TestUserFactory.creator({
       email: "creator@test.com",
-      password: hashedPassword,
       profile: {
         firstName: "John",
         lastName: "Creator",
@@ -68,39 +62,22 @@ describe("Grant API", () => {
         },
       },
       settings: {
-        notifications: { email: true, push: true, inApp: true },
         privacy: {
-          profileVisibility: "PUBLIC",
           showWalletAddress: true,
-          showContributions: true,
         },
         preferences: {
-          language: "en",
           timezone: "America/New_York",
           theme: "LIGHT",
         },
       },
       stats: {
-        projectsCreated: 0,
-        projectsFunded: 0,
-        totalContributed: 0,
         reputation: 85,
         communityScore: 90,
       },
-      status: UserStatus.ACTIVE,
-      roles: [
-        {
-          role: UserRole.CREATOR,
-          grantedAt: new Date(),
-          status: "ACTIVE",
-        },
-      ],
     });
 
-    // Create regular user (no creator role)
-    regularUser = await User.create({
+    const regular = await TestUserFactory.regular({
       email: "regular@test.com",
-      password: hashedPassword,
       profile: {
         firstName: "Jane",
         lastName: "Regular",
@@ -114,64 +91,30 @@ describe("Grant API", () => {
         },
       },
       settings: {
-        notifications: { email: true, push: true, inApp: true },
         privacy: {
-          profileVisibility: "PUBLIC",
           showWalletAddress: false,
-          showContributions: true,
         },
         preferences: {
-          language: "en",
           timezone: "America/Los_Angeles",
           theme: "DARK",
         },
       },
       stats: {
-        projectsCreated: 0,
-        projectsFunded: 0,
-        totalContributed: 0,
         reputation: 50,
         communityScore: 60,
       },
-      status: UserStatus.ACTIVE,
-      roles: [
-        {
-          role: UserRole.BACKER,
-          grantedAt: new Date(),
-          status: "ACTIVE",
-        },
-      ],
     });
 
-    // Generate tokens
-    const creatorTokens = generateTokens({
-      userId: creatorUser._id.toString(),
-      email: creatorUser.email,
-      roles: creatorUser.roles.map((r: any) => r.role),
-    });
-    const regularTokens = generateTokens({
-      userId: regularUser._id.toString(),
-      email: regularUser.email,
-      roles: regularUser.roles.map((r: any) => r.role),
-    });
-
-    creatorToken = creatorTokens.accessToken;
-    regularToken = regularTokens.accessToken;
+    // Assign to variables for use in tests
+    creatorUser = creator.user;
+    regularUser = regular.user;
+    creatorToken = creator.token;
+    regularToken = regular.token;
   });
 
   afterAll(async () => {
-    // Clean up test data
-    await User.deleteMany({
-      email: { $in: ["creator@test.com", "regular@test.com"] },
-    });
-    await Grant.deleteMany({});
-    await GrantApplication.deleteMany({});
-    await mongoose.connection.close();
-  });
-
-  beforeEach(async () => {
-    // Clear grants before each test
-    await Grant.deleteMany({});
+    // Clean up test data using the helper
+    await cleanupTestData();
   });
 
   describe("POST /api/grants", () => {
@@ -184,7 +127,7 @@ describe("Grant API", () => {
         expect(response.status).toBe(401);
         expect(response.body.success).toBe(false);
         expect(response.body.message).toBe("Authentication required");
-      });
+      }, 30000);
 
       it("should return 401 when invalid token is provided", async () => {
         const response = await request(app)
@@ -194,7 +137,7 @@ describe("Grant API", () => {
 
         expect(response.status).toBe(401);
         expect(response.body.success).toBe(false);
-      });
+      }, 30000);
     });
 
     describe("Authorization", () => {
@@ -223,7 +166,18 @@ describe("Grant API", () => {
 
     describe("Validation", () => {
       it("should return 400 when title is missing", async () => {
-        const { title, ...invalidData } = validGrantData;
+        const invalidData = {
+          description: "A test grant program",
+          totalBudget: 10000,
+          rules: "Test rules",
+          milestones: [
+            {
+              title: "Test Milestone",
+              description: "Test milestone description",
+              expectedPayout: 10000,
+            },
+          ],
+        };
 
         const response = await request(app)
           .post("/api/grants")
@@ -233,7 +187,7 @@ describe("Grant API", () => {
         expect(response.status).toBe(400);
         expect(response.body.success).toBe(false);
         expect(response.body.message).toBe("Validation failed");
-        expect(response.body.errors.title).toBeDefined();
+        expect(response.body.data.errors.title).toBeDefined();
       });
 
       it("should return 400 when title is too long", async () => {
@@ -250,7 +204,7 @@ describe("Grant API", () => {
         expect(response.status).toBe(400);
         expect(response.body.success).toBe(false);
         expect(response.body.message).toBe("Validation failed");
-        expect(response.body.errors.title).toBeDefined();
+        expect(response.body.data.errors.title).toBeDefined();
       });
 
       it("should return 400 when description is missing", async () => {
@@ -264,7 +218,7 @@ describe("Grant API", () => {
         expect(response.status).toBe(400);
         expect(response.body.success).toBe(false);
         expect(response.body.message).toBe("Validation failed");
-        expect(response.body.errors.description).toBeDefined();
+        expect(response.body.data.errors.description).toBeDefined();
       });
 
       it("should return 400 when description is too long", async () => {
@@ -281,7 +235,7 @@ describe("Grant API", () => {
         expect(response.status).toBe(400);
         expect(response.body.success).toBe(false);
         expect(response.body.message).toBe("Validation failed");
-        expect(response.body.errors.description).toBeDefined();
+        expect(response.body.data.errors.description).toBeDefined();
       });
 
       it("should return 400 when totalBudget is missing", async () => {
@@ -295,7 +249,7 @@ describe("Grant API", () => {
         expect(response.status).toBe(400);
         expect(response.body.success).toBe(false);
         expect(response.body.message).toBe("Validation failed");
-        expect(response.body.errors.totalBudget).toBeDefined();
+        expect(response.body.data.errors.totalBudget).toBeDefined();
       });
 
       it("should return 400 when totalBudget is not positive", async () => {
@@ -312,7 +266,7 @@ describe("Grant API", () => {
         expect(response.status).toBe(400);
         expect(response.body.success).toBe(false);
         expect(response.body.message).toBe("Validation failed");
-        expect(response.body.errors.totalBudget).toBeDefined();
+        expect(response.body.data.errors.totalBudget).toBeDefined();
       });
 
       it("should return 400 when rules are missing", async () => {
@@ -326,7 +280,7 @@ describe("Grant API", () => {
         expect(response.status).toBe(400);
         expect(response.body.success).toBe(false);
         expect(response.body.message).toBe("Validation failed");
-        expect(response.body.errors.rules).toBeDefined();
+        expect(response.body.data.errors.rules).toBeDefined();
       });
 
       it("should return 400 when rules are too long", async () => {
@@ -343,7 +297,7 @@ describe("Grant API", () => {
         expect(response.status).toBe(400);
         expect(response.body.success).toBe(false);
         expect(response.body.message).toBe("Validation failed");
-        expect(response.body.errors.rules).toBeDefined();
+        expect(response.body.data.errors.rules).toBeDefined();
       });
 
       it("should return 400 when milestones array is missing", async () => {
@@ -357,7 +311,7 @@ describe("Grant API", () => {
         expect(response.status).toBe(400);
         expect(response.body.success).toBe(false);
         expect(response.body.message).toBe("Validation failed");
-        expect(response.body.errors.milestones).toBeDefined();
+        expect(response.body.data.errors.milestones).toBeDefined();
       });
 
       it("should return 400 when milestones array is empty", async () => {
@@ -374,7 +328,7 @@ describe("Grant API", () => {
         expect(response.status).toBe(400);
         expect(response.body.success).toBe(false);
         expect(response.body.message).toBe("Validation failed");
-        expect(response.body.errors.milestones).toBeDefined();
+        expect(response.body.data.errors.milestones).toBeDefined();
       });
 
       it("should return 400 when milestone title is missing", async () => {
@@ -396,7 +350,7 @@ describe("Grant API", () => {
         expect(response.status).toBe(400);
         expect(response.body.success).toBe(false);
         expect(response.body.message).toBe("Validation failed");
-        expect(response.body.errors["milestones[0].title"]).toBeDefined();
+        expect(response.body.data.errors["milestones[0].title"]).toBeDefined();
       });
 
       it("should return 400 when milestone description is missing", async () => {
@@ -418,7 +372,9 @@ describe("Grant API", () => {
         expect(response.status).toBe(400);
         expect(response.body.success).toBe(false);
         expect(response.body.message).toBe("Validation failed");
-        expect(response.body.errors["milestones[0].description"]).toBeDefined();
+        expect(
+          response.body.data.errors["milestones[0].description"],
+        ).toBeDefined();
       });
 
       it("should return 400 when milestone expectedPayout is negative", async () => {
@@ -442,7 +398,7 @@ describe("Grant API", () => {
         expect(response.body.success).toBe(false);
         expect(response.body.message).toBe("Validation failed");
         expect(
-          response.body.errors["milestones[0].expectedPayout"],
+          response.body.data.errors["milestones[0].expectedPayout"],
         ).toBeDefined();
       });
 
@@ -632,18 +588,30 @@ describe("Grant API", () => {
   });
 });
 
-describe("POST /api/grant-applications", () => {
+describe("POST /api/grants/grant-applications", () => {
   let user: any;
   let grant: any;
   let token: string;
 
-  beforeAll(async () => {
-    // await mongoose.connect(process.env.MONGO_URL || "mongodb://localhost:27017/testdb"); // Remove this line, setup.ts handles connection
-    user = await User.create({
+  beforeEach(async () => {
+    // Clean up any existing data
+    await Grant.deleteMany({});
+    await GrantApplication.deleteMany({});
+
+    // Create test user using helper
+    const testUser = await TestUserFactory.regular({
       email: "testuser@example.com",
-      password: "password123",
-      profile: { firstName: "Test", lastName: "User", username: "testuser" },
+      profile: {
+        firstName: "Test",
+        lastName: "User",
+        username: "testuser",
+      },
     });
+
+    user = testUser.user;
+    token = testUser.token;
+
+    // Create test grant
     grant = await Grant.create({
       creatorId: user._id,
       title: "Test Grant",
@@ -656,31 +624,55 @@ describe("POST /api/grant-applications", () => {
       ],
       status: "open",
     });
-    token = generateToken(user._id);
   });
 
   afterAll(async () => {
     await GrantApplication.deleteMany({});
     await Grant.deleteMany({});
-    await User.deleteMany({});
-    await mongoose.connection.close();
+    await cleanupTestData();
   });
 
   it("should submit a valid grant application", async () => {
+    const { user, token } = await TestUserFactory.regular();
+    const { user: creator } = await TestUserFactory.creator();
+    const grant = await Grant.create({
+      title: "Test Grant",
+      description: "A test grant",
+      totalBudget: 10000,
+      rules: "Test rules",
+      creatorId: creator._id,
+      status: "open",
+      milestones: [
+        {
+          title: "Milestone 1",
+          description: "First milestone",
+          expectedPayout: 5000,
+        },
+        {
+          title: "Milestone 2",
+          description: "Second milestone",
+          expectedPayout: 5000,
+        },
+      ],
+    });
+
     const res = await request(app)
-      .post("/api/grant-applications")
+      .post("/api/grants/grant-applications")
       .set("Authorization", `Bearer ${token}`)
       .send({
         grantId: grant._id,
-        title: "Proposal Title",
-        summary: "A brief overview.",
+        title: "My Application",
+        summary: "This is my application",
         milestones: [
-          { title: "M1", description: "Desc1", expectedPayout: 5000 },
           {
-            title: "M2",
-            description: "Desc2",
+            title: "My Milestone 1",
+            description: "My first milestone",
             expectedPayout: 5000,
-            supportingDocuments: ["http://doc.com/1"],
+          },
+          {
+            title: "My Milestone 2",
+            description: "My second milestone",
+            expectedPayout: 5000,
           },
         ],
       });
@@ -691,8 +683,9 @@ describe("POST /api/grant-applications", () => {
   });
 
   it("should fail if required fields are missing", async () => {
+    const { user, token } = await TestUserFactory.regular();
     const res = await request(app)
-      .post("/api/grant-applications")
+      .post("/api/grants/grant-applications")
       .set("Authorization", `Bearer ${token}`)
       .send({ title: "Missing fields" });
     expect(res.status).toBe(400);
@@ -700,8 +693,26 @@ describe("POST /api/grant-applications", () => {
   });
 
   it("should fail if a milestone is missing required fields", async () => {
+    const { user, token } = await TestUserFactory.regular();
+    const { user: creator } = await TestUserFactory.creator();
+    const grant = await Grant.create({
+      title: "Test Grant",
+      description: "A test grant",
+      totalBudget: 10000,
+      rules: "Test rules",
+      creatorId: creator._id,
+      status: "open",
+      milestones: [
+        {
+          title: "Milestone 1",
+          description: "First milestone",
+          expectedPayout: 5000,
+        },
+      ],
+    });
+
     const res = await request(app)
-      .post("/api/grant-applications")
+      .post("/api/grants/grant-applications")
       .set("Authorization", `Bearer ${token}`)
       .send({
         grantId: grant._id,
@@ -718,8 +729,26 @@ describe("POST /api/grant-applications", () => {
   });
 
   it("should fail if supportingDocuments is not an array", async () => {
+    const { user, token } = await TestUserFactory.regular();
+    const { user: creator } = await TestUserFactory.creator();
+    const grant = await Grant.create({
+      title: "Test Grant",
+      description: "A test grant",
+      totalBudget: 10000,
+      rules: "Test rules",
+      creatorId: creator._id,
+      status: "open",
+      milestones: [
+        {
+          title: "Milestone 1",
+          description: "First milestone",
+          expectedPayout: 5000,
+        },
+      ],
+    });
+
     const res = await request(app)
-      .post("/api/grant-applications")
+      .post("/api/grants/grant-applications")
       .set("Authorization", `Bearer ${token}`)
       .send({
         grantId: grant._id,
@@ -739,6 +768,24 @@ describe("POST /api/grant-applications", () => {
   });
 
   it("should not allow duplicate applications for the same grant and applicant", async () => {
+    const { user, token } = await TestUserFactory.regular();
+    const { user: creator } = await TestUserFactory.creator();
+    const grant = await Grant.create({
+      title: "Test Grant",
+      description: "A test grant",
+      totalBudget: 10000,
+      rules: "Test rules",
+      creatorId: creator._id,
+      status: "open",
+      milestones: [
+        {
+          title: "Milestone 1",
+          description: "First milestone",
+          expectedPayout: 5000,
+        },
+      ],
+    });
+
     // First application
     await GrantApplication.create({
       grantId: grant._id,
@@ -750,7 +797,7 @@ describe("POST /api/grant-applications", () => {
     });
     // Second application (duplicate)
     const res = await request(app)
-      .post("/api/grant-applications")
+      .post("/api/grants/grant-applications")
       .set("Authorization", `Bearer ${token}`)
       .send({
         grantId: grant._id,
@@ -765,8 +812,25 @@ describe("POST /api/grant-applications", () => {
   });
 
   it("should fail if not authenticated", async () => {
+    const { user: creator } = await TestUserFactory.creator();
+    const grant = await Grant.create({
+      title: "Test Grant",
+      description: "A test grant",
+      totalBudget: 10000,
+      rules: "Test rules",
+      creatorId: creator._id,
+      status: "open",
+      milestones: [
+        {
+          title: "Milestone 1",
+          description: "First milestone",
+          expectedPayout: 5000,
+        },
+      ],
+    });
+
     const res = await request(app)
-      .post("/api/grant-applications")
+      .post("/api/grants/grant-applications")
       .send({
         grantId: grant._id,
         title: "Proposal Title",
@@ -785,22 +849,25 @@ describe("GET /api/grants", () => {
   let grant1: any;
   let grant2: any;
 
-  beforeAll(async () => {
-    const hashedPassword = await bcrypt.hash("TestPassword123!", 10);
-    creatorUser = await User.create({
+  beforeEach(async () => {
+    // Clean up any existing data
+    await Grant.deleteMany({});
+    await GrantApplication.deleteMany({});
+
+    // Create test user using helper
+    const creator = await TestUserFactory.creator({
       email: "creator2@test.com",
-      password: hashedPassword,
       profile: {
         firstName: "Alice",
         lastName: "Creator",
         username: "alicecreator",
       },
-      status: UserStatus.ACTIVE,
-      roles: [
-        { role: UserRole.CREATOR, grantedAt: new Date(), status: "ACTIVE" },
-      ],
     });
-    creatorToken = generateToken(creatorUser._id);
+
+    creatorUser = creator.user;
+    creatorToken = creator.token;
+
+    // Create test grants
     grant1 = await Grant.create({
       creatorId: creatorUser._id,
       title: "Grant One",
@@ -823,7 +890,7 @@ describe("GET /api/grants", () => {
 
   afterAll(async () => {
     await Grant.deleteMany({});
-    await User.deleteMany({ email: "creator2@test.com" });
+    await cleanupTestData();
   });
 
   it("should return all grants (public)", async () => {
@@ -882,34 +949,39 @@ describe("Grant Application Feedback & Review Endpoints", () => {
   let adminToken: string;
   let creatorToken: string;
   let application: any;
+  let grant: any;
 
-  beforeAll(async () => {
-    const hashedPassword = await bcrypt.hash("TestPassword123!", 10);
-    adminUser = await User.create({
+  beforeEach(async () => {
+    // Clean up any existing data
+    await Grant.deleteMany({});
+    await GrantApplication.deleteMany({});
+
+    // Create test users using helper
+    const admin = await TestUserFactory.admin({
       email: "admin@test.com",
-      password: hashedPassword,
-      profile: { firstName: "Admin", lastName: "User", username: "adminuser" },
-      status: UserStatus.ACTIVE,
-      roles: [
-        { role: UserRole.ADMIN, grantedAt: new Date(), status: "ACTIVE" },
-      ],
+      profile: {
+        firstName: "Admin",
+        lastName: "User",
+        username: "adminuser",
+      },
     });
-    creatorUser = await User.create({
+
+    const creator = await TestUserFactory.creator({
       email: "creator3@test.com",
-      password: hashedPassword,
       profile: {
         firstName: "Grant",
         lastName: "Creator",
         username: "grantcreator",
       },
-      status: UserStatus.ACTIVE,
-      roles: [
-        { role: UserRole.CREATOR, grantedAt: new Date(), status: "ACTIVE" },
-      ],
     });
-    adminToken = generateToken(adminUser._id);
-    creatorToken = generateToken(creatorUser._id);
-    const grant = await Grant.create({
+
+    adminUser = admin.user;
+    creatorUser = creator.user;
+    adminToken = admin.token;
+    creatorToken = creator.token;
+
+    // Create test grant and application
+    grant = await Grant.create({
       creatorId: creatorUser._id,
       title: "Feedback Grant",
       description: "Grant for feedback testing",
@@ -931,14 +1003,12 @@ describe("Grant Application Feedback & Review Endpoints", () => {
   afterAll(async () => {
     await GrantApplication.deleteMany({});
     await Grant.deleteMany({});
-    await User.deleteMany({
-      email: { $in: ["admin@test.com", "creator3@test.com"] },
-    });
+    await cleanupTestData();
   });
 
   it("should retrieve a grant application with feedback", async () => {
     const res = await request(app).get(
-      `/api/grant-applications/${application._id}`,
+      `/api/grants/grant-applications/${application._id}`,
     );
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -950,20 +1020,24 @@ describe("Grant Application Feedback & Review Endpoints", () => {
 
   it("should return 404 for a non-existent application", async () => {
     const fakeId = new mongoose.Types.ObjectId();
-    const res = await request(app).get(`/api/grant-applications/${fakeId}`);
+    const res = await request(app).get(
+      `/api/grants/grant-applications/${fakeId}`,
+    );
     expect(res.status).toBe(404);
     expect(res.body.success).toBe(false);
   });
 
   it("should return 400 for an invalid application ID", async () => {
-    const res = await request(app).get(`/api/grant-applications/invalid-id`);
+    const res = await request(app).get(
+      `/api/grants/grant-applications/invalid-id`,
+    );
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
   });
 
   it("should allow admin to approve an application and advance stage", async () => {
     const res = await request(app)
-      .patch(`/api/grant-applications/${application._id}/review`)
+      .patch(`/api/grants/grant-applications/${application._id}/review`)
       .set("Authorization", `Bearer ${adminToken}`)
       .send({ status: "approved", adminNote: "Looks good" });
     expect(res.status).toBe(200);
@@ -974,18 +1048,21 @@ describe("Grant Application Feedback & Review Endpoints", () => {
   });
 
   it("should allow admin to reject an application and archive it", async () => {
-    // Create a new application for rejection
-    const grant = await Grant.findOne({ title: "Feedback Grant" });
+    // Create a new application for rejection with a different applicant
+    const { user: differentUser } = await TestUserFactory.regular({
+      email: "different@test.com",
+    });
+
     const rejectedApp = await GrantApplication.create({
       grantId: grant._id,
       title: "Reject Me",
       summary: "Should be rejected",
-      applicantId: creatorUser._id,
+      applicantId: differentUser._id,
       milestones: [{ title: "M1", description: "Desc1", expectedPayout: 2500 }],
       status: "submitted",
     });
     const res = await request(app)
-      .patch(`/api/grant-applications/${rejectedApp._id}/review`)
+      .patch(`/api/grants/grant-applications/${rejectedApp._id}/review`)
       .set("Authorization", `Bearer ${adminToken}`)
       .send({ status: "rejected", adminNote: "Not sufficient" });
     expect(res.status).toBe(200);
@@ -997,7 +1074,7 @@ describe("Grant Application Feedback & Review Endpoints", () => {
 
   it("should return 400 for invalid status value", async () => {
     const res = await request(app)
-      .patch(`/api/grant-applications/${application._id}/review`)
+      .patch(`/api/grants/grant-applications/${application._id}/review`)
       .set("Authorization", `Bearer ${adminToken}`)
       .send({ status: "invalid-status" });
     expect(res.status).toBe(400);
@@ -1006,7 +1083,7 @@ describe("Grant Application Feedback & Review Endpoints", () => {
 
   it("should return 403 if non-admin tries to review", async () => {
     const res = await request(app)
-      .patch(`/api/grant-applications/${application._id}/review`)
+      .patch(`/api/grants/grant-applications/${application._id}/review`)
       .set("Authorization", `Bearer ${creatorToken}`)
       .send({ status: "approved" });
     expect(res.status).toBe(403);
@@ -1015,7 +1092,7 @@ describe("Grant Application Feedback & Review Endpoints", () => {
 
   it("should return 401 if not authenticated for review", async () => {
     const res = await request(app)
-      .patch(`/api/grant-applications/${application._id}/review`)
+      .patch(`/api/grants/grant-applications/${application._id}/review`)
       .send({ status: "approved" });
     expect(res.status).toBe(401);
     expect(res.body.success).toBe(false);

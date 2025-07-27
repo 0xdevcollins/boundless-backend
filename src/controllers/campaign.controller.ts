@@ -65,7 +65,7 @@ export const createCampaign = async (req: Request, res: Response) => {
       return;
     }
     // Check user is project owner
-    if (project.owner.toString() !== user._id.toString()) {
+    if (project.owner.type.toString() !== user._id.toString()) {
       res
         .status(403)
         .json({ message: "You are not the owner of this project." });
@@ -85,6 +85,7 @@ export const createCampaign = async (req: Request, res: Response) => {
             goalAmount,
             deadline,
             status: "draft",
+            documents: project.documents, // Copy documents from project
           },
         ],
         { session },

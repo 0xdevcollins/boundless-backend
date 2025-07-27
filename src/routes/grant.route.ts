@@ -10,7 +10,7 @@ import {
   getGrantApplicationWithFeedback,
   reviewGrantApplication,
 } from "../controllers/grant.controller";
-import { protect } from "../middleware/auth";
+import { admin, protect } from "../middleware/auth";
 import { validateRequest } from "../middleware/validateRequest";
 
 const router = Router();

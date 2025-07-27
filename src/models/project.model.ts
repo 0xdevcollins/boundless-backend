@@ -97,12 +97,20 @@ export interface IProject extends Document {
   grant?: {
     isGrant: boolean;
     applications: Array<{
+      _id?: mongoose.Types.ObjectId;
       applicant: { type: mongoose.Types.ObjectId; ref: "User" };
-      status: "SUBMITTED" | "REVIEWING" | "APPROVED" | "REJECTED";
+      status:
+        | "SUBMITTED"
+        | "REVIEWING"
+        | "APPROVED"
+        | "REJECTED"
+        | "IN_PROGRESS"
+        | "LOCKED";
       submittedAt: Date;
       nextAction?: string;
       escrowedAmount: number;
       milestonesCompleted: number;
+      txHash?: string;
     }>;
     totalBudget: number;
     totalDisbursed: number;

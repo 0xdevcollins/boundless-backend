@@ -636,9 +636,11 @@ export const reviewGrantApplication = async (req: Request, res: Response) => {
       return;
     }
     // Log admin action (for audit)
-    console.log(
-      `[ADMIN REVIEW] User ${req.user._id} set status to ${status} for application ${id}. Note: ${adminNote || "-"}`,
-    );
+    if (process.env.NODE_ENV !== "test") {
+      console.log(
+        `[ADMIN REVIEW] User ${req.user._id} set status to ${status} for application ${id}. Note: ${adminNote || "-"}`,
+      );
+    }
     // Update application
     application.status = status;
     if (adminNote) {

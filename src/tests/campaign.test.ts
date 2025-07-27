@@ -5,78 +5,57 @@ import User, { UserRole, UserStatus } from "../models/user.model";
 import Project, { ProjectStatus } from "../models/project.model";
 import Campaign from "../models/campaign.model";
 import Milestone from "../models/milestone.model";
-
-// Helper to register and login a user
-async function createAndLoginUser(
-  email: string,
-  password: string,
-  role: UserRole,
-) {
-  // Create user directly in DB with the specified role
-  const user = await User.create({
-    email,
-    password, // Assume pre-save hook hashes this
-    isVerified: true,
-    profile: {
-      firstName: "Test",
-      lastName: "User",
-      username: email.split("@")[0],
-      avatar: "",
-      bio: "",
-      location: "",
-      website: "",
-      socialLinks: {},
-    },
-    settings: {
-      notifications: { email: true, push: true, inApp: true },
-      privacy: {
-        profileVisibility: "PUBLIC",
-        showWalletAddress: false,
-        showContributions: true,
-      },
-      preferences: { language: "en", timezone: "UTC", theme: "SYSTEM" },
-    },
-    stats: {},
-    status: UserStatus.ACTIVE,
-    badges: [],
-    roles: [{ role, grantedAt: new Date(), grantedBy: null, status: "ACTIVE" }],
-    contributedProjects: [],
-    lastLogin: new Date(),
-  });
-  // Login to get JWT
-  const res = await request(app)
-    .post("/api/auth/login")
-    .send({ email, password });
-  return { user, token: res.body.accessToken };
-}
+import { TestUserFactory, cleanupTestData } from "./testHelpers";
 
 describe("POST /api/campaigns", () => {
   let creatorToken: string;
   let creatorId: mongoose.Types.ObjectId;
   let projectId: mongoose.Types.ObjectId;
 
-  beforeAll(async () => {
-    // Connect to test DB if not already
-    if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(process.env.MONGO_URI || "", {});
-    }
-    // Create creator user and login
-    const email = "creator@example.com";
-    const password = "TestPass123!";
-    const { user, token } = await createAndLoginUser(
-      email,
-      password,
-      UserRole.CREATOR,
-    );
-    creatorToken = token;
-    creatorId = user._id;
+  beforeEach(async () => {
+    // Clean up any existing data
+    await Campaign.deleteMany({});
+    await Project.deleteMany({});
+    await Milestone.deleteMany({});
+    await User.deleteMany({
+      email: { $in: ["creator@example.com", "admin@example.com"] },
+    });
+
+    // Create creator user using TestUserFactory
+    const creator = await TestUserFactory.creator({
+      email: "creator@example.com",
+      profile: {
+        firstName: "Test",
+        lastName: "User",
+        username: "creator",
+        avatar: "",
+        bio: "",
+        location: "",
+        website: "",
+        socialLinks: {},
+      },
+      settings: {
+        notifications: { email: true, push: true, inApp: true },
+        privacy: {
+          profileVisibility: "PUBLIC",
+          showWalletAddress: false,
+          showContributions: true,
+        },
+        preferences: { language: "en", timezone: "UTC", theme: "SYSTEM" },
+      },
+      stats: {},
+    });
+
+    creatorToken = creator.token;
+    creatorId = creator.user._id;
+
     // Create validated project owned by creator
     const project = await Project.create({
       title: "Test Project",
       description: "A project for testing",
       category: "Test",
       status: ProjectStatus.VALIDATED,
-      owner: creatorId,
+      owner: { type: creatorId },
       funding: {
         goal: 1000,
         raised: 0,
@@ -95,22 +74,21 @@ describe("POST /api/campaigns", () => {
       milestones: [],
       team: [],
       media: { banner: "", logo: "" },
-      documents: { whitepaper: "", pitchDeck: "" },
+      documents: {
+        whitepaper: "https://example.com/whitepaper.pdf",
+        pitchDeck: "",
+      },
       createdAt: new Date(),
       updatedAt: new Date(),
       type: "crowdfund",
       votes: 0,
     });
+
     projectId = project._id;
   });
 
   afterAll(async () => {
-    // Clean up test data
-    await User.deleteMany({});
-    await Project.deleteMany({});
-    await Campaign.deleteMany({});
-    await Milestone.deleteMany({});
-    await mongoose.connection.close();
+    await cleanupTestData();
   });
 
   it("should return 400 if required fields are missing", async () => {
@@ -158,17 +136,33 @@ describe("POST /api/campaigns", () => {
       .set("Authorization", `Bearer ${creatorToken}`);
     expect(failRes.status).toBe(403);
     // Create admin user and login
-    const adminEmail = "admin@example.com";
-    const adminPassword = "AdminPass123!";
-    const { token: adminToken } = await createAndLoginUser(
-      adminEmail,
-      adminPassword,
-      UserRole.ADMIN,
-    );
+    const admin = await TestUserFactory.admin({
+      email: "admin@example.com",
+      profile: {
+        firstName: "Admin",
+        lastName: "User",
+        username: "admin",
+        avatar: "",
+        bio: "",
+        location: "",
+        website: "",
+        socialLinks: {},
+      },
+      settings: {
+        notifications: { email: true, push: true, inApp: true },
+        privacy: {
+          profileVisibility: "PUBLIC",
+          showWalletAddress: false,
+          showContributions: true,
+        },
+        preferences: { language: "en", timezone: "UTC", theme: "SYSTEM" },
+      },
+      stats: {},
+    });
     // Approve as admin
     const approveRes = await request(app)
       .patch(`/api/campaigns/${campaignId}/approve`)
-      .set("Authorization", `Bearer ${adminToken}`);
+      .set("Authorization", `Bearer ${admin.token}`);
     expect(approveRes.status).toBe(200);
     expect(approveRes.body.campaign.status).toBe("live");
     expect(approveRes.body.campaign.smartContractAddress).toBeDefined();

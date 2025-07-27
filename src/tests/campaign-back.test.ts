@@ -4,68 +4,49 @@ import mongoose, { Types } from "mongoose";
 import User, { UserRole, UserStatus, IUser } from "../models/user.model";
 import Campaign, { ICampaign } from "../models/campaign.model";
 import Funding from "../models/funding.model";
-
-async function createAndLoginUser(
-  email: string,
-  password: string,
-  role: UserRole,
-): Promise<{ user: IUser; token: string }> {
-  const user = await User.create({
-    email,
-    password,
-    isVerified: true,
-    profile: {
-      firstName: "Backer",
-      lastName: "User",
-      username: email.split("@")[0],
-      avatar: "",
-      bio: "",
-      location: "",
-      website: "",
-      socialLinks: {},
-    },
-    settings: {
-      notifications: { email: true, push: true, inApp: true },
-      privacy: {
-        profileVisibility: "PUBLIC",
-        showWalletAddress: false,
-        showContributions: true,
-      },
-      preferences: { language: "en", timezone: "UTC", theme: "SYSTEM" },
-    },
-    stats: {},
-    status: UserStatus.ACTIVE,
-    badges: [],
-    roles: [{ role, grantedAt: new Date(), grantedBy: null, status: "ACTIVE" }],
-    contributedProjects: [],
-    lastLogin: new Date(),
-  });
-  const res = await request(app)
-    .post("/api/auth/login")
-    .send({ email, password });
-  console.log("Login response:", res.body);
-  return { user, token: res.body.data.accessToken };
-}
+import { TestUserFactory, cleanupTestData } from "./testHelpers";
 
 describe("POST /api/campaigns/:id/back", () => {
   let userToken: string;
   let userId: Types.ObjectId;
   let campaignId: Types.ObjectId;
 
-  beforeAll(async () => {
-    if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(process.env.MONGO_URI || "", {});
-    }
-    // Create user and login
-    const email = "backer@example.com";
-    const password = "BackerPass123!";
-    const { user, token } = await createAndLoginUser(
-      email,
-      password,
-      UserRole.BACKER,
-    );
-    userToken = token;
-    userId = user._id;
+  beforeEach(async () => {
+    // Clean up any existing data
+    await Campaign.deleteMany({});
+    await Funding.deleteMany({});
+    await User.deleteMany({
+      email: { $in: ["backer@example.com"] },
+    });
+
+    // Create user using TestUserFactory
+    const backer = await TestUserFactory.regular({
+      email: "backer@example.com",
+      profile: {
+        firstName: "Backer",
+        lastName: "User",
+        username: "backer",
+        avatar: "",
+        bio: "",
+        location: "",
+        website: "",
+        socialLinks: {},
+      },
+      settings: {
+        notifications: { email: true, push: true, inApp: true },
+        privacy: {
+          profileVisibility: "PUBLIC",
+          showWalletAddress: false,
+          showContributions: true,
+        },
+        preferences: { language: "en", timezone: "UTC", theme: "SYSTEM" },
+      },
+      stats: {},
+    });
+
+    userToken = backer.token;
+    userId = backer.user._id;
+
     // Create a campaign
     const campaign = await Campaign.create({
       projectId: new mongoose.Types.ObjectId(),
@@ -80,10 +61,7 @@ describe("POST /api/campaigns/:id/back", () => {
   });
 
   afterAll(async () => {
-    await User.deleteMany({});
-    await Campaign.deleteMany({});
-    await Funding.deleteMany({});
-    await mongoose.connection.close();
+    await cleanupTestData();
   });
 
   it("should require authentication", async () => {

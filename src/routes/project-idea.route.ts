@@ -177,6 +177,8 @@ const projectIdSchema = [
  *       type: object
  *       required:
  *         - title
+ *         - description
+ *         - category
  *         - type
  *       properties:
  *         _id:
@@ -188,11 +190,17 @@ const projectIdSchema = [
  *           maxLength: 100
  *           description: Project title
  *           example: "Revolutionary DeFi Platform"
- *         summary:
+ *         tagline:
  *           type: string
- *           maxLength: 500
- *           description: Brief project summary
- *           example: "A decentralized finance platform that revolutionizes lending"
+ *           maxLength: 200
+ *           description: Short one-liner description
+ *           example: "Revolutionizing DeFi lending"
+ *         description:
+ *           type: string
+ *           minLength: 10
+ *           maxLength: 2000
+ *           description: Detailed project description
+ *           example: "A decentralized finance platform that revolutionizes lending and borrowing through innovative smart contracts and user-friendly interfaces."
  *         type:
  *           type: string
  *           enum: [crowdfund, grant]
@@ -213,11 +221,17 @@ const projectIdSchema = [
  *           format: uri
  *           description: URL to project whitepaper
  *           example: "https://example.com/whitepaper.pdf"
- *         pitchVideoUrl:
+ *         thumbnail:
  *           type: string
  *           format: uri
- *           description: URL to project pitch video
- *           example: "https://youtube.com/watch?v=example"
+ *           description: URL to project thumbnail image
+ *           example: "https://example.com/thumbnail.jpg"
+ *         tags:
+ *           type: array
+ *           items:
+ *             type: string
+ *           description: Array of tags for the project
+ *           example: ["DeFi", "Lending", "Smart Contracts"]
  *         votes:
  *           type: number
  *           minimum: 0
@@ -286,6 +300,8 @@ const projectIdSchema = [
  *       type: object
  *       required:
  *         - title
+ *         - description
+ *         - category
  *       properties:
  *         title:
  *           type: string
@@ -293,11 +309,17 @@ const projectIdSchema = [
  *           maxLength: 100
  *           description: Project title
  *           example: "Revolutionary DeFi Platform"
- *         summary:
+ *         description:
  *           type: string
- *           maxLength: 500
- *           description: Brief project summary
- *           example: "A decentralized finance platform that revolutionizes lending"
+ *           minLength: 10
+ *           maxLength: 2000
+ *           description: Detailed project description
+ *           example: "A decentralized finance platform that revolutionizes lending and borrowing through innovative smart contracts and user-friendly interfaces."
+ *         tagline:
+ *           type: string
+ *           maxLength: 200
+ *           description: Short one-liner description
+ *           example: "Revolutionizing DeFi lending"
  *         type:
  *           type: string
  *           enum: [crowdfund, grant]
@@ -309,16 +331,29 @@ const projectIdSchema = [
  *           maxLength: 50
  *           description: Project category
  *           example: "DeFi"
+ *         fundAmount:
+ *           type: number
+ *           minimum: 0
+ *           description: Funding goal amount
+ *           example: 50000
  *         whitepaperUrl:
  *           type: string
  *           format: uri
  *           description: URL to project whitepaper
  *           example: "https://example.com/whitepaper.pdf"
- *         pitchVideoUrl:
+ *         thumbnail:
  *           type: string
  *           format: uri
- *           description: URL to project pitch video
- *           example: "https://youtube.com/watch?v=example"
+ *           description: URL to project thumbnail image
+ *           example: "https://example.com/thumbnail.jpg"
+ *         tags:
+ *           type: array
+ *           items:
+ *             type: string
+ *             minLength: 1
+ *             maxLength: 50
+ *           description: Array of tags for the project
+ *           example: ["DeFi", "Lending", "Smart Contracts"]
  *
  *     ProjectIdeaResponse:
  *       type: object
@@ -358,18 +393,26 @@ const projectIdSchema = [
  *               summary: Crowdfund Project Example
  *               value:
  *                 title: "Revolutionary DeFi Platform"
- *                 summary: "A decentralized finance platform that revolutionizes lending and borrowing"
+ *                 description: "A decentralized finance platform that revolutionizes lending and borrowing through innovative smart contracts and user-friendly interfaces."
+ *                 tagline: "Revolutionizing DeFi lending"
  *                 type: "crowdfund"
  *                 category: "DeFi"
+ *                 fundAmount: 50000
  *                 whitepaperUrl: "https://example.com/whitepaper.pdf"
- *                 pitchVideoUrl: "https://youtube.com/watch?v=example"
+ *                 thumbnail: "https://example.com/thumbnail.jpg"
+ *                 tags: ["DeFi", "Lending", "Smart Contracts"]
  *             grant_project:
  *               summary: Grant Project Example
  *               value:
  *                 title: "Open Source Blockchain Tools"
- *                 summary: "Development of open source tools for blockchain developers"
+ *                 description: "Development of open source tools for blockchain developers to accelerate the adoption of blockchain technology."
+ *                 tagline: "Empowering blockchain developers"
  *                 type: "grant"
  *                 category: "Developer Tools"
+ *                 fundAmount: 25000
+ *                 whitepaperUrl: "https://example.com/tools-whitepaper.pdf"
+ *                 thumbnail: "https://example.com/tools-thumbnail.jpg"
+ *                 tags: ["Developer Tools", "Open Source", "Blockchain"]
  *     responses:
  *       201:
  *         description: Project idea created successfully
@@ -386,19 +429,26 @@ const projectIdSchema = [
  *                     project:
  *                       _id: "60f7b3b3b3b3b3b3b3b3b3b3"
  *                       title: "Revolutionary DeFi Platform"
- *                       summary: "A decentralized finance platform that revolutionizes lending"
+ *                       tagline: "Revolutionizing DeFi lending"
+ *                       description: "A decentralized finance platform that revolutionizes lending and borrowing through innovative smart contracts and user-friendly interfaces."
  *                       type: "crowdfund"
  *                       category: "DeFi"
  *                       status: "idea"
+ *                       whitepaperUrl: "https://example.com/whitepaper.pdf"
+ *                       thumbnail: "https://example.com/thumbnail.jpg"
+ *                       tags: ["DeFi", "Lending", "Smart Contracts"]
  *                       votes: 0
+ *                       owner:
+ *                         type: "60f7b3b3b3b3b3b3b3b3b3b5"
+ *                         ref: "User"
  *                       createdAt: "2024-01-15T10:30:00Z"
+ *                       updatedAt: "2024-01-15T10:30:00Z"
  *                     crowdfund:
  *                       _id: "60f7b3b3b3b3b3b3b3b3b3b4"
  *                       thresholdVotes: 100
+ *                       voteDeadline: "2024-02-14T10:30:00Z"
  *                       totalVotes: 0
  *                       status: "pending"
- *                       isVotingActive: true
- *                       voteProgress: 0
  *                   message: "Project idea created successfully"
  *       400:
  *         description: Validation error
@@ -591,18 +641,29 @@ router.get("/:id", validateRequest(projectIdSchema), getProjectIdeaById);
  *                 type: string
  *                 minLength: 3
  *                 maxLength: 100
- *               summary:
+ *               description:
  *                 type: string
- *                 maxLength: 500
+ *                 minLength: 10
+ *                 maxLength: 2000
+ *               tagline:
+ *                 type: string
+ *                 maxLength: 200
  *               category:
  *                 type: string
  *                 maxLength: 50
+ *               fundAmount:
+ *                 type: number
+ *                 minimum: 0
  *               whitepaperUrl:
  *                 type: string
  *                 format: uri
- *               pitchVideoUrl:
+ *               thumbnail:
  *                 type: string
  *                 format: uri
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
  *     responses:
  *       200:
  *         description: Project idea updated successfully
