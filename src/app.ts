@@ -56,7 +56,7 @@ app.use(
   cors({
     origin: config.cors.origin,
     methods: config.cors.methods,
-    allowedHeaders: config.cors.allowedHeaders,
+    allowedHeaders: [...config.cors.allowedHeaders, "Authorization"],
     credentials: config.cors.credentials,
   }),
 );
