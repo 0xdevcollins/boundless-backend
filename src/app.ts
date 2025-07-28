@@ -11,6 +11,7 @@ import morgan from "morgan";
 import compression from "compression";
 import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
 
 import connectDB from "./config/db";
 import { setupSwagger } from "./config/swagger";
@@ -67,6 +68,7 @@ app.use(
 );
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(cookieParser());
 app.use(compression());
 
 if (config.NODE_ENV !== "test") {
