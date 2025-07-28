@@ -9,7 +9,8 @@ export const reviewMilestone = async (req: Request, res: Response) => {
   try {
     const milestone = await Milestone.findById(id);
     if (!milestone) {
-      return res.status(404).json({ message: "Milestone not found" });
+      res.status(404).json({ message: "Milestone not found" });
+      return;
     }
 
     if (status === "approved") {
@@ -21,19 +22,19 @@ export const reviewMilestone = async (req: Request, res: Response) => {
         // Log error, but don't block response
         console.error("Soroban payout error:", err);
       });
-      return res.json({ message: "Milestone approved and payout triggered" });
+      res.json({ message: "Milestone approved and payout triggered" });
     } else if (status === "rejected") {
       milestone.status = "revision-requested";
       if (adminNote) milestone.adminNote = adminNote;
       await milestone.save();
-      return res.json({
+      res.json({
         message: "Milestone status set to revision-requested",
       });
     } else {
-      return res.status(400).json({ message: "Invalid status value" });
+      res.status(400).json({ message: "Invalid status value" });
     }
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error" });
   }
 };
