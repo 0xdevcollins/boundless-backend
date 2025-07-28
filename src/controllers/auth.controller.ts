@@ -4,6 +4,7 @@ import User, { IUser } from "../models/user.model";
 import Account from "../models/account.model";
 import Session from "../models/session.model";
 import { generateTokens } from "../utils/jwt.utils";
+import { setAuthCookies, clearAuthCookies } from "../utils/cookie.utils";
 import axios from "axios";
 import { OAuth2Client } from "google-auth-library";
 
@@ -111,6 +112,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       roles: user.roles.map((role) => role.role),
     });
 
+    // Set cookies
+    setAuthCookies(res, tokens);
+
     // Update last login
     user.lastLogin = new Date();
     await user.save();
@@ -202,6 +206,9 @@ export const githubAuth = async (
       roles: user.roles.map((role) => role.role),
     });
 
+    // Set cookies
+    setAuthCookies(res, tokens);
+
     sendSuccess(res, tokens, "GitHub authentication successful");
   } catch (error) {
     console.error("GitHub auth error:", error);
@@ -279,6 +286,9 @@ export const googleAuth = async (
       roles: user.roles.map((role) => role.role),
     });
 
+    // Set cookies
+    setAuthCookies(res, tokens);
+
     sendSuccess(res, tokens, "Google authentication successful");
   } catch (error) {
     console.error("Google auth error:", error);
@@ -308,6 +318,10 @@ export const logout = async (req: Request, res: Response) => {
     if (req.user) {
       await Session.deleteMany({ userId: req.user._id });
     }
+
+    // Clear cookies
+    clearAuthCookies(res);
+
     sendSuccess(
       res,
       { message: "Logged out successfully" },

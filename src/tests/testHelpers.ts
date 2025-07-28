@@ -93,11 +93,9 @@ export async function createTestUser(
     lastLogin = new Date(),
   } = options;
 
-  const hashedPassword = await bcrypt.hash(password, 10);
-
   const user = await User.create({
     email,
-    password: hashedPassword,
+    password,
     isVerified,
     profile: {
       firstName: profile.firstName || firstName,

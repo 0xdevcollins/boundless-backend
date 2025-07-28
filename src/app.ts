@@ -11,6 +11,7 @@ import morgan from "morgan";
 import compression from "compression";
 import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
 
 import connectDB from "./config/db";
 import { setupSwagger } from "./config/swagger";
@@ -54,9 +55,9 @@ const app: Application = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: config.cors.origin,
+    origin: "http://localhost:3000",
     methods: config.cors.methods,
-    allowedHeaders: config.cors.allowedHeaders,
+    allowedHeaders: [...config.cors.allowedHeaders, "Authorization"],
     credentials: config.cors.credentials,
   }),
 );
@@ -68,6 +69,7 @@ app.use(
 );
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(cookieParser());
 app.use(compression());
 
 if (config.NODE_ENV !== "test") {
