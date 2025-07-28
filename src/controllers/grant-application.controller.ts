@@ -12,6 +12,7 @@ enum ApplicationStatus {
   Submitted = "submitted",
   Paused = "paused",
   Cancelled = "cancelled",
+  AwaitingFinalApproval = "awaiting-final-approval",
 }
 
 const TRANSITION_RULES: { [key in ApplicationStatus]?: ApplicationStatus[] } = {
@@ -197,5 +198,132 @@ export const lockEscrow = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("Error locking escrow:", error);
     return sendError(res, "Failed to lock escrow", 500, error.message);
+  }
+};
+
+export const updateMilestones = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { milestones } = req.body;
+
+    // 1. Validate ID
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return sendError(
+        res,
+        "Invalid application ID",
+        400,
+        "Application ID must be a valid MongoDB ObjectId",
+      );
+    }
+
+    // 2. Validate milestones array and its items
+    if (!Array.isArray(milestones) || milestones.length === 0) {
+      return sendValidationError(
+        res,
+        "Milestones array is required and cannot be empty",
+        {
+          milestones: {
+            msg: "Milestones array must be a non-empty array of objects.",
+          },
+        },
+      );
+    }
+
+    for (const milestone of milestones) {
+      if (typeof milestone !== "object" || milestone === null) {
+        return sendValidationError(res, "Invalid milestone format", {
+          milestones: { msg: "Each milestone must be an object." },
+        });
+      }
+      if (
+        typeof milestone.title !== "string" ||
+        milestone.title.trim().length === 0
+      ) {
+        return sendValidationError(res, "Milestone title is required", {
+          title: { msg: "Milestone title must be a non-empty string." },
+        });
+      }
+      if (
+        typeof milestone.description !== "string" ||
+        milestone.description.trim().length === 0
+      ) {
+        return sendValidationError(res, "Milestone description is required", {
+          description: {
+            msg: "Milestone description must be a non-empty string.",
+          },
+        });
+      }
+      if (
+        typeof milestone.expectedPayout !== "number" ||
+        milestone.expectedPayout <= 0
+      ) {
+        return sendValidationError(
+          res,
+          "Milestone expectedPayout is required and must be a positive number",
+          {
+            expectedPayout: {
+              msg: "Milestone expectedPayout must be a positive number.",
+            },
+          },
+        );
+      }
+    }
+
+    // 3. Find the project containing this grant application
+    const project = await Project.findOne({
+      "grant.applications._id": id,
+      "grant.isGrant": true,
+    });
+
+    if (!project || !project.grant) {
+      return sendError(res, "Grant application not found", 404);
+    }
+
+    const application = project.grant.applications.find(
+      (app) => app._id?.toString() === id,
+    );
+
+    if (!application) {
+      return sendError(res, "Grant application not found in project", 404);
+    }
+
+    // 4. Authorization check: Ensure the user is a grant creator
+    // Assuming req.user contains the authenticated user's ID and role
+    // This is a placeholder. You'll need to implement actual role-based authorization.
+    // For example, check if req.user.role === 'grant_creator' or if req.user.id is associated with the grant creator.
+    if (!req.user || req.user.id !== project.creator.toString()) {
+      return sendError(
+        res,
+        "Unauthorized: Only grant creators can modify milestones",
+        403,
+      );
+    }
+
+    // 5. Update milestones and status
+    application.milestones = milestones.map((m: any) => ({
+      title: m.title,
+      description: m.description,
+      expectedPayout: m.expectedPayout,
+    }));
+    application.status = ApplicationStatus.AwaitingFinalApproval;
+
+    await project.save();
+
+    return sendSuccess(
+      res,
+      application,
+      "Milestones updated and application status set to awaiting-final-approval",
+      200,
+    );
+  } catch (error: any) {
+    console.error("Error updating milestones:", error);
+    if (error.name === "ValidationError") {
+      const validationErrors: any = {};
+      Object.keys(error.errors).forEach((key) => {
+        validationErrors[key] = error.errors[key].message;
+      });
+      return sendError(res, "Validation failed", 400, validationErrors);
+    }
+    return sendError(res, "Failed to update milestones", 500, error.message);
   }
 };
