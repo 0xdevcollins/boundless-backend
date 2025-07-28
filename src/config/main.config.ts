@@ -37,7 +37,7 @@ export class Config {
   };
 
   public readonly cors: {
-    origin: string;
+    origin: string | string[];
     methods: string[];
     allowedHeaders: string[];
     credentials: boolean;
@@ -86,7 +86,7 @@ export class Config {
     };
 
     this.cors = {
-      origin: this.getEnvVariable("CORS_ORIGIN", true),
+      origin: this.getCorsOrigin(),
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization"],
       credentials: true,
@@ -119,6 +119,15 @@ export class Config {
       return undefined as unknown as T;
     }
     return transform(value);
+  }
+
+  private getCorsOrigin(): string | string[] {
+    if (this.NODE_ENV === "development") {
+      // Support multiple origins in development
+      const corsOrigin = this.getEnvVariable("CORS_ORIGIN", true);
+      return corsOrigin.split(",").map((origin) => origin.trim());
+    }
+    return this.getEnvVariable("CORS_ORIGIN", true);
   }
 }
 
