@@ -55,7 +55,7 @@ const app: Application = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: "*",
+    origin: "http://localhost:3000",
     methods: config.cors.methods,
     allowedHeaders: [...config.cors.allowedHeaders, "Authorization"],
     credentials: true,
