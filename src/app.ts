@@ -55,10 +55,10 @@ const app: Application = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: "*",
     methods: config.cors.methods,
     allowedHeaders: [...config.cors.allowedHeaders, "Authorization"],
-    credentials: config.cors.credentials,
+    credentials: true,
   }),
 );
 app.use(
