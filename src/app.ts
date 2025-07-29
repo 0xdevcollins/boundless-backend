@@ -55,7 +55,12 @@ const app: Application = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: "https://staging.boundlessfi.xyz",
+    origin: [
+      "https://staging.boundlessfi.xyz",
+      "https://boundlessfi.xyz",
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+    ],
     methods: config.cors.methods,
     allowedHeaders: [...config.cors.allowedHeaders],
     credentials: true,
