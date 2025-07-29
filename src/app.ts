@@ -57,7 +57,7 @@ app.use(
   cors({
     origin: "https://staging.boundlessfi.xyz/",
     methods: config.cors.methods,
-    allowedHeaders: [...config.cors.allowedHeaders, "Authorization"],
+    allowedHeaders: [...config.cors.allowedHeaders],
     credentials: true,
   }),
 );
