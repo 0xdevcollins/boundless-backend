@@ -55,7 +55,7 @@ const app: Application = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: "https://staging.boundlessfi.xyz/",
+    origin: "https://staging.boundlessfi.xyz",
     methods: config.cors.methods,
     allowedHeaders: [...config.cors.allowedHeaders],
     credentials: true,
