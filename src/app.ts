@@ -37,6 +37,7 @@ import notificationRoutes from "./routes/notification.route";
 import campaignRoutes from "./routes/campaign.route";
 import grantRoutes from "./routes/grant.route";
 import grantApplicationRoutes from "./routes/grant-application.route";
+import milestoneRoutes from "./routes/milestone.route";
 
 dotenv.config();
 
@@ -54,10 +55,15 @@ const app: Application = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: [
+      "https://staging.boundlessfi.xyz",
+      "https://boundlessfi.xyz",
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+    ],
     methods: config.cors.methods,
-    allowedHeaders: [...config.cors.allowedHeaders, "Authorization"],
-    credentials: config.cors.credentials,
+    allowedHeaders: [...config.cors.allowedHeaders],
+    credentials: true,
   }),
 );
 app.use(
@@ -108,6 +114,9 @@ app.use("/api/notifications", authMiddleware, notificationRoutes);
 app.use("/api/campaigns", campaignRoutes);
 app.use("/api/grants", grantRoutes);
 app.use("/api/grant-applications", grantApplicationRoutes);
+
+// Milestone admin review endpoint
+app.use("/api/milestones", milestoneRoutes);
 
 // Swagger Docs
 setupSwagger(app);
