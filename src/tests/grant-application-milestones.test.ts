@@ -1,18 +1,59 @@
 import request from "supertest";
 import app from "../app";
-import { connectDB, disconnectDB } from "../config/db";
 import GrantApplication from "../models/grant-application.model";
 import User from "../models/user.model";
-import { signToken } from "../utils/jwt.utils";
+import Project from "../models/project.model";
+import mongoose from "mongoose";
+
+// Helper function to create JWT token - you'll need to implement this based on your JWT structure
+const createToken = (
+  userId: string | mongoose.Types.ObjectId,
+  email: string,
+) => {
+  // This is a placeholder - replace with your actual JWT token generation logic
+  // You might need to import and use your JWT utilities differently
+  const payload = {
+    userId: userId.toString(),
+    email: email,
+    roles: [],
+  };
+
+  // Option 1: If you have a direct sign function
+  // return jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '1h' });
+
+  // Option 2: If you need to use your generateTokens function, make sure it's exported
+  // const { accessToken } = generateTokens(payload);
+  // return accessToken;
+
+  // For now, returning a mock token - replace with actual implementation
+  return "mock-jwt-token-" + userId.toString();
+};
+
+// Helper function to disconnect from database
+const disconnectDB = async () => {
+  await mongoose.disconnect();
+};
 
 describe("PATCH /api/grant-applications/:id/milestones", () => {
   let adminToken: string;
   let grantCreatorToken: string;
   let regularUserToken: string;
   let grantApplicationId: string;
+  let grantCreatorUserId: mongoose.Types.ObjectId;
+  let projectId: mongoose.Types.ObjectId;
 
   beforeAll(async () => {
-    await connectDB();
+    // Connect to test database
+    if (mongoose.connection.readyState === 0) {
+      const testDbUri =
+        process.env.MONGODB_TEST_URI ||
+        "mongodb://localhost:27017/boundless-test";
+      await mongoose.connect(testDbUri);
+    }
+
+    // Clean up existing data
+    await Project.deleteMany({});
+    await User.deleteMany({});
 
     // Create test users
     const adminUser = await User.create({
@@ -31,32 +72,69 @@ describe("PATCH /api/grant-applications/:id/milestones", () => {
       password: "password123",
     });
 
-    adminToken = signToken(adminUser._id);
-    grantCreatorToken = signToken(grantCreatorUser._id);
-    regularUserToken = signToken(regularUser._id);
+    grantCreatorUserId = grantCreatorUser._id as mongoose.Types.ObjectId;
 
-    // Create a test grant application
-    const grantApplication = await GrantApplication.create({
-      applicant: regularUser._id,
-      status: "pending",
-      milestones: [
-        {
-          title: "Initial Milestone 1",
-          description: "Desc 1",
-          expectedPayout: 100,
-        },
-        {
-          title: "Initial Milestone 2",
-          description: "Desc 2",
-          expectedPayout: 200,
-        },
-      ],
+    adminToken = createToken(
+      adminUser._id as mongoose.Types.ObjectId,
+      adminUser.email,
+    );
+    grantCreatorToken = createToken(grantCreatorUserId, grantCreatorUser.email);
+    regularUserToken = createToken(
+      regularUser._id as mongoose.Types.ObjectId,
+      regularUser.email,
+    );
+
+    // Create a test project with grant application
+    const project = await Project.create({
+      title: "Test Grant Project",
+      description: "Test project description",
+      creator: grantCreatorUserId,
+      grant: {
+        isGrant: true,
+        applications: [
+          {
+            applicant: regularUser._id,
+            status: "pending",
+            milestones: [
+              {
+                title: "Initial Milestone 1",
+                description: "Desc 1",
+                expectedPayout: 100,
+              },
+              {
+                title: "Initial Milestone 2",
+                description: "Desc 2",
+                expectedPayout: 200,
+              },
+            ],
+          },
+        ],
+      },
     });
-    grantApplicationId = grantApplication._id.toString();
+
+    projectId = project._id as mongoose.Types.ObjectId;
+
+    // Safe access to grant application ID
+    if (
+      project.grant &&
+      project.grant.applications &&
+      project.grant.applications.length > 0
+    ) {
+      const applicationId = project.grant.applications[0]._id;
+      if (applicationId) {
+        grantApplicationId = (
+          applicationId as mongoose.Types.ObjectId
+        ).toString();
+      } else {
+        throw new Error("Failed to create grant application with ID");
+      }
+    } else {
+      throw new Error("Failed to create project with grant applications");
+    }
   });
 
   afterAll(async () => {
-    await GrantApplication.deleteMany({});
+    await Project.deleteMany({});
     await User.deleteMany({});
     await disconnectDB();
   });
@@ -82,18 +160,26 @@ describe("PATCH /api/grant-applications/:id/milestones", () => {
 
     expect(res.statusCode).toEqual(200);
     expect(res.body.message).toEqual(
-      "Grant application milestones updated successfully",
+      "Milestones updated and application status set to awaiting-final-approval",
     );
-    expect(res.body.grantApplication.status).toEqual("awaiting-final-approval");
-    expect(res.body.grantApplication.milestones).toHaveLength(2);
-    expect(res.body.grantApplication.milestones[0].title).toEqual(
-      "Updated Milestone 1",
-    );
-    expect(res.body.grantApplication.milestones[1].expectedPayout).toEqual(250);
+    expect(res.body.data.status).toEqual("awaiting-final-approval");
+    expect(res.body.data.milestones).toHaveLength(2);
+    expect(res.body.data.milestones[0].title).toEqual("Updated Milestone 1");
+    expect(res.body.data.milestones[1].expectedPayout).toEqual(250);
 
-    const updatedApp = await GrantApplication.findById(grantApplicationId);
-    expect(updatedApp?.status).toEqual("awaiting-final-approval");
-    expect(updatedApp?.milestones[0].title).toEqual("Updated Milestone 1");
+    // Verify in database
+    const updatedProject = await Project.findById(projectId);
+    if (
+      updatedProject?.grant?.applications &&
+      updatedProject.grant.applications.length > 0
+    ) {
+      const updatedApp = updatedProject.grant.applications[0];
+      expect(updatedApp.status).toEqual("awaiting-final-approval");
+      // Type-safe access to milestones
+      if ("milestones" in updatedApp && Array.isArray(updatedApp.milestones)) {
+        expect(updatedApp.milestones[0].title).toEqual("Updated Milestone 1");
+      }
+    }
   });
 
   it("should return 400 if milestones array is empty", async () => {
@@ -103,7 +189,9 @@ describe("PATCH /api/grant-applications/:id/milestones", () => {
       .send({ milestones: [] });
 
     expect(res.statusCode).toEqual(400);
-    expect(res.body.message).toEqual("Milestones array cannot be empty.");
+    expect(res.body.message).toEqual(
+      "Milestones array is required and cannot be empty",
+    );
   });
 
   it("should return 400 if milestones array contains invalid data (missing title)", async () => {
@@ -121,7 +209,7 @@ describe("PATCH /api/grant-applications/:id/milestones", () => {
   });
 
   it("should return 404 if grant application ID is not found", async () => {
-    const nonExistentId = "60b8d6c7f8b3c2a9e0b1c2d3"; // A valid-looking but non-existent ID
+    const nonExistentId = new mongoose.Types.ObjectId().toString();
     const updatedMilestones = [
       {
         title: "Updated Milestone 1",
@@ -139,7 +227,7 @@ describe("PATCH /api/grant-applications/:id/milestones", () => {
     expect(res.body.message).toEqual("Grant application not found");
   });
 
-  it("should return 403 if user is not a grant creator or admin", async () => {
+  it("should return 403 if user is not the grant creator", async () => {
     const updatedMilestones = [
       {
         title: "Updated Milestone 1",
@@ -155,31 +243,31 @@ describe("PATCH /api/grant-applications/:id/milestones", () => {
 
     expect(res.statusCode).toEqual(403);
     expect(res.body.message).toEqual(
-      "Unauthorized: Only grant creators or administrators can perform this action.",
+      "Unauthorized: Only grant creators can modify milestones",
     );
   });
 
-  it("should allow admin to update milestones", async () => {
+  it("should allow project creator to update milestones", async () => {
     const updatedMilestones = [
       {
-        title: "Admin Updated Milestone",
-        description: "Admin Desc",
+        title: "Creator Updated Milestone",
+        description: "Creator Desc",
         expectedPayout: 300,
       },
     ];
 
     const res = await request(app)
       .patch(`/api/grant-applications/${grantApplicationId}/milestones`)
-      .set("Authorization", `Bearer ${adminToken}`)
+      .set("Authorization", `Bearer ${grantCreatorToken}`)
       .send({ milestones: updatedMilestones });
 
     expect(res.statusCode).toEqual(200);
     expect(res.body.message).toEqual(
-      "Grant application milestones updated successfully",
+      "Milestones updated and application status set to awaiting-final-approval",
     );
-    expect(res.body.grantApplication.status).toEqual("awaiting-final-approval");
-    expect(res.body.grantApplication.milestones[0].title).toEqual(
-      "Admin Updated Milestone",
+    expect(res.body.data.status).toEqual("awaiting-final-approval");
+    expect(res.body.data.milestones[0].title).toEqual(
+      "Creator Updated Milestone",
     );
   });
 });

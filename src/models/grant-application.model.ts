@@ -13,7 +13,14 @@ export interface IGrantApplication extends Document {
   summary: string;
   applicantId: Types.ObjectId;
   milestones: IGrantApplicationMilestone[];
-  status: "submitted" | "reviewing" | "approved" | "rejected";
+  status:
+    | "submitted"
+    | "reviewing"
+    | "approved"
+    | "rejected"
+    | "paused"
+    | "cancelled"
+    | "awaiting-final-approval";
   adminNote?: string;
   archived?: boolean;
   createdAt: Date;

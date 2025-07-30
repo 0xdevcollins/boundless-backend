@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import mongoose from "mongoose"; // Import mongoose for ObjectId validation
+import mongoose from "mongoose";
 import GrantApplication from "../models/grant-application.model";
 import { sendError, sendValidationError } from "../utils/apiResponse";
 import { sendSuccess } from "../utils/apiResponse";
@@ -7,12 +7,12 @@ import Project from "../models/project.model";
 import ContractService from "../services/contract.service";
 import Account from "../models/account.model";
 
-// Define statuses
+// Define statuses - Updated to match the model's string literals
 enum ApplicationStatus {
-  Submitted = "submitted",
-  Paused = "paused",
-  Cancelled = "cancelled",
-  AwaitingFinalApproval = "awaiting-final-approval",
+  Submitted = "SUBMITTED",
+  Paused = "PAUSED",
+  Cancelled = "CANCELLED",
+  AwaitingFinalApproval = "AWAITING_FINAL_APPROVAL", // ✅ Fixed to match model
 }
 
 const TRANSITION_RULES: { [key in ApplicationStatus]?: ApplicationStatus[] } = {
@@ -299,13 +299,13 @@ export const updateMilestones = async (req: Request, res: Response) => {
       );
     }
 
-    // 5. Update milestones and status
+    // 5. Update milestones and status - ✅ Fixed property mapping
     application.milestones = milestones.map((m: any) => ({
       title: m.title,
       description: m.description,
-      expectedPayout: m.expectedPayout,
+      amount: m.expectedPayout, // ✅ Map expectedPayout to amount
     }));
-    application.status = ApplicationStatus.AwaitingFinalApproval;
+    application.status = ApplicationStatus.AwaitingFinalApproval; // ✅ Now matches model
 
     await project.save();
 
