@@ -1,4 +1,4 @@
-import mongoose, { Schema, type Document } from "mongoose";
+import mongoose, { Schema, Types, type Document } from "mongoose";
 
 export enum ProjectStatus {
   IDEA = "idea",
@@ -26,9 +26,10 @@ export enum ProjectType {
 }
 
 export interface IProject extends Document {
+  creator: Types.ObjectId;
   _id: mongoose.Types.ObjectId;
   title: string;
-  tagline?: string; // Short one-liner description
+  tagline?: string;
   description: string;
   category: string;
   status: ProjectStatus;
@@ -86,13 +87,13 @@ export interface IProject extends Document {
   media: {
     banner: string;
     logo: string;
-    thumbnail?: string; // Project thumbnail image
+    thumbnail?: string;
   };
   documents: {
     whitepaper: string;
     pitchDeck: string;
   };
-  tags?: string[]; // Array of tags for the project
+  tags?: string[];
   creationTxHash?: string;
   grant?: {
     isGrant: boolean;
@@ -105,12 +106,18 @@ export interface IProject extends Document {
         | "APPROVED"
         | "REJECTED"
         | "IN_PROGRESS"
-        | "LOCKED";
+        | "LOCKED"
+        | "AWAITING_FINAL_APPROVAL"; // ✅ Added this missing status
       submittedAt: Date;
       nextAction?: string;
       escrowedAmount: number;
       milestonesCompleted: number;
       txHash?: string;
+      milestones: Array<{
+        title: string;
+        description: string;
+        amount: number;
+      }>; // ✅ Added missing milestones inside applications
     }>;
     totalBudget: number;
     totalDisbursed: number;
@@ -130,7 +137,7 @@ export interface IProject extends Document {
 const ProjectSchema = new Schema<IProject>(
   {
     title: { type: String, required: true },
-    tagline: { type: String }, // Short one-liner description
+    tagline: { type: String },
     description: { type: String, required: true },
     category: { type: String, required: true },
     status: {
@@ -138,6 +145,7 @@ const ProjectSchema = new Schema<IProject>(
       enum: Object.values(ProjectStatus),
       default: ProjectStatus.DRAFT,
     },
+    creator: { type: Schema.Types.ObjectId, ref: "User", required: true }, // ✅ Added creator field
     owner: {
       type: { type: Schema.Types.ObjectId, ref: "User", required: true },
     },
@@ -190,13 +198,13 @@ const ProjectSchema = new Schema<IProject>(
     media: {
       banner: { type: String },
       logo: { type: String },
-      thumbnail: { type: String }, // Project thumbnail image
+      thumbnail: { type: String },
     },
     documents: {
       whitepaper: { type: String },
       pitchDeck: { type: String },
     },
-    tags: [{ type: String }], // Array of tags for the project
+    tags: [{ type: String }],
     creationTxHash: { type: String },
     grant: {
       isGrant: { type: Boolean, default: false },
@@ -212,6 +220,7 @@ const ProjectSchema = new Schema<IProject>(
               "REJECTED",
               "IN_PROGRESS",
               "LOCKED",
+              "AWAITING_FINAL_APPROVAL", // ✅ Added missing status here
             ],
             default: "SUBMITTED",
           },
@@ -219,7 +228,14 @@ const ProjectSchema = new Schema<IProject>(
           nextAction: { type: String },
           escrowedAmount: { type: Number, default: 0 },
           milestonesCompleted: { type: Number, default: 0 },
-          txHash: { type: String }, // Add this line
+          txHash: { type: String },
+          milestones: [
+            {
+              title: { type: String, required: true },
+              description: { type: String, required: true },
+              amount: { type: Number, required: true },
+            },
+          ], // ✅ Added missing milestones array inside applications
         },
       ],
       totalBudget: { type: Number, default: 0 },
@@ -245,7 +261,7 @@ const ProjectSchema = new Schema<IProject>(
   { timestamps: true },
 );
 
-// Indexes for faster queries
+// Indexes
 ProjectSchema.index({ status: 1 });
 ProjectSchema.index({ "owner.type": 1 });
 ProjectSchema.index({ "funding.endDate": 1 });
