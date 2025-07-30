@@ -43,7 +43,7 @@ interface Config {
 
 export const config: Config = {
   port: parseInt(process.env.PORT || "3000"),
-  mongoUri: process.env.MONGO_URI || "mongodb://localhost:27017/boundless",
+  mongoUri: process.env.MONGODB_URI || "mongodb://localhost:27017/boundless",
   jwt: {
     accessTokenSecret:
       process.env.JWT_ACCESS_TOKEN_SECRET || "your-access-token-secret",
