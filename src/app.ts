@@ -114,8 +114,6 @@ app.use("/api/notifications", authMiddleware, notificationRoutes);
 app.use("/api/campaigns", campaignRoutes);
 app.use("/api/grants", grantRoutes);
 app.use("/api/grant-applications", grantApplicationRoutes);
-
-// Milestone admin review endpoint
 app.use("/api/milestones", milestoneRoutes);
 
 // Swagger Docs

@@ -1,6 +1,76 @@
 import { Request, Response } from "express";
 import Milestone from "../models/milestone.model";
+import Campaign from "../models/campaign.model";
 import { triggerSorobanPayout } from "../services/contract.service";
+
+export const submitMilestoneProof = async (req: Request, res: Response) => {
+  const { milestoneId } = req.params;
+  const { description, proofLinks } = req.body;
+  const userId = req.user?.id;
+
+  try {
+    // Find the milestone
+    const milestone = await Milestone.findById(milestoneId);
+    if (!milestone) {
+      res.status(404).json({ message: "Milestone not found" });
+      return;
+    }
+
+    // Fetch the campaign separately
+    const campaign = await Campaign.findById(milestone.campaignId);
+    if (!campaign) {
+      console.log(
+        "Campaign not found for ID:",
+        milestone.campaignId.toString(),
+      );
+      res.status(404).json({ message: "Associated campaign not found" });
+      return;
+    }
+
+    // Check if user owns the campaign
+    if (!req.user || !userId || campaign.creatorId.toString() !== userId) {
+      res
+        .status(403)
+        .json({ message: "Not authorized to submit proof for this milestone" });
+      return;
+    }
+
+    // Check if milestone is in a submittable state
+    const submittableStates = ["pending", "in-progress", "revision-requested"];
+    if (!submittableStates.includes(milestone.status)) {
+      res.status(409).json({
+        message: "Milestone is not in a submittable state",
+        currentStatus: milestone.status,
+      });
+      return;
+    }
+
+    // Update milestone with proof data
+    milestone.proofDescription = description;
+    milestone.proofLinks = proofLinks;
+    milestone.status = "submitted";
+    milestone.submittedAt = new Date();
+
+    await milestone.save();
+
+    res.status(201).json({
+      success: true,
+      data: {
+        milestone: {
+          _id: milestone._id,
+          status: milestone.status,
+          proofDescription: milestone.proofDescription,
+          proofLinks: milestone.proofLinks,
+          submittedAt: milestone.submittedAt,
+        },
+      },
+      message: "Milestone proof submitted successfully",
+    });
+  } catch (err) {
+    console.error("Error submitting milestone proof:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 export const reviewMilestone = async (req: Request, res: Response) => {
   const { id } = req.params;

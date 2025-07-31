@@ -6,6 +6,9 @@ export interface IMilestone extends Document {
   description: string;
   index: number;
   proofUrl?: string;
+  proofDescription?: string;
+  proofLinks?: string[];
+  submittedAt?: Date;
   status:
     | "pending"
     | "submitted"
@@ -24,6 +27,9 @@ const MilestoneSchema = new Schema<IMilestone>({
   description: { type: String, required: true },
   index: { type: Number, required: true },
   proofUrl: { type: String },
+  proofDescription: { type: String },
+  proofLinks: [{ type: String }],
+  submittedAt: { type: Date },
   status: {
     type: String,
     enum: [
