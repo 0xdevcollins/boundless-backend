@@ -49,7 +49,6 @@
  *         description: Server error
  */
 import { Router } from "express";
-import { reviewMilestone } from "../controllers/milestone.controller";
 import { protect } from "../middleware/auth";
 import { roleMiddleware } from "../utils/jwt.utils";
 import { validateRequest } from "../middleware/validateRequest";
@@ -68,7 +67,22 @@ router.patch(
       .withMessage("Status must be 'approved' or 'rejected'"),
     body("adminNote").optional().isString().isLength({ max: 1000 }),
   ]),
-  reviewMilestone,
+);
+
+router.patch(
+  "/api/campaigns/:id/milestones/:milestoneId/status",
+  protect,
+  // roleMiddleware will be handled in controller for flexible role logic
+  validateRequest([
+    param("id").isMongoId().withMessage("Invalid campaign ID"),
+    param("milestoneId").isMongoId().withMessage("Invalid milestone ID"),
+    body("status")
+      .isIn(["pending", "approved", "rejected", "released", "disputed"])
+      .withMessage("Invalid status value"),
+    body("disputeReason").optional().isString().isLength({ max: 1000 }),
+  ]),
+  // controller to be implemented
+  require("../controllers/milestone.controller").updateMilestoneStatus,
 );
 
 export default router;
