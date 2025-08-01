@@ -14,8 +14,16 @@ export interface IMilestone extends Document {
     | "approved"
     | "rejected"
     | "revision-requested"
-    | "completed";
+    | "completed"
+    | "released"
+    | "disputed";
   adminNote?: string;
+  markerId?: Types.ObjectId;
+  markedAt?: Date;
+  releasedAt?: Date;
+  releaseTxHash?: string;
+  disputedAt?: Date;
+  disputeReason?: string;
 }
 
 const MilestoneSchema = new Schema<IMilestone>({
@@ -35,10 +43,18 @@ const MilestoneSchema = new Schema<IMilestone>({
       "rejected",
       "revision-requested",
       "completed",
+      "released",
+      "disputed",
     ],
     default: "pending",
   },
   adminNote: { type: String },
+  markerId: { type: Schema.Types.ObjectId, ref: "User" },
+  markedAt: { type: Date },
+  releasedAt: { type: Date },
+  releaseTxHash: { type: String },
+  disputedAt: { type: Date },
+  disputeReason: { type: String },
 });
 
 export default mongoose.model<IMilestone>("Milestone", MilestoneSchema);
