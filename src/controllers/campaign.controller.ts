@@ -4,6 +4,7 @@ import Campaign from "../models/campaign.model";
 import Milestone from "../models/milestone.model";
 import Project from "../models/project.model";
 import { UserRole } from "../models/user.model";
+import User from "../models/user.model";
 import Funding from "../models/funding.model";
 
 // Validation utility (can be moved to a separate file if needed)
@@ -302,5 +303,132 @@ export const approveCampaignV2 = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal server error." });
+  }
+};
+
+export const getCampaignById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { include, expand, format } = req.query;
+
+    // Validate campaign ID
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid campaign ID." });
+    }
+
+    // Build population options
+    const populateOptions: any[] = [];
+    if (expand?.toString().includes("project")) {
+      populateOptions.push({
+        path: "projectId",
+        select: "title media documents description owner",
+      });
+    }
+    if (expand?.toString().includes("creator")) {
+      populateOptions.push({
+        path: "creatorId",
+        select: "name wallet roles email profile",
+      });
+    }
+
+    // Fetch campaign with population
+    let campaignQuery = Campaign.findById(id);
+    if (populateOptions.length > 0) {
+      populateOptions.forEach((pop) => {
+        campaignQuery = campaignQuery.populate(pop);
+      });
+    }
+    const campaign = await campaignQuery.lean();
+    if (!campaign)
+      return res.status(404).json({ message: "Campaign not found." });
+
+    // Fetch milestones
+    const milestones = await Milestone.find({ campaignId: id })
+      .select(
+        "title description status payoutPercentage released releasedAt index",
+      )
+      .sort({ index: 1 })
+      .lean();
+
+    // Funding history (optional)
+    let fundingHistory: any[] = [];
+    if (include?.toString().includes("contributions")) {
+      fundingHistory = await Funding.find({ campaignId: id })
+        .populate("userId", "name wallet profile")
+        .select("userId amount txHash createdAt")
+        .sort({ createdAt: -1 })
+        .lean();
+    }
+
+    // Stakeholders: fallback to creator if not set
+    let stakeholders = campaign.stakeholders || {};
+    if ((!stakeholders || !stakeholders.creator) && campaign.creatorId) {
+      const creator = await User.findById(campaign.creatorId)
+        .select("profile")
+        .lean();
+      if (creator) {
+        stakeholders = {
+          ...stakeholders,
+          creator: {
+            wallet: creator.profile?.wallet || "",
+            role: "creator",
+            name: creator.profile?.firstName || "Unnamed Creator",
+          },
+        };
+      }
+    }
+
+    // Funding progress calculation
+    const fundsRaised = campaign.fundsRaised || 0;
+    const goalAmount = campaign.goalAmount || 1;
+    const fundingProgress = Math.min(100, (fundsRaised / goalAmount) * 100);
+
+    // Timeline calculation
+    const now = new Date();
+    const deadline = new Date(campaign.deadline);
+    const daysLeft = Math.max(
+      0,
+      Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
+    );
+
+    // Minimal format
+    if (format === "minimal") {
+      return res.json({
+        _id: campaign._id,
+        title: campaign.title,
+        goalAmount: campaign.goalAmount,
+        fundsRaised,
+        status: campaign.status,
+        deadline: campaign.deadline,
+        fundingProgress,
+      });
+    }
+
+    // Full detail
+    return res.json({
+      ...campaign,
+      project: campaign.projectId,
+      creator: campaign.creatorId,
+      milestones,
+      stakeholders,
+      funding: {
+        goalAmount: campaign.goalAmount,
+        fundsRaised,
+        fundingProgress,
+        fundingHistory,
+      },
+      timeline: {
+        deadline: campaign.deadline,
+        daysLeft,
+        createdAt: campaign.createdAt,
+      },
+      trustless: {
+        trustlessCampaignId: campaign.trustlessCampaignId,
+        currency: campaign.currency,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Internal server error." });
   }
 };

@@ -15,6 +15,9 @@ export interface IMilestone extends Document {
     | "rejected"
     | "revision-requested"
     | "completed";
+  payoutPercentage: number;
+  released: boolean;
+  releasedAt?: Date;
   adminNote?: string;
 }
 
@@ -38,6 +41,9 @@ const MilestoneSchema = new Schema<IMilestone>({
     ],
     default: "pending",
   },
+  payoutPercentage: { type: Number, required: true, default: 0 },
+  released: { type: Boolean, default: false },
+  releasedAt: { type: Date },
   adminNote: { type: String },
 });
 

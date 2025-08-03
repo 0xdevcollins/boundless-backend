@@ -3,6 +3,7 @@ import {
   createCampaign,
   backCampaign,
   approveCampaignV2,
+  getCampaignById,
 } from "../controllers/campaign.controller";
 import { authMiddleware } from "../utils/jwt.utils";
 
@@ -16,5 +17,8 @@ router.post("/:id/back", authMiddleware, backCampaign);
 
 // PATCH /api/campaigns/:id/approve
 router.patch("/:id/approve", authMiddleware, approveCampaignV2);
+
+// GET /api/campaigns/:id
+router.get("/:id", getCampaignById);
 
 export default router;

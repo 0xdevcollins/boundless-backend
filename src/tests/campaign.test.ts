@@ -7,11 +7,12 @@ import Campaign from "../models/campaign.model";
 import Milestone from "../models/milestone.model";
 import { TestUserFactory, cleanupTestData } from "./testHelpers";
 
-describe("POST /api/campaigns", () => {
-  let creatorToken: string;
-  let creatorId: mongoose.Types.ObjectId;
-  let projectId: mongoose.Types.ObjectId;
+// Move these to the top-level scope
+let creatorToken: string;
+let creatorId: mongoose.Types.ObjectId;
+let projectId: mongoose.Types.ObjectId;
 
+describe("POST /api/campaigns", () => {
   beforeEach(async () => {
     // Clean up any existing data
     await Campaign.deleteMany({});
@@ -166,5 +167,80 @@ describe("POST /api/campaigns", () => {
     expect(approveRes.status).toBe(200);
     expect(approveRes.body.campaign.status).toBe("live");
     expect(approveRes.body.campaign.smartContractAddress).toBeDefined();
+  });
+});
+
+describe("GET /api/campaigns/:id", () => {
+  let campaignId: string;
+
+  beforeEach(async () => {
+    // Create a campaign for GET tests
+    const campaignRes = await request(app)
+      .post("/api/campaigns")
+      .set("Authorization", `Bearer ${creatorToken}`)
+      .send({
+        projectId: projectId.toString(),
+        goalAmount: 10000,
+        deadline: new Date(Date.now() + 5 * 86400000).toISOString(),
+        milestones: [
+          { title: "M1", description: "Desc1" },
+          { title: "M2", description: "Desc2" },
+        ],
+      });
+    campaignId = campaignRes.body.campaign._id;
+  });
+
+  it("should return 400 for invalid campaign ID", async () => {
+    const res = await request(app).get("/api/campaigns/invalidid");
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/invalid/i);
+  });
+
+  it("should return 404 for non-existent campaign", async () => {
+    const fakeId = new mongoose.Types.ObjectId();
+    const res = await request(app).get(`/api/campaigns/${fakeId}`);
+    expect(res.status).toBe(404);
+    expect(res.body.message).toMatch(/not found/i);
+  });
+
+  it("should return full campaign details by default", async () => {
+    const res = await request(app).get(`/api/campaigns/${campaignId}`);
+    expect(res.status).toBe(200);
+    expect(res.body._id).toBeDefined();
+    expect(res.body.milestones).toBeInstanceOf(Array);
+    expect(res.body.funding).toBeDefined();
+    expect(res.body.timeline).toBeDefined();
+    expect(res.body.trustless).toBeDefined();
+  });
+
+  it("should support minimal format", async () => {
+    const res = await request(app).get(
+      `/api/campaigns/${campaignId}?format=minimal`,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.title).toBeDefined();
+    expect(res.body.goalAmount).toBeDefined();
+    expect(res.body.fundingProgress).toBeDefined();
+    expect(res.body.milestones).toBeUndefined();
+  });
+
+  it("should expand project and creator fields", async () => {
+    const res = await request(app).get(
+      `/api/campaigns/${campaignId}?expand=project,creator`,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.project).toBeDefined();
+    expect(typeof res.body.project).toBe("object");
+    expect(res.body.creator).toBeDefined();
+    expect(typeof res.body.creator).toBe("object");
+  });
+
+  it("should include funding contributions if requested", async () => {
+    // Optionally, add a funding record here if needed
+    const res = await request(app).get(
+      `/api/campaigns/${campaignId}?include=contributions`,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.funding.fundingHistory).toBeInstanceOf(Array);
   });
 });
