@@ -19,7 +19,7 @@ export interface IMilestone extends Document {
     | "revision-requested"
     | "completed";
   payoutPercent: number;
-  releaseTxHash?: string;
+  releaseTxHash?: string | null;
   adminNote?: string;
   createdAt: Date;
   updatedAt: Date;
