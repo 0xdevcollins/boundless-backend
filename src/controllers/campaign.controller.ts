@@ -85,7 +85,7 @@ export const createCampaign = async (req: Request, res: Response) => {
             goalAmount,
             deadline,
             status: "draft",
-            documents: project.documents, // Copy documents from project
+            documents: project.documents,
           },
         ],
         { session },

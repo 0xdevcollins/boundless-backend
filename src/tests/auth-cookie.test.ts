@@ -85,7 +85,7 @@ describe("Auth with Cookies and Bearer Tokens", () => {
 
       const cookieArray = Array.isArray(cookies) ? cookies : [cookies];
       const tokenCookie = cookieArray.find((cookie: string) =>
-        cookie.startsWith("token="),
+        cookie.startsWith("accessToken="),
       );
       const refreshTokenCookie = cookieArray.find((cookie: string) =>
         cookie.startsWith("refreshToken="),
@@ -113,7 +113,7 @@ describe("Auth with Cookies and Bearer Tokens", () => {
 
       const cookieArray = Array.isArray(cookies) ? cookies : [cookies];
       const tokenCookie = cookieArray.find((cookie: string) =>
-        cookie.startsWith("token="),
+        cookie.startsWith("accessToken="),
       );
       const refreshTokenCookie = cookieArray.find((cookie: string) =>
         cookie.startsWith("refreshToken="),

@@ -107,6 +107,7 @@ export const createProjectIdea = async (
       type,
       category: category.trim(),
       status: ProjectStatus.IDEA,
+      creator: req.user._id,
       whitepaperUrl: whitepaperUrl?.trim(),
       tags: tags?.filter((tag: string) => tag?.trim()) || [],
       votes: 0,

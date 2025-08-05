@@ -38,7 +38,8 @@ describe("PATCH /api/grant-applications/:id/escrow", () => {
       category: "cat",
       type: ProjectType.GRANT,
       status: "DRAFT",
-      owner: { type: new mongoose.Types.ObjectId(), ref: "User" },
+      creator: new mongoose.Types.ObjectId(),
+      owner: { type: new mongoose.Types.ObjectId() },
       grant: {
         isGrant: true,
         applications: [

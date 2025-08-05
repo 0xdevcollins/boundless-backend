@@ -55,6 +55,7 @@ describe("POST /api/campaigns", () => {
       description: "A project for testing",
       category: "Test",
       status: ProjectStatus.VALIDATED,
+      creator: creatorId,
       owner: { type: creatorId },
       funding: {
         goal: 1000,
