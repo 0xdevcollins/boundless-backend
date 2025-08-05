@@ -4,7 +4,7 @@ import app from "../app";
 import User, { UserRole } from "../models/user.model";
 import Project, { ProjectStatus, ProjectType } from "../models/project.model";
 import Crowdfund, { CrowdfundStatus } from "../models/crowdfund.model";
-import { generateTokens } from "../utils/jwt.utils";
+import { TestUserFactory, cleanupTestData } from "./testHelpers";
 
 describe("Project Idea Endpoints", () => {
   let userToken: string;
@@ -13,55 +13,37 @@ describe("Project Idea Endpoints", () => {
   let otherUserId: mongoose.Types.ObjectId;
 
   beforeEach(async () => {
-    // Create test users
-    const user = await User.create({
+    // Clean up existing data
+    await User.deleteMany({});
+    await Project.deleteMany({});
+    await Crowdfund.deleteMany({});
+
+    // Create test users using TestUserFactory
+    const user = await TestUserFactory.creator({
       email: "creator@test.com",
-      password: "password123",
       profile: {
         firstName: "Test",
         lastName: "Creator",
         username: "testcreator",
       },
-      roles: [
-        { role: UserRole.CREATOR, grantedAt: new Date(), status: "ACTIVE" },
-      ],
     });
-    userId = user._id;
-    const tokens = generateTokens({
-      userId: user._id.toString(),
-      email: user.email,
-      roles: [UserRole.CREATOR],
-    });
-    userToken = tokens.accessToken;
+    userId = user.user._id;
+    userToken = user.token;
 
-    const otherUser = await User.create({
+    const otherUser = await TestUserFactory.regular({
       email: "other@test.com",
-      password: "password123",
       profile: {
         firstName: "Other",
         lastName: "User",
         username: "otheruser",
       },
-      roles: [
-        { role: UserRole.BACKER, grantedAt: new Date(), status: "ACTIVE" },
-      ],
     });
-    otherUserId = otherUser._id;
-    const otherTokens = generateTokens({
-      userId: otherUser._id.toString(),
-      email: otherUser.email,
-      roles: [UserRole.BACKER],
-    });
-    otherUserToken = otherTokens.accessToken;
-
-    // Clean up projects and crowdfunds before each test
-    await Project.deleteMany({});
-    await Crowdfund.deleteMany({});
+    otherUserId = otherUser.user._id;
+    otherUserToken = otherUser.token;
   });
 
   afterAll(async () => {
-    await mongoose.connection.dropDatabase();
-    await mongoose.connection.close();
+    await cleanupTestData();
   });
 
   describe("POST /api/projects", () => {
@@ -160,7 +142,8 @@ describe("Project Idea Endpoints", () => {
           type: ProjectType.CROWDFUND,
           status: ProjectStatus.IDEA,
           votes: 10,
-          owner: { type: userId, ref: "User" },
+          creator: userId,
+          owner: { type: userId },
           category: "Technology",
           funding: {
             goal: 1000,
@@ -188,7 +171,8 @@ describe("Project Idea Endpoints", () => {
           type: ProjectType.GRANT,
           status: ProjectStatus.REVIEWING,
           votes: 5,
-          owner: { type: otherUserId, ref: "User" },
+          creator: otherUserId,
+          owner: { type: otherUserId },
           category: "Research",
           funding: {
             goal: 2000,
@@ -275,7 +259,8 @@ describe("Project Idea Endpoints", () => {
         type: ProjectType.CROWDFUND,
         status: ProjectStatus.IDEA,
         votes: 0,
-        owner: { type: userId, ref: "User" },
+        creator: userId,
+        owner: { type: userId },
         category: "Technology",
         funding: {
           goal: 1000,
@@ -343,7 +328,8 @@ describe("Project Idea Endpoints", () => {
         type: ProjectType.CROWDFUND,
         status: ProjectStatus.IDEA,
         votes: 0,
-        owner: { type: userId, ref: "User" },
+        creator: userId,
+        owner: { type: userId },
         category: "Original Category",
         funding: {
           goal: 1000,
@@ -429,7 +415,8 @@ describe("Project Idea Endpoints", () => {
         type: ProjectType.CROWDFUND,
         status: ProjectStatus.IDEA,
         votes: 0,
-        owner: { type: userId, ref: "User" },
+        creator: userId,
+        owner: { type: userId },
         category: "Delete Category",
         funding: {
           goal: 1000,

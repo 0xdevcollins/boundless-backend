@@ -4,37 +4,16 @@ import GrantApplication from "../models/grant-application.model";
 import User from "../models/user.model";
 import Project from "../models/project.model";
 import mongoose from "mongoose";
-
-// Helper function to create JWT token - you'll need to implement this based on your JWT structure
-const createToken = (
-  userId: string | mongoose.Types.ObjectId,
-  email: string,
-) => {
-  // This is a placeholder - replace with your actual JWT token generation logic
-  // You might need to import and use your JWT utilities differently
-  const payload = {
-    userId: userId.toString(),
-    email: email,
-    roles: [],
-  };
-
-  // Option 1: If you have a direct sign function
-  // return jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '1h' });
-
-  // Option 2: If you need to use your generateTokens function, make sure it's exported
-  // const { accessToken } = generateTokens(payload);
-  // return accessToken;
-
-  // For now, returning a mock token - replace with actual implementation
-  return "mock-jwt-token-" + userId.toString();
-};
-
-// Helper function to disconnect from database
-const disconnectDB = async () => {
-  await mongoose.disconnect();
-};
+import {
+  TestUserFactory,
+  cleanupTestData,
+  generateTestToken,
+} from "./testHelpers";
 
 describe("PATCH /api/grant-applications/:id/milestones", () => {
+  let adminUser: any;
+  let grantCreatorUser: any;
+  let regularUser: any;
   let adminToken: string;
   let grantCreatorToken: string;
   let regularUserToken: string;
@@ -42,7 +21,7 @@ describe("PATCH /api/grant-applications/:id/milestones", () => {
   let grantCreatorUserId: mongoose.Types.ObjectId;
   let projectId: mongoose.Types.ObjectId;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Connect to test database
     if (mongoose.connection.readyState === 0) {
       const testDbUri =
@@ -55,56 +34,76 @@ describe("PATCH /api/grant-applications/:id/milestones", () => {
     await Project.deleteMany({});
     await User.deleteMany({});
 
-    // Create test users
-    const adminUser = await User.create({
+    // Create test users using TestUserFactory
+    adminUser = await TestUserFactory.admin({
       email: "admin@example.com",
-      role: "admin",
-      password: "password123",
+      profile: {
+        firstName: "Admin",
+        lastName: "User",
+        username: "adminuser",
+      },
     });
-    const grantCreatorUser = await User.create({
+
+    grantCreatorUser = await TestUserFactory.creator({
       email: "creator@example.com",
-      role: "grant_creator",
-      password: "password123",
+      profile: {
+        firstName: "Grant",
+        lastName: "Creator",
+        username: "grantcreator",
+      },
     });
-    const regularUser = await User.create({
+
+    regularUser = await TestUserFactory.regular({
       email: "user@example.com",
-      role: "user",
-      password: "password123",
+      profile: {
+        firstName: "Regular",
+        lastName: "User",
+        username: "regularuser",
+      },
     });
 
-    grantCreatorUserId = grantCreatorUser._id as mongoose.Types.ObjectId;
+    grantCreatorUserId = grantCreatorUser.user._id as mongoose.Types.ObjectId;
 
-    adminToken = createToken(
-      adminUser._id as mongoose.Types.ObjectId,
-      adminUser.email,
-    );
-    grantCreatorToken = createToken(grantCreatorUserId, grantCreatorUser.email);
-    regularUserToken = createToken(
-      regularUser._id as mongoose.Types.ObjectId,
-      regularUser.email,
-    );
+    adminToken = adminUser.token;
+    grantCreatorToken = grantCreatorUser.token;
+    regularUserToken = regularUser.token;
 
     // Create a test project with grant application
     const project = await Project.create({
       title: "Test Grant Project",
       description: "Test project description",
+      type: "grant",
+      category: "blockchain",
       creator: grantCreatorUserId,
+      owner: {
+        type: grantCreatorUserId,
+      },
+      funding: {
+        goal: 10000,
+        raised: 0,
+        currency: "USD",
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        contributors: [],
+      },
       grant: {
         isGrant: true,
         applications: [
           {
-            applicant: regularUser._id,
-            status: "pending",
+            applicant: regularUser.user._id,
+            status: "SUBMITTED",
+            submittedAt: new Date(),
+            escrowedAmount: 0,
+            milestonesCompleted: 0,
             milestones: [
               {
                 title: "Initial Milestone 1",
                 description: "Desc 1",
-                expectedPayout: 100,
+                amount: 100,
               },
               {
                 title: "Initial Milestone 2",
                 description: "Desc 2",
-                expectedPayout: 200,
+                amount: 200,
               },
             ],
           },
@@ -134,9 +133,7 @@ describe("PATCH /api/grant-applications/:id/milestones", () => {
   });
 
   afterAll(async () => {
-    await Project.deleteMany({});
-    await User.deleteMany({});
-    await disconnectDB();
+    await cleanupTestData();
   });
 
   it("should update milestones and set status to awaiting-final-approval for grant creator", async () => {
@@ -162,10 +159,10 @@ describe("PATCH /api/grant-applications/:id/milestones", () => {
     expect(res.body.message).toEqual(
       "Milestones updated and application status set to awaiting-final-approval",
     );
-    expect(res.body.data.status).toEqual("awaiting-final-approval");
+    expect(res.body.data.status).toEqual("AWAITING_FINAL_APPROVAL");
     expect(res.body.data.milestones).toHaveLength(2);
     expect(res.body.data.milestones[0].title).toEqual("Updated Milestone 1");
-    expect(res.body.data.milestones[1].expectedPayout).toEqual(250);
+    expect(res.body.data.milestones[1].amount).toEqual(250);
 
     // Verify in database
     const updatedProject = await Project.findById(projectId);
@@ -174,7 +171,7 @@ describe("PATCH /api/grant-applications/:id/milestones", () => {
       updatedProject.grant.applications.length > 0
     ) {
       const updatedApp = updatedProject.grant.applications[0];
-      expect(updatedApp.status).toEqual("awaiting-final-approval");
+      expect(updatedApp.status).toEqual("AWAITING_FINAL_APPROVAL");
       // Type-safe access to milestones
       if ("milestones" in updatedApp && Array.isArray(updatedApp.milestones)) {
         expect(updatedApp.milestones[0].title).toEqual("Updated Milestone 1");
@@ -265,7 +262,7 @@ describe("PATCH /api/grant-applications/:id/milestones", () => {
     expect(res.body.message).toEqual(
       "Milestones updated and application status set to awaiting-final-approval",
     );
-    expect(res.body.data.status).toEqual("awaiting-final-approval");
+    expect(res.body.data.status).toEqual("AWAITING_FINAL_APPROVAL");
     expect(res.body.data.milestones[0].title).toEqual(
       "Creator Updated Milestone",
     );

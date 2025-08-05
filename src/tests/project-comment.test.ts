@@ -54,9 +54,9 @@ describe("Project Comment API", () => {
       type: ProjectType.CROWDFUND,
       category: "Test",
       status: ProjectStatus.IDEA,
+      creator: testUser._id,
       owner: {
         type: testUser._id,
-        ref: "User",
       },
       funding: {
         goal: 10000,

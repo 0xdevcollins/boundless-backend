@@ -5,7 +5,7 @@ import User from "../models/user.model";
 import Project, { ProjectStatus, ProjectType } from "../models/project.model";
 import Vote from "../models/vote.model";
 import Crowdfund from "../models/crowdfund.model";
-import { generateTokens } from "../utils/jwt.utils";
+import { TestUserFactory, cleanupTestData } from "./testHelpers";
 
 describe("Project Voting API", () => {
   let testUser: any;
@@ -15,40 +15,34 @@ describe("Project Voting API", () => {
   let authToken2: string;
 
   beforeEach(async () => {
-    // Create test users
-    testUser = await User.create({
+    // Clean up existing data
+    await User.deleteMany({});
+    await Project.deleteMany({});
+    await Vote.deleteMany({});
+    await Crowdfund.deleteMany({});
+
+    // Create test users using TestUserFactory
+    testUser = await TestUserFactory.creator({
       email: "test@example.com",
       profile: {
         firstName: "Test",
         lastName: "User",
         username: "testuser",
       },
-      password: "TestPassword123!",
-      isVerified: true,
     });
 
-    testUser2 = await User.create({
+    testUser2 = await TestUserFactory.regular({
       email: "test2@example.com",
       profile: {
         firstName: "Test",
         lastName: "User2",
         username: "testuser2",
       },
-      password: "TestPassword123!",
-      isVerified: true,
     });
 
-    // Generate auth tokens
-    authToken = generateTokens({
-      userId: testUser._id.toString(),
-      email: testUser.email,
-      roles: [], // Add roles if needed
-    }).accessToken;
-    authToken2 = generateTokens({
-      userId: testUser2._id.toString(),
-      email: testUser2.email,
-      roles: [], // Add roles if needed
-    }).accessToken;
+    // Get auth tokens from TestUserFactory
+    authToken = testUser.token;
+    authToken2 = testUser2.token;
 
     // Create test project
     testProject = await Project.create({
@@ -58,9 +52,9 @@ describe("Project Voting API", () => {
       type: ProjectType.CROWDFUND,
       category: "Test",
       status: ProjectStatus.IDEA,
+      creator: testUser.user._id,
       owner: {
-        type: testUser._id,
-        ref: "User",
+        type: testUser.user._id,
       },
       funding: {
         goal: 10000,
@@ -95,10 +89,7 @@ describe("Project Voting API", () => {
   });
 
   afterAll(async () => {
-    await User.deleteMany({});
-    await Project.deleteMany({});
-    await Vote.deleteMany({});
-    await Crowdfund.deleteMany({});
+    await cleanupTestData();
   });
 
   describe("POST /api/projects/:id/vote", () => {
@@ -119,21 +110,15 @@ describe("Project Voting API", () => {
 
     it("should allow user to cast a downvote", async () => {
       // Create another user for this test
-      const testUser3 = await User.create({
+      const testUser3 = await TestUserFactory.regular({
         email: "test3@example.com",
         profile: {
           firstName: "Test",
           lastName: "User3",
           username: "testuser3",
         },
-        password: "TestPassword123!",
-        isVerified: true,
       });
-      const authToken3 = generateTokens({
-        userId: testUser3._id.toString(),
-        email: "test3@example.com",
-        roles: [], // Add roles if needed
-      }).accessToken;
+      const authToken3 = testUser3.token;
 
       const response = await request(app)
         .post(`/api/projects/${testProject._id}/vote`)

@@ -12,6 +12,7 @@ import {
   checkResource,
 } from "../utils/apiResponse";
 import { checkSpam } from "../utils/moderation.utils";
+import { retryTransaction } from "../utils/retry.utils";
 
 /**
  * @desc    Add a comment to a project
@@ -22,167 +23,180 @@ export const addProjectComment = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  const { id: projectId } = req.params;
+  const { content, parentCommentId } = req.body;
+  const userId = req.user?._id;
+
+  // Validate project ID format
+  if (!mongoose.Types.ObjectId.isValid(projectId)) {
+    sendBadRequest(res, "Invalid project ID format");
+    return;
+  }
+
+  // Validate user authentication
+  if (!userId) {
+    sendUnauthorized(res, "Authentication required");
+    return;
+  }
+
+  // Validate content
+  if (!content || content.trim().length === 0) {
+    sendBadRequest(res, "Comment content is required");
+    return;
+  }
+
+  if (content.trim().length > 2000) {
+    sendBadRequest(res, "Comment content cannot exceed 2000 characters");
+    return;
+  }
 
   try {
-    const { id: projectId } = req.params;
-    const { content, parentCommentId } = req.body;
-    const userId = req.user?._id;
+    await retryTransaction(async () => {
+      const session = await mongoose.startSession();
+      session.startTransaction();
 
-    // Validate project ID format
-    if (!mongoose.Types.ObjectId.isValid(projectId)) {
-      sendBadRequest(res, "Invalid project ID format");
-      return;
-    }
+      try {
+        // Check if project exists and allows comments
+        const project = await Project.findById(projectId).session(session);
+        if (checkResource(res, !project, "Project not found", 404)) {
+          await session.abortTransaction();
+          return;
+        }
 
-    // Validate user authentication
-    if (!userId) {
-      sendUnauthorized(res, "Authentication required");
-      return;
-    }
+        // Check if project status allows comments
+        const commentableStatuses = [
+          ProjectStatus.IDEA,
+          ProjectStatus.REVIEWING,
+          ProjectStatus.VALIDATED,
+          ProjectStatus.CAMPAIGNING,
+          ProjectStatus.LIVE,
+        ];
+        if (!commentableStatuses.includes(project!.status)) {
+          sendBadRequest(res, "Project is not available for comments");
+          await session.abortTransaction();
+          return;
+        }
 
-    // Validate content
-    if (!content || content.trim().length === 0) {
-      sendBadRequest(res, "Comment content is required");
-      return;
-    }
+        // Validate parent comment if provided
+        let parentComment = null;
+        if (parentCommentId) {
+          if (!mongoose.Types.ObjectId.isValid(parentCommentId)) {
+            sendBadRequest(res, "Invalid parent comment ID format");
+            await session.abortTransaction();
+            return;
+          }
 
-    if (content.trim().length > 2000) {
-      sendBadRequest(res, "Comment content cannot exceed 2000 characters");
-      return;
-    }
+          parentComment =
+            await ProjectComment.findById(parentCommentId).session(session);
+          if (!parentComment) {
+            sendBadRequest(res, "Parent comment not found");
+            await session.abortTransaction();
+            return;
+          }
 
-    // Check if project exists and allows comments
-    const project = await Project.findById(projectId).session(session);
-    if (checkResource(res, !project, "Project not found", 404)) {
-      await session.abortTransaction();
-      return;
-    }
+          // Ensure parent comment belongs to the same project
+          if (parentComment.projectId.toString() !== projectId) {
+            sendBadRequest(
+              res,
+              "Parent comment does not belong to this project",
+            );
+            await session.abortTransaction();
+            return;
+          }
 
-    // Check if project status allows comments
-    const commentableStatuses = [
-      ProjectStatus.IDEA,
-      ProjectStatus.REVIEWING,
-      ProjectStatus.VALIDATED,
-      ProjectStatus.CAMPAIGNING,
-      ProjectStatus.LIVE,
-    ];
-    if (!commentableStatuses.includes(project!.status)) {
-      sendBadRequest(res, "Project is not available for comments");
-      await session.abortTransaction();
-      return;
-    }
+          // Don't allow nested replies (only one level deep)
+          if (parentComment.parentCommentId) {
+            sendBadRequest(
+              res,
+              "Cannot reply to a reply. Please reply to the original comment.",
+            );
+            await session.abortTransaction();
+            return;
+          }
+        }
 
-    // Validate parent comment if provided
-    let parentComment = null;
-    if (parentCommentId) {
-      if (!mongoose.Types.ObjectId.isValid(parentCommentId)) {
-        sendBadRequest(res, "Invalid parent comment ID format");
-        await session.abortTransaction();
-        return;
-      }
+        // Moderate content for spam/inappropriate content
+        const isSpam = await checkSpam(content.trim());
 
-      parentComment =
-        await ProjectComment.findById(parentCommentId).session(session);
-      if (!parentComment) {
-        sendBadRequest(res, "Parent comment not found");
-        await session.abortTransaction();
-        return;
-      }
+        // Create the comment
+        const comment = new ProjectComment({
+          userId,
+          projectId,
+          content: content.trim(),
+          parentCommentId: parentCommentId || null,
+          status: isSpam ? "flagged" : "active",
+          isSpam,
+        });
 
-      // Ensure parent comment belongs to the same project
-      if (parentComment.projectId.toString() !== projectId) {
-        sendBadRequest(res, "Parent comment does not belong to this project");
-        await session.abortTransaction();
-        return;
-      }
+        await comment.save({ session });
 
-      // Don't allow nested replies (only one level deep)
-      if (parentComment.parentCommentId) {
-        sendBadRequest(
-          res,
-          "Cannot reply to a reply. Please reply to the original comment.",
+        // Update user comment stats
+        await User.findByIdAndUpdate(
+          userId,
+          {
+            $inc: { "stats.commentsPosted": 1 },
+          },
+          { session },
         );
+
+        // Update project comment count (if you have this field)
+        await Project.findByIdAndUpdate(
+          projectId,
+          {
+            $inc: { "stats.commentsCount": 1 },
+          },
+          { session },
+        );
+
+        await session.commitTransaction();
+
+        // Populate comment data for response
+        await comment.populate([
+          {
+            path: "userId",
+            select:
+              "profile.firstName profile.lastName profile.username profile.avatar",
+          },
+        ]);
+
+        const responseData = {
+          comment: {
+            _id: comment._id,
+            content: comment.content,
+            userId: comment.userId,
+            projectId: comment.projectId,
+            parentCommentId: comment.parentCommentId,
+            status: comment.status,
+            reactionCounts: comment.reactionCounts,
+            totalReactions:
+              (comment.reactionCounts?.LIKE || 0) +
+              (comment.reactionCounts?.DISLIKE || 0) +
+              (comment.reactionCounts?.HELPFUL || 0),
+            createdAt: comment.createdAt,
+            updatedAt: comment.updatedAt,
+            isSpam: comment.isSpam,
+          },
+          moderationResult: {
+            flagged: isSpam,
+            reason: isSpam ? "Content flagged for review" : null,
+          },
+        };
+
+        sendCreated(
+          res,
+          responseData,
+          isSpam
+            ? "Comment submitted for review"
+            : "Comment added successfully",
+        );
+      } catch (error) {
         await session.abortTransaction();
-        return;
+        throw error;
+      } finally {
+        session.endSession();
       }
-    }
-
-    // Moderate content for spam/inappropriate content
-    const isSpam = await checkSpam(content.trim());
-
-    // Create the comment
-    const comment = new ProjectComment({
-      userId,
-      projectId,
-      content: content.trim(),
-      parentCommentId: parentCommentId || null,
-      status: isSpam ? "flagged" : "active",
-      isSpam,
     });
-
-    await comment.save({ session });
-
-    // Update user comment stats
-    await User.findByIdAndUpdate(
-      userId,
-      {
-        $inc: { "stats.commentsPosted": 1 },
-      },
-      { session },
-    );
-
-    // Update project comment count (if you have this field)
-    await Project.findByIdAndUpdate(
-      projectId,
-      {
-        $inc: { "stats.commentsCount": 1 },
-      },
-      { session },
-    );
-
-    await session.commitTransaction();
-
-    // Populate comment data for response
-    await comment.populate([
-      {
-        path: "userId",
-        select:
-          "profile.firstName profile.lastName profile.username profile.avatar",
-      },
-    ]);
-
-    const responseData = {
-      comment: {
-        _id: comment._id,
-        content: comment.content,
-        userId: comment.userId,
-        projectId: comment.projectId,
-        parentCommentId: comment.parentCommentId,
-        status: comment.status,
-        reactionCounts: comment.reactionCounts,
-        totalReactions:
-          (comment.reactionCounts?.LIKE || 0) +
-          (comment.reactionCounts?.DISLIKE || 0) +
-          (comment.reactionCounts?.HELPFUL || 0),
-        createdAt: comment.createdAt,
-        updatedAt: comment.updatedAt,
-        isSpam: comment.isSpam,
-      },
-      moderationResult: {
-        flagged: isSpam,
-        reason: isSpam ? "Content flagged for review" : null,
-      },
-    };
-
-    sendCreated(
-      res,
-      responseData,
-      isSpam ? "Comment submitted for review" : "Comment added successfully",
-    );
   } catch (error) {
-    await session.abortTransaction();
     console.error("Add project comment error:", error);
 
     if (error instanceof mongoose.Error.ValidationError) {
@@ -203,8 +217,6 @@ export const addProjectComment = async (
       "Failed to add comment",
       error instanceof Error ? error.message : "Unknown error",
     );
-  } finally {
-    session.endSession();
   }
 };
 
