@@ -126,6 +126,7 @@ describe("Trustless Work Integration - Complete Workflow", () => {
   describe("Campaign Creation with Trustless Work", () => {
     it("should create a campaign with valid stakeholders and milestones", async () => {
       const campaignData = {
+        title: "Test Campaign with Trustless Work",
         projectId: project._id,
         goalAmount: 10000,
         deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -180,6 +181,7 @@ describe("Trustless Work Integration - Complete Workflow", () => {
 
     it("should validate required stakeholders", async () => {
       const campaignData = {
+        title: "Test Campaign Missing Approver",
         projectId: project._id,
         goalAmount: 10000,
         deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -212,6 +214,7 @@ describe("Trustless Work Integration - Complete Workflow", () => {
 
     it("should validate milestone payout percentages", async () => {
       const campaignData = {
+        title: "Test Campaign Invalid Payout",
         projectId: project._id,
         goalAmount: 10000,
         deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -252,6 +255,7 @@ describe("Trustless Work Integration - Complete Workflow", () => {
     beforeEach(async () => {
       // Create a test campaign
       testCampaign = await Campaign.create({
+        title: "Test Campaign for Approval",
         projectId: project._id,
         creatorId: creatorUser._id,
         goalAmount: 10000,
@@ -358,6 +362,7 @@ describe("Trustless Work Integration - Complete Workflow", () => {
     it("should validate stakeholders before approval", async () => {
       // Create campaign without stakeholders but with milestones
       const campaignWithoutStakeholders = await Campaign.create({
+        title: "Test Campaign Without Stakeholders",
         projectId: project._id,
         creatorId: creatorUser._id,
         goalAmount: 10000,
@@ -399,6 +404,7 @@ describe("Trustless Work Integration - Complete Workflow", () => {
 
     beforeEach(async () => {
       fundedCampaign = await Campaign.create({
+        title: "Test Funded Campaign",
         projectId: project._id,
         creatorId: creatorUser._id,
         goalAmount: 10000,
@@ -462,6 +468,7 @@ describe("Trustless Work Integration - Complete Workflow", () => {
     it("should validate campaign status before funding", async () => {
       // Create campaign that's not deployed
       const undeployedCampaign = await Campaign.create({
+        title: "Test Undeployed Campaign",
         projectId: project._id,
         creatorId: creatorUser._id,
         goalAmount: 10000,
@@ -494,6 +501,7 @@ describe("Trustless Work Integration - Complete Workflow", () => {
 
     beforeEach(async () => {
       fundedCampaign = await Campaign.create({
+        title: "Test Funded Campaign for Milestones",
         projectId: project._id,
         creatorId: creatorUser._id,
         goalAmount: 10000,
@@ -624,6 +632,7 @@ describe("Trustless Work Integration - Complete Workflow", () => {
 
     beforeEach(async () => {
       deployedCampaign = await Campaign.create({
+        title: "Test Deployed Campaign",
         projectId: project._id,
         creatorId: creatorUser._id,
         goalAmount: 10000,
@@ -706,6 +715,7 @@ describe("Trustless Work Integration - Complete Workflow", () => {
 
     it("should handle invalid milestone index", async () => {
       const campaign = await Campaign.create({
+        title: "Test Campaign for Invalid Milestone",
         projectId: project._id,
         creatorId: creatorUser._id,
         goalAmount: 10000,

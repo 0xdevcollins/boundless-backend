@@ -13,6 +13,9 @@ import {
 // Validation utility (can be moved to a separate file if needed)
 const validateCampaignInput = (body: any) => {
   const errors: string[] = [];
+  if (!body.title || typeof body.title !== "string") {
+    errors.push("Campaign title is required.");
+  }
   if (!body.projectId || !mongoose.Types.ObjectId.isValid(body.projectId)) {
     errors.push("Valid projectId is required.");
   }
@@ -85,6 +88,7 @@ export const createCampaign = async (req: Request, res: Response) => {
     }
 
     const {
+      title,
       projectId,
       goalAmount,
       deadline,
@@ -121,6 +125,7 @@ export const createCampaign = async (req: Request, res: Response) => {
       const campaign = await Campaign.create(
         [
           {
+            title,
             projectId,
             creatorId: user._id,
             goalAmount,

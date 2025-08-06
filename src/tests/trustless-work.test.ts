@@ -104,6 +104,7 @@ describe("Trustless Work Integration", () => {
   describe("Campaign Creation with Trustless Work", () => {
     it("should create a campaign with Trustless Work stakeholders and milestones", async () => {
       const campaignData = {
+        title: "Test Campaign with Trustless Work",
         projectId: project._id,
         goalAmount: 10000,
         deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -170,6 +171,7 @@ describe("Trustless Work Integration", () => {
 
     it("should validate stakeholder addresses", async () => {
       const campaignData = {
+        title: "Test Campaign Missing Approver",
         projectId: project._id,
         goalAmount: 10000,
         deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -202,6 +204,7 @@ describe("Trustless Work Integration", () => {
 
     it("should validate milestone payout percentages", async () => {
       const campaignData = {
+        title: "Test Campaign Invalid Payout",
         projectId: project._id,
         goalAmount: 10000,
         deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -236,6 +239,7 @@ describe("Trustless Work Integration", () => {
     beforeEach(async () => {
       // Create a test campaign
       testCampaign = await Campaign.create({
+        title: "Test Campaign for Approval",
         projectId: project._id,
         creatorId: creatorUser._id,
         goalAmount: 10000,
@@ -372,6 +376,7 @@ describe("Trustless Work Integration", () => {
     beforeEach(async () => {
       // Create a deployed campaign
       fundedCampaign = await Campaign.create({
+        title: "Test Deployed Campaign",
         projectId: project._id,
         creatorId: creatorUser._id,
         goalAmount: 10000,
@@ -425,6 +430,7 @@ describe("Trustless Work Integration", () => {
     beforeEach(async () => {
       // Create a funded campaign
       fundedCampaign = await Campaign.create({
+        title: "Test Funded Campaign",
         projectId: project._id,
         creatorId: creatorUser._id,
         goalAmount: 10000,
@@ -532,6 +538,7 @@ describe("Trustless Work Integration", () => {
 
     beforeEach(async () => {
       deployedCampaign = await Campaign.create({
+        title: "Test Deployed Campaign for Details",
         projectId: project._id,
         creatorId: creatorUser._id,
         goalAmount: 10000,

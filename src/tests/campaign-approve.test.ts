@@ -77,6 +77,7 @@ describe("PATCH /api/campaigns/:id/approve", () => {
 
     // Create a campaign (pending approval)
     const campaign = await Campaign.create({
+      title: "Test Campaign for Approval",
       projectId: new mongoose.Types.ObjectId(),
       creatorId: creatorId,
       goalAmount: 1000,
@@ -128,6 +129,7 @@ describe("PATCH /api/campaigns/:id/approve", () => {
   it("should fail if no milestones", async () => {
     // Create a campaign with no milestones
     const campaign = await Campaign.create({
+      title: "Test Campaign No Milestones",
       projectId: new mongoose.Types.ObjectId(),
       creatorId: creatorId,
       goalAmount: 1000,
@@ -148,6 +150,7 @@ describe("PATCH /api/campaigns/:id/approve", () => {
   it("should fail if deadline is invalid", async () => {
     // Create a campaign with past deadline
     const campaign = await Campaign.create({
+      title: "Test Campaign Past Deadline",
       projectId: new mongoose.Types.ObjectId(),
       creatorId: creatorId,
       goalAmount: 1000,
@@ -174,6 +177,7 @@ describe("PATCH /api/campaigns/:id/approve", () => {
   it("should fail if goalAmount is invalid", async () => {
     // Create a campaign with invalid goalAmount
     const campaign = await Campaign.create({
+      title: "Test Campaign Invalid Goal",
       projectId: new mongoose.Types.ObjectId(),
       creatorId: creatorId,
       goalAmount: 0,
@@ -200,6 +204,7 @@ describe("PATCH /api/campaigns/:id/approve", () => {
   it("should fail if required documents are missing", async () => {
     // Create a campaign with no documents
     const campaign = await Campaign.create({
+      title: "Test Campaign No Documents",
       projectId: new mongoose.Types.ObjectId(),
       creatorId: creatorId,
       goalAmount: 1000,

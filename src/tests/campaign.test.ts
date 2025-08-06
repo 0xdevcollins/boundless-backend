@@ -106,6 +106,7 @@ describe("POST /api/campaigns", () => {
       .post("/api/campaigns")
       .set("Authorization", `Bearer ${creatorToken}`)
       .send({
+        title: "Test Campaign",
         projectId: projectId.toString(),
         goalAmount: 5000,
         deadline: new Date(Date.now() + 7 * 86400000).toISOString(),
@@ -125,6 +126,7 @@ describe("POST /api/campaigns", () => {
       .post("/api/campaigns")
       .set("Authorization", `Bearer ${creatorToken}`)
       .send({
+        title: "Test Campaign for Approval",
         projectId: projectId.toString(),
         goalAmount: 8000,
         deadline: new Date(Date.now() + 10 * 86400000).toISOString(),
@@ -264,6 +266,7 @@ describe("GET /api/campaigns/:id", () => {
       .post("/api/campaigns")
       .set("Authorization", `Bearer ${creatorToken}`)
       .send({
+        title: "Test Campaign for Details",
         projectId: projectId.toString(),
         goalAmount: 5000,
         deadline: new Date(Date.now() + 7 * 86400000).toISOString(),
