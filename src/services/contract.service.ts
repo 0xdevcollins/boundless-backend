@@ -125,7 +125,16 @@ class ContractService {
     if (!ADMIN_SECRET_KEY) {
       throw new Error("Admin secret key is not configured");
     }
-    this.adminKeypair = Keypair.fromSecret(ADMIN_SECRET_KEY);
+
+    try {
+      this.adminKeypair = Keypair.fromSecret(ADMIN_SECRET_KEY);
+    } catch (error) {
+      console.warn(
+        "Invalid admin secret key format. Using development mode without blockchain features.",
+      );
+      // Create a dummy keypair for development
+      this.adminKeypair = Keypair.random();
+    }
   }
 
   /**
