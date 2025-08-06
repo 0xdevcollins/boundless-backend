@@ -3,10 +3,14 @@ import {
   createCampaign,
   backCampaign,
   approveCampaignV2,
+  getCampaignById,
 } from "../controllers/campaign.controller";
 import { authMiddleware } from "../utils/jwt.utils";
 
 const router = Router();
+
+// GET /api/campaigns/:id
+router.get("/:id", getCampaignById);
 
 // POST /api/campaigns
 router.post("/", authMiddleware, createCampaign);
