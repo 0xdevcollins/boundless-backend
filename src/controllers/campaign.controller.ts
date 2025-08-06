@@ -814,3 +814,96 @@ export const getEscrowDetails = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Internal server error." });
   }
 };
+
+export const getCampaignById = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({ message: "Invalid campaign ID." });
+      return;
+    }
+
+    let query = Campaign.findById(id)
+      .select(
+        "goalAmount fundsRaised status deadline currency trustlessCampaignId",
+      )
+      .populate({
+        path: "projectId",
+        select: "media documents title description",
+      })
+      .populate({
+        path: "creatorId",
+        select: "walletAddress profile.username",
+      })
+      .lean();
+
+    const { include, expand, format } = req.query as Record<string, string>;
+    if (expand?.split(",").includes("marker")) {
+      query = query.populate({ path: "marker", select: "walletAddress role" });
+    }
+    if (expand?.split(",").includes("releaser")) {
+      query = query.populate({
+        path: "releaser",
+        select: "walletAddress role",
+      });
+    }
+    if (expand?.split(",").includes("resolver")) {
+      query = query.populate({
+        path: "resolver",
+        select: "walletAddress role",
+      });
+    }
+
+    const campaign = await query;
+    if (!campaign) {
+      res.status(404).json({ message: "Campaign not found." });
+      return;
+    }
+
+    let milestones = await Milestone.find({ campaignId: id })
+      .select("title description index status payoutPercent proofUrl")
+      .sort("index")
+      .lean();
+
+    const fundings =
+      include === "contributions"
+        ? await Funding.find({ campaignId: id })
+            .select("userId amount createdAt")
+            .lean()
+        : [];
+    const totalRaised = campaign.fundsRaised;
+    const percentFunded =
+      campaign.goalAmount > 0
+        ? Math.min(100, (totalRaised / campaign.goalAmount) * 100)
+        : 0;
+
+    if (format === "minimal") {
+      res.json({
+        id,
+        title: (campaign.projectId as any)?.title || "Untitled Campaign",
+        status: campaign.status,
+      });
+      return;
+    }
+
+    const response: any = {
+      ...campaign,
+      title: (campaign.projectId as any)?.title || "Untitled Campaign",
+      funding: {
+        goal: campaign.goalAmount,
+        raised: totalRaised,
+        percentFunded,
+        contributions: fundings,
+      },
+      milestones,
+    };
+
+    res.json(response);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
