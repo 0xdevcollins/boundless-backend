@@ -85,6 +85,14 @@ describe("PATCH /api/campaigns/:id/approve", () => {
       status: "pending_approval",
       documents: { whitepaper: "whitepaper.pdf", pitchDeck: "" },
       createdAt: new Date(),
+      stakeholders: {
+        marker: "marker_address_123",
+        approver: "approver_address_123",
+        releaser: "releaser_address_123",
+        resolver: "resolver_address_123",
+        receiver: "receiver_address_123",
+        platformAddress: "platform_address_123",
+      },
     });
     campaignId = campaign._id as Types.ObjectId;
 
@@ -94,6 +102,7 @@ describe("PATCH /api/campaigns/:id/approve", () => {
       title: "Milestone 1",
       description: "First milestone",
       index: 0,
+      payoutPercentage: 100, // Single milestone gets 100%
     });
   });
 

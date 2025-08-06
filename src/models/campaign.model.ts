@@ -21,6 +21,20 @@ export interface ICampaign extends Document {
   };
   approvedBy?: Types.ObjectId;
   approvedAt?: Date;
+  // Trustless Work integration fields
+  trustlessCampaignId?: string;
+  currency?: string;
+  stakeholders?: {
+    marker: string;
+    approver: string;
+    releaser: string;
+    resolver: string;
+    receiver: string;
+    platformAddress?: string;
+  };
+  trustlessWorkStatus?: "pending" | "deployed" | "funded" | "failed";
+  escrowAddress?: string;
+  escrowType?: "single" | "multi";
 }
 
 const CampaignSchema = new Schema<ICampaign>({
@@ -49,6 +63,28 @@ const CampaignSchema = new Schema<ICampaign>({
   },
   approvedBy: { type: Schema.Types.ObjectId, ref: "User" },
   approvedAt: { type: Date },
+  // Trustless Work integration fields
+  trustlessCampaignId: { type: String },
+  currency: { type: String, default: "USDC" },
+  stakeholders: {
+    marker: { type: String },
+    approver: { type: String },
+    releaser: { type: String },
+    resolver: { type: String },
+    receiver: { type: String },
+    platformAddress: { type: String },
+  },
+  trustlessWorkStatus: {
+    type: String,
+    enum: ["pending", "deployed", "funded", "failed"],
+    default: "pending",
+  },
+  escrowAddress: { type: String },
+  escrowType: {
+    type: String,
+    enum: ["single", "multi"],
+    default: "multi",
+  },
 });
 
 export default mongoose.model<ICampaign>("Campaign", CampaignSchema);

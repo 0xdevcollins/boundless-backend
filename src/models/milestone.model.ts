@@ -19,6 +19,10 @@ export interface IMilestone extends Document {
     | "revision-requested"
     | "completed";
   adminNote?: string;
+  // Trustless Work integration fields
+  payoutPercentage?: number;
+  amount?: number;
+  trustlessMilestoneIndex?: number;
 }
 
 const MilestoneSchema = new Schema<IMilestone>({
@@ -45,6 +49,10 @@ const MilestoneSchema = new Schema<IMilestone>({
     default: "pending",
   },
   adminNote: { type: String },
+  // Trustless Work integration fields
+  payoutPercentage: { type: Number, min: 0, max: 100 },
+  amount: { type: Number, min: 0 },
+  trustlessMilestoneIndex: { type: Number },
 });
 
 export default mongoose.model<IMilestone>("Milestone", MilestoneSchema);
