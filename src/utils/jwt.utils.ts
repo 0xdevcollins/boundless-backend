@@ -4,6 +4,8 @@ import User, { IUser, UserRole } from "../models/user.model";
 
 // Always read the JWT secret from process.env at runtime
 const getJwtSecret = () => process.env.JWT_SECRET || "fallback_secret";
+const getRefreshTokenSecret = () =>
+  process.env.JWT_REFRESH_TOKEN_SECRET || "fallback_refresh_secret";
 
 export interface JwtPayload {
   userId: string;
@@ -13,14 +15,20 @@ export interface JwtPayload {
 
 export const generateTokens = (payload: JwtPayload) => {
   const secret = getJwtSecret();
+  const refreshSecret = getRefreshTokenSecret();
   const accessToken = jwt.sign(payload, secret, { expiresIn: "1h" });
-  const refreshToken = jwt.sign(payload, secret, { expiresIn: "7d" });
+  const refreshToken = jwt.sign(payload, refreshSecret, { expiresIn: "7d" });
   return { accessToken, refreshToken };
 };
 
 export const verifyToken = (token: string) => {
   const secret = getJwtSecret();
   return jwt.verify(token, secret);
+};
+
+export const verifyRefreshToken = (token: string) => {
+  const refreshSecret = getRefreshTokenSecret();
+  return jwt.verify(token, refreshSecret);
 };
 
 export const authMiddleware = async (

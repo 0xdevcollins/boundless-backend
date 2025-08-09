@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
+import jwt from "jsonwebtoken";
 
 import User, { IUser } from "../models/user.model";
 import Account from "../models/account.model";
 import Session from "../models/session.model";
-import { generateTokens } from "../utils/jwt.utils";
+import { generateTokens, verifyRefreshToken } from "../utils/jwt.utils";
 import { setAuthCookies, clearAuthCookies } from "../utils/cookie.utils";
 import axios from "axios";
 import { OAuth2Client } from "google-auth-library";
@@ -454,19 +455,10 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
 export const resendOtp = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email } = req.body;
-    if (!email) {
-      sendBadRequest(res, "Email is required");
-      return;
-    }
 
     const user = await User.findOne({ email });
     if (!user) {
-      sendNotFound(res, "User not found");
-      return;
-    }
-
-    if (user.isVerified) {
-      sendBadRequest(res, "User already verified");
+      sendBadRequest(res, "User not found");
       return;
     }
 
@@ -476,17 +468,78 @@ export const resendOtp = async (req: Request, res: Response): Promise<void> => {
 
     await sendEmail({
       to: email,
-      subject: "Verify your email",
+      subject: "Your verification code",
       html: `Your verification code is: ${otp}`,
     });
 
     sendSuccess(
       res,
-      { message: "OTP resent successfully" },
-      "OTP resent successfully",
+      { message: "OTP sent successfully" },
+      "OTP sent successfully",
     );
   } catch (error) {
     console.error("Resend OTP error:", error);
-    sendInternalServerError(res, "Error resending OTP");
+    sendInternalServerError(res, "Error sending OTP");
+  }
+};
+
+// Refresh token endpoint
+export const refreshToken = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const refreshToken = req.cookies?.refreshToken;
+
+    if (!refreshToken) {
+      sendUnauthorized(res, "Refresh token not found");
+      return;
+    }
+
+    // Verify the refresh token
+    const decoded = verifyRefreshToken(refreshToken) as any;
+
+    if (!decoded || !decoded.userId) {
+      sendUnauthorized(res, "Invalid refresh token");
+      return;
+    }
+
+    // Find the user
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      sendUnauthorized(res, "User not found");
+      return;
+    }
+
+    // Check if user is still verified
+    if (!user.isVerified) {
+      sendUnauthorized(res, "User not verified");
+      return;
+    }
+
+    // Generate new tokens
+    const tokens = generateTokens({
+      userId: user._id.toString(),
+      email: user.email,
+      roles: user.roles.map((role) => role.role),
+    });
+
+    // Set new cookies
+    setAuthCookies(res, tokens);
+
+    sendSuccess(
+      res,
+      { accessToken: tokens.accessToken },
+      "Token refreshed successfully",
+    );
+  } catch (error) {
+    if (error instanceof jwt.TokenExpiredError) {
+      sendUnauthorized(res, "Refresh token expired");
+    } else if (error instanceof jwt.JsonWebTokenError) {
+      sendUnauthorized(res, "Invalid refresh token");
+    } else {
+      console.error("Refresh token error:", error);
+      sendInternalServerError(res, "Error refreshing token");
+    }
   }
 };

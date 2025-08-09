@@ -42,6 +42,7 @@ export const createProjectIdea = async (
       whitepaperUrl,
       thumbnail,
       tags,
+      milestones,
     } = req.body;
 
     // Validate required fields
@@ -99,6 +100,107 @@ export const createProjectIdea = async (
       return;
     }
 
+    // Validate milestones if provided
+    let mappedMilestones: IProject["milestones"] = [];
+    if (milestones !== undefined) {
+      if (!Array.isArray(milestones)) {
+        sendBadRequest(res, "Milestones must be an array");
+        await session.abortTransaction();
+        return;
+      }
+
+      // Basic validation and mapping
+      mappedMilestones = milestones.map((m: any, index: number) => {
+        const errors: string[] = [];
+        if (!m?.title || typeof m.title !== "string" || !m.title.trim()) {
+          errors.push(`milestones[${index}].title is required`);
+        }
+        if (
+          m?.description === undefined ||
+          typeof m.description !== "string" ||
+          !m.description.trim()
+        ) {
+          errors.push(`milestones[${index}].description is required`);
+        }
+        if (!m?.deliveryDate || isNaN(Date.parse(m.deliveryDate))) {
+          errors.push(
+            `milestones[${index}].deliveryDate must be a valid date (YYYY-MM-DD)`,
+          );
+        }
+        if (
+          m?.fundPercentage !== undefined &&
+          (isNaN(Number(m.fundPercentage)) ||
+            Number(m.fundPercentage) < 0 ||
+            Number(m.fundPercentage) > 100)
+        ) {
+          errors.push(
+            `milestones[${index}].fundPercentage must be between 0 and 100`,
+          );
+        }
+        if (
+          m?.fundAmount !== undefined &&
+          (isNaN(Number(m.fundAmount)) || Number(m.fundAmount) < 0)
+        ) {
+          errors.push(
+            `milestones[${index}].fundAmount must be a non-negative number`,
+          );
+        }
+
+        if (errors.length > 0) {
+          sendBadRequest(res, "Invalid milestones payload", errors.join(", "));
+          return null as unknown as IProject["milestones"][number];
+        }
+
+        // Map to project milestone schema
+        const amount =
+          m?.fundAmount !== undefined ? Number(m.fundAmount) : undefined;
+
+        return {
+          title: String(m.title).trim(),
+          description: String(m.description).trim(),
+          amount: amount ?? 0,
+          dueDate: new Date(m.deliveryDate),
+          status: "pending",
+        };
+      });
+
+      // If any mapping failed (due to earlier error response), abort
+      if (mappedMilestones.some((m) => m == null)) {
+        await session.abortTransaction();
+        return;
+      }
+
+      // If project fundAmount is provided, ensure milestones sum matches (tolerance 1 unit)
+      if (
+        fundAmount !== undefined &&
+        mappedMilestones.length > 0 &&
+        mappedMilestones.every((m) => typeof m.amount === "number")
+      ) {
+        const sum = mappedMilestones.reduce(
+          (acc, m) => acc + (m.amount || 0),
+          0,
+        );
+        const goal = Number(fundAmount);
+        if (goal >= 0 && Math.abs(sum - goal) > 0.5) {
+          sendBadRequest(
+            res,
+            "Sum of milestone amounts must equal project fundAmount",
+            `sum=${sum}, fundAmount=${goal}`,
+          );
+          await session.abortTransaction();
+          return;
+        }
+      }
+    }
+
+    // Determine funding goal
+    const computedFundingGoal =
+      fundAmount !== undefined
+        ? Number(fundAmount)
+        : mappedMilestones.length > 0
+          ? mappedMilestones.reduce((acc, m) => acc + (m.amount || 0), 0)
+          : 0;
+
     // Create the Project
     const projectData: Partial<IProject> = {
       title: title.trim(),
@@ -118,7 +220,7 @@ export const createProjectIdea = async (
       // Initialize other required fields with defaults
       summary: tagline?.trim() || description.trim(),
       funding: {
-        goal: fundAmount || 0,
+        goal: computedFundingGoal,
         raised: 0,
         currency: "USD",
         endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days default
@@ -132,7 +234,7 @@ export const createProjectIdea = async (
         negativeVotes: 0,
         voters: [],
       },
-      milestones: [],
+      milestones: mappedMilestones,
       team: [],
       media: {
         banner: "",
@@ -198,6 +300,8 @@ export const createProjectIdea = async (
         tags: project.tags,
         votes: project.votes,
         owner: project.owner,
+        funding: project.funding,
+        milestones: project.milestones,
         createdAt: project.createdAt,
         updatedAt: project.updatedAt,
       },

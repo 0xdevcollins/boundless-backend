@@ -17,10 +17,17 @@ export interface IMilestone extends Document {
     | "approved"
     | "rejected"
     | "revision-requested"
-    | "completed";
+    | "completed"
+    | "released"
+    | "disputed";
   payoutPercent: number;
   releaseTxHash?: string | null;
   adminNote?: string;
+  markerId?: Types.ObjectId | null;
+  markedAt?: Date;
+  releasedAt?: Date;
+  disputedAt?: Date;
+  disputeReason?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -51,9 +58,20 @@ const MilestoneSchema = new Schema<IMilestone>(
         "rejected",
         "revision-requested",
         "completed",
+        "released",
+        "disputed",
       ],
       default: "pending",
     },
+    markerId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    markedAt: { type: Date },
+    releasedAt: { type: Date },
+    disputedAt: { type: Date },
+    disputeReason: { type: String },
     payoutPercent: {
       type: Number,
       required: [true, "Payout percentage is required"],

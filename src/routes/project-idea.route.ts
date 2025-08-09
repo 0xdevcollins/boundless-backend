@@ -45,6 +45,32 @@ const createProjectIdeaSchema = [
     .optional()
     .isFloat({ min: 0 })
     .withMessage("Fund amount must be a positive number"),
+  body("milestones")
+    .optional()
+    .isArray()
+    .withMessage("Milestones must be an array"),
+  body("milestones.*.title")
+    .optional()
+    .isString()
+    .isLength({ min: 1, max: 200 })
+    .withMessage("Milestone title is required and must be a string"),
+  body("milestones.*.description")
+    .optional()
+    .isString()
+    .isLength({ min: 1, max: 2000 })
+    .withMessage("Milestone description is required and must be a string"),
+  body("milestones.*.deliveryDate")
+    .optional()
+    .isISO8601()
+    .withMessage("Milestone deliveryDate must be a valid date (YYYY-MM-DD)"),
+  body("milestones.*.fundPercentage")
+    .optional()
+    .isFloat({ min: 0, max: 100 })
+    .withMessage("Milestone fundPercentage must be between 0 and 100"),
+  body("milestones.*.fundAmount")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Milestone fundAmount must be a non-negative number"),
   body("whitepaperUrl")
     .optional()
     .isURL({ protocols: ["http", "https"] })
@@ -354,6 +380,32 @@ const projectIdSchema = [
  *             maxLength: 50
  *           description: Array of tags for the project
  *           example: ["DeFi", "Lending", "Smart Contracts"]
+ *         milestones:
+ *           type: array
+ *           description: Milestones for the project idea
+ *           items:
+ *             type: object
+ *             required: [title, description, deliveryDate, fundAmount]
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 description: Milestone title
+ *               description:
+ *                 type: string
+ *                 description: Milestone description
+ *               deliveryDate:
+ *                 type: string
+ *                 format: date
+ *                 description: Expected delivery date (YYYY-MM-DD)
+ *               fundPercentage:
+ *                 type: number
+ *                 minimum: 0
+ *                 maximum: 100
+ *                 description: Percentage of total funds allocated to this milestone
+ *               fundAmount:
+ *                 type: number
+ *                 minimum: 0
+ *                 description: Amount allocated to this milestone
  *
  *     ProjectIdeaResponse:
  *       type: object
@@ -401,6 +453,17 @@ const projectIdSchema = [
  *                 whitepaperUrl: "https://example.com/whitepaper.pdf"
  *                 thumbnail: "https://example.com/thumbnail.jpg"
  *                 tags: ["DeFi", "Lending", "Smart Contracts"]
+ *                 milestones:
+ *                   - title: "MVP Delivery"
+ *                     description: "Deliver the minimum viable product"
+ *                     deliveryDate: "2025-03-01"
+ *                     fundPercentage: 40
+ *                     fundAmount: 20000
+ *                   - title: "Public Launch"
+ *                     description: "Launch to the public with marketing"
+ *                     deliveryDate: "2025-06-01"
+ *                     fundPercentage: 60
+ *                     fundAmount: 30000
  *             grant_project:
  *               summary: Grant Project Example
  *               value:
@@ -413,6 +476,22 @@ const projectIdSchema = [
  *                 whitepaperUrl: "https://example.com/tools-whitepaper.pdf"
  *                 thumbnail: "https://example.com/tools-thumbnail.jpg"
  *                 tags: ["Developer Tools", "Open Source", "Blockchain"]
+ *                 milestones:
+ *                   - title: "Research Phase"
+ *                     description: "Complete initial research and planning"
+ *                     deliveryDate: "2025-02-15"
+ *                     fundPercentage: 20
+ *                     fundAmount: 5000
+ *                   - title: "Prototype"
+ *                     description: "Build a working prototype"
+ *                     deliveryDate: "2025-04-15"
+ *                     fundPercentage: 40
+ *                     fundAmount: 10000
+ *                   - title: "Documentation & Release"
+ *                     description: "Complete docs and publish release"
+ *                     deliveryDate: "2025-06-15"
+ *                     fundPercentage: 40
+ *                     fundAmount: 10000
  *     responses:
  *       201:
  *         description: Project idea created successfully
