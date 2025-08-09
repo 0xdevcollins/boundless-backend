@@ -8,8 +8,9 @@ import {
   logout,
   verifyOtp,
   resendOtp,
+  refreshToken,
 } from "../controllers/auth.controller";
-import { protect } from "../middleware/auth";
+import { protect, protectWithRefresh } from "../middleware/auth";
 
 const router = express.Router();
 
@@ -21,5 +22,6 @@ router.get("/me", protect, getMe);
 router.post("/logout", protect, logout);
 router.post("/verify-otp", verifyOtp);
 router.post("/resend-otp", resendOtp);
+router.post("/refresh", refreshToken);
 
 export default router;

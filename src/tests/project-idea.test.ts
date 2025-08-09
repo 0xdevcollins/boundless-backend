@@ -1,7 +1,7 @@
 import request from "supertest";
 import mongoose from "mongoose";
 import app from "../app";
-import User, { UserRole } from "../models/user.model";
+import User from "../models/user.model";
 import Project, { ProjectStatus, ProjectType } from "../models/project.model";
 import Crowdfund, { CrowdfundStatus } from "../models/crowdfund.model";
 import { TestUserFactory, cleanupTestData } from "./testHelpers";
@@ -130,6 +130,116 @@ describe("Project Idea Endpoints", () => {
 
       expect(res.status).toBe(401);
     });
+
+    it("should create a project with milestones and map them correctly", async () => {
+      const projectData = {
+        title: "Milestone Project",
+        description: "Project with milestones",
+        category: "Technology",
+        fundAmount: 3000,
+        milestones: [
+          {
+            title: "Phase 1",
+            description: "Initial phase",
+            deliveryDate: "2025-01-01",
+            fundPercentage: 33.33,
+            fundAmount: 1000,
+          },
+          {
+            title: "Phase 2",
+            description: "Second phase",
+            deliveryDate: "2025-02-01",
+            fundPercentage: 33.33,
+            fundAmount: 1000,
+          },
+          {
+            title: "Phase 3",
+            description: "Final phase",
+            deliveryDate: "2025-03-01",
+            fundPercentage: 33.34,
+            fundAmount: 1000,
+          },
+        ],
+      };
+
+      const res = await request(app)
+        .post("/api/projects")
+        .set("Authorization", `Bearer ${userToken}`)
+        .send(projectData);
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      const project = res.body.data.project;
+      expect(project.milestones).toHaveLength(3);
+      expect(project.milestones[0].title).toBe("Phase 1");
+      expect(project.milestones[0].description).toBe("Initial phase");
+      expect(new Date(project.milestones[0].dueDate).toISOString()).toContain(
+        "2025-01-01",
+      );
+      expect(project.milestones[0].amount).toBe(1000);
+      expect(project.milestones[0].status).toBe("pending");
+      expect(project.funding.goal).toBe(3000);
+    }, 30000);
+
+    it("should compute funding goal from milestones if fundAmount not provided", async () => {
+      const projectData = {
+        title: "Auto Goal Project",
+        description: "Computes goal from milestones",
+        category: "Technology",
+        milestones: [
+          {
+            title: "A",
+            description: "A",
+            deliveryDate: "2025-01-01",
+            fundAmount: 150,
+          },
+          {
+            title: "B",
+            description: "B",
+            deliveryDate: "2025-02-01",
+            fundAmount: 50,
+          },
+        ],
+      };
+
+      const res = await request(app)
+        .post("/api/projects")
+        .set("Authorization", `Bearer ${userToken}`)
+        .send(projectData);
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.project.funding.goal).toBe(200);
+      expect(res.body.data.project.milestones).toHaveLength(2);
+    }, 30000);
+
+    it("should fail if milestones sum does not equal fundAmount", async () => {
+      const projectData = {
+        title: "Mismatch Goal Project",
+        description: "Mismatch",
+        category: "Technology",
+        fundAmount: 100,
+        milestones: [
+          {
+            title: "Only",
+            description: "Only",
+            deliveryDate: "2025-01-01",
+            fundAmount: 50,
+          },
+        ],
+      };
+
+      const res = await request(app)
+        .post("/api/projects")
+        .set("Authorization", `Bearer ${userToken}`)
+        .send(projectData);
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toMatch(
+        /(Sum of milestone amounts must equal project fundAmount|Validation failed)/,
+      );
+    }, 30000);
   });
 
   describe("GET /api/projects", () => {
