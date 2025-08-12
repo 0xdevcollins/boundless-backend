@@ -29,10 +29,23 @@ export interface ICampaign extends Document {
   };
   approvedBy?: Types.ObjectId;
   approvedAt?: Date;
+  // Trustless Work integration fields
+  stakeholders?: {
+    marker: string;
+    approver: string;
+    releaser: string;
+    resolver: string;
+    receiver: string;
+    platformAddress?: string;
+  };
+  trustlessWorkStatus?: "pending" | "deployed" | "funded" | "failed";
+  escrowAddress?: string;
+  escrowType?: "single" | "multi";
 }
 
 const CampaignSchema = new Schema<ICampaign>(
   {
+    title: { type: String, required: true },
     projectId: {
       type: Schema.Types.ObjectId,
       ref: "Project",
@@ -49,7 +62,7 @@ const CampaignSchema = new Schema<ICampaign>(
     releaser: { type: Schema.Types.ObjectId, ref: "User", default: null },
     resolver: { type: Schema.Types.ObjectId, ref: "User", default: null },
     trustlessCampaignId: { type: String, index: true, default: null },
-    currency: { type: String, required: true, default: "USD" },
+    currency: { type: String, required: true, default: "USDC" },
     goalAmount: { type: Number, required: true },
     deadline: { type: Date, required: true },
     fundsRaised: { type: Number, default: 0 },
@@ -68,15 +81,34 @@ const CampaignSchema = new Schema<ICampaign>(
       default: "draft",
       index: true,
     },
-    createdAt: { type: Date, default: Date.now },
     documents: {
       whitepaper: { type: String },
       pitchDeck: { type: String },
     },
     approvedBy: { type: Schema.Types.ObjectId, ref: "User" },
     approvedAt: { type: Date },
+    // Trustless Work integration fields
+    stakeholders: {
+      marker: { type: String },
+      approver: { type: String },
+      releaser: { type: String },
+      resolver: { type: String },
+      receiver: { type: String },
+      platformAddress: { type: String },
+    },
+    trustlessWorkStatus: {
+      type: String,
+      enum: ["pending", "deployed", "funded", "failed"],
+      default: "pending",
+    },
+    escrowAddress: { type: String },
+    escrowType: {
+      type: String,
+      enum: ["single", "multi"],
+      default: "multi",
+    },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 export default mongoose.model<ICampaign>("Campaign", CampaignSchema);

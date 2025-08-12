@@ -49,6 +49,7 @@ describe("POST /api/campaigns/:id/back", () => {
 
     // Create a campaign
     const campaign = await Campaign.create({
+      title: "Test Campaign for Backing",
       projectId: new mongoose.Types.ObjectId(),
       creatorId: new mongoose.Types.ObjectId(),
       goalAmount: 1000,
