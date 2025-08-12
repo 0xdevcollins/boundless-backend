@@ -177,18 +177,4 @@ router.patch(
   reviewMilestone,
 );
 
-router.patch(
-  "/api/campaigns/:id/milestones/:milestoneId/status",
-  protect,
-  validateRequest([
-    param("id").isMongoId().withMessage("Invalid campaign ID"),
-    param("milestoneId").isMongoId().withMessage("Invalid milestone ID"),
-    body("status")
-      .isIn(["approved", "released", "rejected", "disputed"])
-      .withMessage("Invalid status value"),
-    body("disputeReason").optional().isString().isLength({ max: 1000 }),
-  ]),
-  updateMilestoneStatus,
-);
-
 export default router;

@@ -55,7 +55,7 @@ describe("Refresh Token Tests", () => {
         roles: testUser.roles.map((role: any) => role.role),
       },
       secret,
-      { expiresIn: "0s" }, // Expired immediately
+      { expiresIn: "1s" }, // Expired immediately
     );
 
     // Generate valid refresh token
