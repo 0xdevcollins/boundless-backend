@@ -303,6 +303,9 @@ export class TrustlessWorkService {
 }
 
 // Default configuration factory for upstream-compatible class
+
+// Default configuration
+
 export const createTrustlessWorkService = (): TrustlessWorkService => {
   const config: TrustlessWorkConfig = {
     baseURL:

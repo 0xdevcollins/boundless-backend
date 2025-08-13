@@ -106,6 +106,7 @@ describe("POST /api/campaigns", () => {
       .post("/api/campaigns")
       .set("Authorization", `Bearer ${creatorToken}`)
       .send({
+        title: "Test Campaign",
         projectId: projectId.toString(),
         goalAmount: 5000,
         deadline: new Date(Date.now() + 7 * 86400000).toISOString(),
@@ -125,10 +126,19 @@ describe("POST /api/campaigns", () => {
       .post("/api/campaigns")
       .set("Authorization", `Bearer ${creatorToken}`)
       .send({
+        title: "Test Campaign for Approval",
         projectId: projectId.toString(),
         goalAmount: 8000,
         deadline: new Date(Date.now() + 10 * 86400000).toISOString(),
         milestones: [{ title: "Milestone A", description: "A" }],
+        stakeholders: {
+          marker: "marker_address_123",
+          approver: "approver_address_123",
+          releaser: "releaser_address_123",
+          resolver: "resolver_address_123",
+          receiver: "receiver_address_123",
+          platformAddress: "platform_address_123",
+        },
       });
     const campaignId = campaignRes.body.campaign._id;
     // Try to approve as creator (should fail)
@@ -256,6 +266,7 @@ describe("GET /api/campaigns/:id", () => {
       .post("/api/campaigns")
       .set("Authorization", `Bearer ${creatorToken}`)
       .send({
+        title: "Test Campaign for Details",
         projectId: projectId.toString(),
         goalAmount: 5000,
         deadline: new Date(Date.now() + 7 * 86400000).toISOString(),

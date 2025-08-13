@@ -11,7 +11,9 @@
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "prepare": "if [ \"$RENDER\" != \"true\" ]; then husky install; fi",
-    "format": "prettier --write \"src/**/*.ts\""
+    "format": "prettier --write \"src/**/*.ts\"",
+    "migrate:trustless-work": "ts-node scripts/migrate-trustless-work.ts",
+    "test:trustless-work": "ts-node scripts/run-trustless-tests.ts"
   },
   "keywords": [],
   "author": "",

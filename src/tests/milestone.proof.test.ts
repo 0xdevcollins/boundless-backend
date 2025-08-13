@@ -69,6 +69,7 @@ describe("POST /api/milestones/:milestoneId/proof", () => {
     global.__testUserId = user._id.toString();
 
     campaign = (await Campaign.create({
+      title: "Test Campaign for Milestone Proof",
       projectId: new mongoose.Types.ObjectId(),
       creatorId: user._id,
       goalAmount: 1000,
@@ -148,6 +149,7 @@ describe("POST /api/milestones/:milestoneId/proof", () => {
       },
     });
     const otherCampaign: ICampaign & Document = (await Campaign.create({
+      title: "Other Test Campaign",
       projectId: new mongoose.Types.ObjectId(),
       creatorId: otherUser._id,
       goalAmount: 1000,
