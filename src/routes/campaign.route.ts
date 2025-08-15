@@ -2,7 +2,7 @@ import { Router } from "express";
 import {
   createCampaign,
   backCampaign,
-  approveCampaignV2,
+  // approveCampaignV2,
   getCampaignById,
   fundEscrow,
   approveMilestone,
@@ -24,7 +24,7 @@ router.post("/", authMiddleware, createCampaign);
 router.post("/:id/back", authMiddleware, backCampaign);
 
 // PATCH /api/campaigns/:id/approve
-router.patch("/:id/approve", authMiddleware, approveCampaignV2);
+// router.patch("/:id/approve", authMiddleware, approveCampaignV2);
 
 // Trustless Work integration endpoints
 // POST /api/campaigns/:campaignId/fund-escrow
