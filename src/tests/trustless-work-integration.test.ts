@@ -324,7 +324,7 @@ describe("Trustless Work Integration - Complete Workflow", () => {
         title: `Campaign: ${testCampaign._id}`,
         description: `Escrow for campaign ${testCampaign._id}`,
         roles: testCampaign.stakeholders,
-        platformFee: 2.5,
+        platformFee: Number(process.env.PLATFORM_FEE),
         trustline: {
           address: expect.any(String),
           decimals: 6,
