@@ -387,7 +387,7 @@ export const approveCampaignV2 = async (req: Request, res: Response) => {
         title: `Campaign: ${campaign._id}`,
         description: `Escrow for campaign ${campaign._id}`,
         roles: campaign.stakeholders,
-        platformFee: 2.5, // 2.5% platform fee
+        platformFee: Number(process.env.PLATFORM_FEE), // 2.5% platform fee
         trustline: {
           address:
             process.env.USDC_TOKEN_ADDRESS ||
