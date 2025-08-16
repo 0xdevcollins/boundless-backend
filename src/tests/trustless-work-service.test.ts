@@ -51,7 +51,7 @@ describe("Trustless Work Service", () => {
         resolver: "resolver_address",
         receiver: "receiver_address",
       },
-      platformFee: 2.5,
+      platformFee: Number(process.env.PLATFORM_FEE),
       trustline: {
         address: "USDC_ADDRESS",
         decimals: 6,
@@ -120,7 +120,7 @@ describe("Trustless Work Service", () => {
         resolver: "resolver_address",
         receiver: "receiver_address",
       },
-      platformFee: 2.5,
+      platformFee: Number(process.env.PLATFORM_FEE),
       trustline: {
         address: "USDC_ADDRESS",
         decimals: 6,

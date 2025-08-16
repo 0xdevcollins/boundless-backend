@@ -141,6 +141,53 @@ export const createCampaign = async (req: Request, res: Response) => {
       );
       const campaignDoc = campaign[0];
 
+      //Initialize Escrow
+      if (stakeholders) {
+        try {
+          const trustlessWorkService = createTrustlessWorkService();
+          const escrowRequest: TrustlessWorkEscrowRequest = {
+            engagementId: campaignDoc._id?.toString() || "",
+            title: `Campaign: ${campaignDoc._id}`,
+            description: `Escrow for campaign ${campaignDoc._id}`,
+            roles: stakeholders,
+            platformFee: Number(process.env.PLATFORM_FEE),
+            trustline: {
+              address:
+                process.env.USDC_TOKEN_ADDRESS ||
+                "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVBL4NKB3EKEPJXBLTNP",
+              decimals: 6,
+            },
+            milestones: milestones.map(
+              (milestone: {
+                description: string;
+                amount: number;
+                payoutPercentage: number;
+              }) => ({
+                description: milestone.description,
+                amount:
+                  milestone.amount ||
+                  (goalAmount *
+                    (milestone.payoutPercentage || 100 / milestones.length)) /
+                    100,
+                payoutPercentage:
+                  milestone.payoutPercentage || 100 / milestones.length,
+              }),
+            ),
+          };
+
+          const escrowResponse =
+            await trustlessWorkService.deployMultiReleaseEscrow(escrowRequest);
+
+          // Update campaign with escrow details
+          campaignDoc.trustlessCampaignId = campaignDoc._id?.toString() || "";
+          campaignDoc.escrowAddress = escrowResponse.escrowAddress;
+          campaignDoc.escrowType = "multi";
+          campaignDoc.trustlessWorkStatus = "deployed";
+        } catch (error) {
+          console.error("Escrow initialization failed:", error);
+          campaignDoc.trustlessWorkStatus = "failed";
+        }
+      }
       // Create milestones with payout percentages
       const milestoneDocs = milestones.map((m: any, idx: number) => ({
         campaignId: campaignDoc._id,
@@ -275,181 +322,6 @@ export const backCampaign = async (req: Request, res: Response) => {
       await session.abortTransaction();
       session.endSession();
       throw err;
-    }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Internal server error." });
-  }
-};
-
-export const approveCampaignV2 = async (req: Request, res: Response) => {
-  try {
-    const user = req.user;
-    if (!user || !user.roles.some((r) => r.role === UserRole.ADMIN)) {
-      res.status(403).json({ message: "Only admins can approve campaigns." });
-      return;
-    }
-    const { id } = req.params;
-    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-      res.status(400).json({ message: "Valid campaignId is required." });
-      return;
-    }
-    const campaign = await Campaign.findById(id);
-    if (!campaign) {
-      res.status(404).json({ message: "Campaign not found." });
-      return;
-    }
-    // Validate milestones
-    const milestones = await Milestone.find({ campaignId: campaign._id });
-    if (!milestones.length) {
-      res
-        .status(400)
-        .json({ message: "Campaign must have at least one milestone." });
-      return;
-    }
-    // Validate deadline and goalAmount
-    if (
-      !campaign.deadline ||
-      isNaN(new Date(campaign.deadline).getTime()) ||
-      new Date(campaign.deadline) < new Date()
-    ) {
-      res
-        .status(400)
-        .json({ message: "Campaign deadline must be a valid future date." });
-      return;
-    }
-    if (
-      !campaign.goalAmount ||
-      typeof campaign.goalAmount !== "number" ||
-      campaign.goalAmount <= 0
-    ) {
-      res
-        .status(400)
-        .json({ message: "Campaign goalAmount must be a positive number." });
-      return;
-    }
-    // Validate required documents (whitepaper or pitchDeck)
-    if (
-      !campaign.documents ||
-      (!campaign.documents.whitepaper && !campaign.documents.pitchDeck)
-    ) {
-      res.status(400).json({
-        message: "Campaign must have a whitepaper or pitch deck attached.",
-      });
-      return;
-    }
-
-    // Validate stakeholders if Trustless Work integration is enabled
-    if (!campaign.stakeholders) {
-      res.status(400).json({
-        message:
-          "Campaign must have stakeholders defined for Trustless Work integration.",
-      });
-      return;
-    }
-
-    const requiredStakeholders = [
-      "marker",
-      "approver",
-      "releaser",
-      "resolver",
-      "receiver",
-    ] as const;
-    for (const role of requiredStakeholders) {
-      if (!campaign.stakeholders?.[role]) {
-        res.status(400).json({
-          message: `Missing required stakeholder: ${role}`,
-        });
-        return;
-      }
-    }
-
-    // Validate milestone payout percentages
-    const totalPayoutPercentage = milestones.reduce(
-      (sum, milestone) => sum + (milestone.payoutPercentage || 0),
-      0,
-    );
-    if (Math.abs(totalPayoutPercentage - 100) > 0.01) {
-      // Allow for small floating point errors
-      res.status(400).json({
-        message: `Total milestone payout percentages must equal 100%. Current total: ${totalPayoutPercentage}%`,
-      });
-      return;
-    }
-
-    try {
-      // Initialize Trustless Work service
-      const trustlessWorkService = createTrustlessWorkService();
-
-      // Create Trustless Work escrow request
-      const escrowRequest: TrustlessWorkEscrowRequest = {
-        engagementId: campaign._id?.toString() || "",
-        title: `Campaign: ${campaign._id}`,
-        description: `Escrow for campaign ${campaign._id}`,
-        roles: campaign.stakeholders,
-        platformFee: 2.5, // 2.5% platform fee
-        trustline: {
-          address:
-            process.env.USDC_TOKEN_ADDRESS ||
-            "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVBL4NKB3EKEPJXBLTNP", // USDC testnet address
-          decimals: 6,
-        },
-        milestones: milestones.map((milestone) => ({
-          description: milestone.description,
-          amount:
-            milestone.amount ||
-            (campaign.goalAmount * (milestone.payoutPercentage || 0)) / 100,
-          payoutPercentage: milestone.payoutPercentage || 0,
-        })),
-      };
-
-      // Deploy escrow contract
-      const escrowResponse =
-        await trustlessWorkService.deployMultiReleaseEscrow(escrowRequest);
-
-      // Update campaign with Trustless Work details
-      campaign.status = "live";
-      campaign.approvedBy = user._id;
-      campaign.approvedAt = new Date();
-      campaign.trustlessCampaignId = campaign._id?.toString() || "";
-      campaign.escrowAddress = escrowResponse.escrowAddress;
-      campaign.escrowType = "multi";
-      campaign.trustlessWorkStatus = "deployed";
-      campaign.smartContractAddress = escrowResponse.escrowAddress; // Use escrow address as smart contract address
-
-      await campaign.save();
-
-      // Log approval for audit
-      console.log(
-        `Campaign ${campaign._id} approved by admin ${user._id} at ${campaign.approvedAt}. Trustless Work escrow deployed at ${escrowResponse.escrowAddress}`,
-      );
-
-      res.status(200).json({
-        message:
-          "Campaign approved and Trustless Work escrow deployed successfully.",
-        campaign,
-        escrowAddress: escrowResponse.escrowAddress,
-        xdr: escrowResponse.xdr,
-      });
-    } catch (trustlessError: unknown) {
-      console.error("Trustless Work integration failed:", trustlessError);
-
-      // Fallback to traditional approval without Trustless Work
-      campaign.status = "live";
-      campaign.approvedBy = user._id;
-      campaign.approvedAt = new Date();
-      campaign.trustlessWorkStatus = "failed";
-      campaign.smartContractAddress = `soroban_contract_${campaign._id}`; // Fallback placeholder
-
-      await campaign.save();
-
-      res.status(200).json({
-        message:
-          "Campaign approved but Trustless Work integration failed. Using fallback deployment.",
-        campaign,
-        warning:
-          "Trustless Work escrow deployment failed. Campaign approved with fallback deployment.",
-      });
     }
   } catch (error) {
     console.error(error);
