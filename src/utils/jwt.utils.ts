@@ -44,7 +44,14 @@ export const authMiddleware = async (
     }
     const token = authHeader.split(" ")[1];
     const decoded = verifyToken(token) as any;
-    const user = await User.findById(decoded.userId);
+    const userId = decoded.userId || decoded.id; // support both keys
+    if (!userId) {
+      res
+        .status(401)
+        .json({ message: "Not authorized, invalid token payload" });
+      return;
+    }
+    const user = await User.findById(userId);
     if (!user) {
       res.status(401).json({ message: "Not authorized, user not found" });
       return;
