@@ -743,3 +743,101 @@ const isValidUrl = (url: string): boolean => {
     return false;
   }
 };
+
+/**
+ * @desc    Approve a project (Admin only)
+ * @route   PATCH /api/projects/:id/approve
+ * @access  Private/Admin
+ */
+export const approveProject = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const adminId = req.user?._id;
+
+    if (!adminId) {
+      sendUnauthorized(res, "Authentication required");
+      return;
+    }
+
+    // Validate project ID format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      sendBadRequest(res, "Invalid project ID format");
+      return;
+    }
+
+    // Find the project
+    const project = await Project.findById(id);
+    if (checkResource(res, !project, "Project not found", 404)) {
+      return;
+    }
+
+    // Check if project is in a state that can be approved
+    if (project!.status !== ProjectStatus.IDEA) {
+      sendBadRequest(res, "Project can only be approved from 'idea' status");
+      return;
+    }
+
+    // Update project status and approval fields
+    const updatedProject = await Project.findByIdAndUpdate(
+      id,
+      {
+        status: ProjectStatus.REVIEWING, // or ProjectStatus.VALIDATED if skipping voting
+        approvedBy: adminId,
+        approvedAt: new Date(),
+      },
+      { new: true, runValidators: true },
+    ).populate([
+      {
+        path: "owner.type",
+        select:
+          "profile.firstName profile.lastName profile.username profile.avatar",
+      },
+      {
+        path: "approvedBy",
+        select: "profile.firstName profile.lastName profile.username",
+      },
+    ]);
+
+    if (checkResource(res, !updatedProject, "Failed to update project", 500)) {
+      return;
+    }
+
+    const responseData = {
+      project: {
+        _id: updatedProject!._id,
+        title: updatedProject!.title,
+        summary: updatedProject!.summary,
+        type: updatedProject!.type,
+        category: updatedProject!.category,
+        status: updatedProject!.status,
+        approvedBy: updatedProject!.approvedBy,
+        approvedAt: updatedProject!.approvedAt,
+        owner: updatedProject!.owner,
+        createdAt: updatedProject!.createdAt,
+        updatedAt: updatedProject!.updatedAt,
+      },
+    };
+
+    sendSuccess(res, responseData, "Project approved successfully");
+  } catch (error) {
+    console.error("Approve project error:", error);
+
+    if (error instanceof mongoose.Error.ValidationError) {
+      const validationErrors = Object.values(error.errors).map(
+        (err) => err.message,
+      );
+      sendBadRequest(res, "Validation failed", validationErrors.join(", "));
+      return;
+    }
+
+    if (error instanceof mongoose.Error.CastError) {
+      sendBadRequest(res, "Invalid data format");
+      return;
+    }
+
+    sendInternalServerError(res, "Failed to approve project");
+  }
+};

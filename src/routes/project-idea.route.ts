@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import express from "express";
 import {
   createProjectIdea,
@@ -5,8 +6,9 @@ import {
   getProjectIdeaById,
   updateProjectIdea,
   deleteProjectIdea,
+  approveProject,
 } from "../controllers/project-idea.controller";
-import { protect } from "../middleware/auth";
+import { protect, admin } from "../middleware/auth";
 import { validateRequest } from "../middleware/validateRequest";
 import { body, query, param } from "express-validator";
 
@@ -795,6 +797,42 @@ router.delete(
   protect,
   validateRequest(projectIdSchema),
   deleteProjectIdea,
+);
+
+/**
+ * @swagger
+ * /api/projects/{id}/approve:
+ *   patch:
+ *     summary: Approve a project (Admin only)
+ *     description: Allows admin to approve a project, updating its status from 'idea' to 'reviewing'
+ *     tags: [Project Ideas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID
+ *     responses:
+ *       200:
+ *         description: Project approved successfully
+ *       400:
+ *         description: Invalid project ID or project not in correct status
+ *       401:
+ *         description: Unauthorized - Admin access required
+ *       404:
+ *         description: Project not found
+ *       500:
+ *         description: Internal server error
+ */
+router.patch(
+  "/:id/approve",
+  protect,
+  admin,
+  validateRequest(projectIdSchema),
+  approveProject,
 );
 
 export default router;
