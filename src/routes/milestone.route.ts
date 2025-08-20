@@ -135,6 +135,7 @@ import { Router } from "express";
 import {
   reviewMilestone,
   submitMilestoneProof,
+  updateMilestoneStatus,
 } from "../controllers/milestone.controller";
 import { protect } from "../middleware/auth";
 import { roleMiddleware } from "../utils/jwt.utils";

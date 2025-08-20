@@ -108,7 +108,7 @@ const CampaignSchema = new Schema<ICampaign>(
       default: "multi",
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.model<ICampaign>("Campaign", CampaignSchema);

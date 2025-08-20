@@ -1,5 +1,75 @@
 import axios, { AxiosResponse } from "axios";
 
+// Backward-compatible simple function exports used across the codebase
+const TRUSTLESS_WORK_API_URL =
+  process.env.TRUSTLESS_WORK_API_URL || "https://trustless.work/api";
+const TRUSTLESS_WORK_API_KEY = process.env.TRUSTLESS_WORK_API_KEY; // Optional for authentication
+
+function getHeaders() {
+  return TRUSTLESS_WORK_API_KEY
+    ? { Authorization: `Bearer ${TRUSTLESS_WORK_API_KEY}` }
+    : {};
+}
+
+export async function releaseFundsToMilestone({
+  campaignId,
+  milestoneId,
+}: {
+  campaignId: string;
+  milestoneId: string;
+}) {
+  try {
+    const res = await axios.post(
+      `${TRUSTLESS_WORK_API_URL}/release`,
+      { campaignId, milestoneId },
+      { headers: getHeaders() },
+    );
+    return res.data; // expects { success: boolean, txHash: string }
+  } catch (err) {
+    throw new Error("Trustless Work API release failed");
+  }
+}
+
+export async function markMilestoneApproved({
+  campaignId,
+  milestoneId,
+}: {
+  campaignId: string;
+  milestoneId: string;
+}) {
+  try {
+    const res = await axios.post(
+      `${TRUSTLESS_WORK_API_URL}/approve`,
+      { campaignId, milestoneId },
+      { headers: getHeaders() },
+    );
+    return res.data; // expects { success: boolean }
+  } catch (err) {
+    throw new Error("Trustless Work API approve failed");
+  }
+}
+
+export async function disputeMilestone({
+  campaignId,
+  milestoneId,
+  reason,
+}: {
+  campaignId: string;
+  milestoneId: string;
+  reason: string;
+}) {
+  try {
+    const res = await axios.post(
+      `${TRUSTLESS_WORK_API_URL}/dispute`,
+      { campaignId, milestoneId, reason },
+      { headers: getHeaders() },
+    );
+    return res.data; // expects { success: boolean }
+  } catch (err) {
+    throw new Error("Trustless Work API dispute failed");
+  }
+}
+
 export interface TrustlessWorkConfig {
   baseURL: string;
   apiKey: string;
@@ -232,7 +302,10 @@ export class TrustlessWorkService {
   }
 }
 
+// Default configuration factory for upstream-compatible class
+
 // Default configuration
+
 export const createTrustlessWorkService = (): TrustlessWorkService => {
   const config: TrustlessWorkConfig = {
     baseURL:
