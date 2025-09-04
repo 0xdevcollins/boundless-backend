@@ -14,3 +14,4 @@ import "./blog.category";
 import "./blog";
 import "./otp.model";
 import "./crowdfund.model";
+import "./waitlist.model";

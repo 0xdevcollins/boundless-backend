@@ -38,6 +38,7 @@ import campaignRoutes from "./routes/campaign.route";
 import grantRoutes from "./routes/grant.route";
 import grantApplicationRoutes from "./routes/grant-application.route";
 import milestoneRoutes from "./routes/milestone.route";
+import waitlistRoutes from "./routes/waitlist.route";
 
 dotenv.config();
 
@@ -115,6 +116,7 @@ app.use("/api/campaigns", campaignRoutes);
 app.use("/api/grants", grantRoutes);
 app.use("/api/grant-applications", grantApplicationRoutes);
 app.use("/api/milestones", milestoneRoutes);
+app.use("/api/waitlist", waitlistRoutes);
 
 // Swagger Docs
 setupSwagger(app);

@@ -19,6 +19,7 @@ interface Config {
     password: string;
     from: string;
   };
+  frontendUrl: string;
   google: {
     clientId: string;
     clientSecret: string;
@@ -60,6 +61,7 @@ export const config: Config = {
     password: process.env.EMAIL_PASSWORD || "",
     from: process.env.EMAIL_FROM || "noreply@boundless.com",
   },
+  frontendUrl: process.env.FRONTEND_URL || "http://localhost:3000",
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID || "",
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
