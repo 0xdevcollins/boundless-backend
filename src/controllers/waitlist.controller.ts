@@ -74,6 +74,11 @@ export const subscribe = async (req: Request, res: Response): Promise<void> => {
       sendError(res, "Email already subscribed to waitlist", 409);
       return;
     }
+    // Check for validation errors
+    if (error.name === "ValidationError") {
+      sendError(res, "Validation error", 400, error.message);
+      return;
+    }
 
     sendInternalServerError(res, "Error subscribing to waitlist");
   }
