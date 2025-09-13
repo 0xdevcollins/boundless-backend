@@ -406,10 +406,10 @@ export const validateSubscribe = [
     .trim()
     .withMessage("First name must be between 1 and 50 characters"),
   body("lastName")
-    .optional()
-    .isLength({ min: 1, max: 50 })
+    .optional({ checkFalsy: true })
+    .isLength({ max: 50 })
     .trim()
-    .withMessage("Last name must be between 1 and 50 characters"),
+    .withMessage("Last name must be 50 characters or fewer");
   body("source")
     .optional()
     .isLength({ min: 1, max: 100 })
