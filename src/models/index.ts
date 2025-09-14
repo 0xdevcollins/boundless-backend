@@ -1,6 +1,7 @@
 import "./badge.model";
 import "./user.model";
 import "./project.model";
+import "./newsletter.model";
 import "./notification.model";
 import "./transaction.model";
 import "./comment.model";

@@ -39,6 +39,7 @@ import grantRoutes from "./routes/grant.route";
 import grantApplicationRoutes from "./routes/grant-application.route";
 import milestoneRoutes from "./routes/milestone.route";
 import waitlistRoutes from "./routes/waitlist.route";
+import newsletterRoutes from "./routes/newsletter.route";
 
 dotenv.config();
 
@@ -117,6 +118,7 @@ app.use("/api/grants", grantRoutes);
 app.use("/api/grant-applications", grantApplicationRoutes);
 app.use("/api/milestones", milestoneRoutes);
 app.use("/api/waitlist", waitlistRoutes);
+app.use("/api/newsletter", newsletterRoutes);
 
 // Swagger Docs
 setupSwagger(app);
