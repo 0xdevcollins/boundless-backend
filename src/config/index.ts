@@ -54,11 +54,12 @@ export const config: Config = {
     refreshTokenExpiry: process.env.JWT_REFRESH_TOKEN_EXPIRY || "7d",
   },
   email: {
-    host: process.env.EMAIL_HOST || "smtp.gmail.com",
-    port: parseInt(process.env.EMAIL_PORT || "587"),
-    secure: process.env.EMAIL_SECURE === "true",
-    user: process.env.EMAIL_USER || "",
-    password: process.env.EMAIL_PASSWORD || "",
+    host: process.env.SMTP_HOST || process.env.EMAIL_HOST || "smtp.gmail.com",
+    port: parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || "587"),
+    secure:
+      process.env.SMTP_SECURE === "true" || process.env.EMAIL_SECURE === "true",
+    user: process.env.SMTP_USER || process.env.EMAIL_USER || "",
+    password: process.env.SMTP_PASS || process.env.EMAIL_PASSWORD || "",
     from: process.env.EMAIL_FROM || "noreply@boundless.com",
   },
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:3000",

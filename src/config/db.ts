@@ -10,7 +10,7 @@ const connectDB = async (): Promise<void> => {
       return;
     }
     if (!process.env.MONGODB_URI) {
-      console.log(
+      console.error(
         "MongoDB connection string not found. Running without database.",
       );
       return;
@@ -20,6 +20,11 @@ const connectDB = async (): Promise<void> => {
     console.log("MongoDB Connected Successfully");
   } catch (error) {
     console.error("MongoDB Connection Error:", error);
+    // In production, you might want to exit here
+    if (process.env.NODE_ENV === "production") {
+      console.error("Fatal: Cannot connect to database in production");
+      process.exit(1);
+    }
   }
 };
 

@@ -74,6 +74,11 @@ export const subscribe = async (req: Request, res: Response): Promise<void> => {
       sendError(res, "Email already subscribed to waitlist", 409);
       return;
     }
+    // Check for validation errors
+    if (error.name === "ValidationError") {
+      sendError(res, "Validation error", 400, error.message);
+      return;
+    }
 
     sendInternalServerError(res, "Error subscribing to waitlist");
   }
@@ -401,10 +406,10 @@ export const validateSubscribe = [
     .trim()
     .withMessage("First name must be between 1 and 50 characters"),
   body("lastName")
-    .optional()
-    .isLength({ min: 1, max: 50 })
+    .optional({ checkFalsy: true })
+    .isLength({ max: 50 })
     .trim()
-    .withMessage("Last name must be between 1 and 50 characters"),
+    .withMessage("Last name must be 50 characters or fewer"),
   body("source")
     .optional()
     .isLength({ min: 1, max: 100 })

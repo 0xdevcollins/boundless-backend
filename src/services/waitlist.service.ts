@@ -42,7 +42,6 @@ export class WaitlistService {
     req?: any,
   ): Promise<IWaitlist> {
     try {
-      // Check if email already exists
       const existingSubscriber = await Waitlist.findOne({
         email: data.email.toLowerCase(),
       });
@@ -59,8 +58,15 @@ export class WaitlistService {
           };
           await existingSubscriber.save();
 
-          // Send welcome email for reactivated user
-          await this.sendWelcomeEmail(existingSubscriber);
+          // Send welcome email for reactivated user (but don't fail if email fails)
+          try {
+            await this.sendWelcomeEmail(existingSubscriber);
+          } catch (emailError) {
+            console.error(
+              "Failed to send welcome email for reactivated user:",
+              emailError,
+            );
+          }
           return existingSubscriber;
         }
 
@@ -88,8 +94,13 @@ export class WaitlistService {
 
       await waitlistEntry.save();
 
-      // Send welcome email immediately
-      await this.sendWelcomeEmail(waitlistEntry);
+      // Send welcome email immediately (but don't fail if email fails)
+      try {
+        await this.sendWelcomeEmail(waitlistEntry);
+      } catch (emailError) {
+        console.error("Failed to send welcome email:", emailError);
+        // Don't fail the subscription if email fails
+      }
 
       return waitlistEntry;
     } catch (error) {
@@ -133,67 +144,164 @@ export class WaitlistService {
 
     const html = `
       <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Welcome to Boundless!</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-          .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-          .highlight { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
-          .unsubscribe { margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>🎉 Welcome to Boundless!</h1>
-            <p>You're officially on our exclusive waitlist</p>
-          </div>
-          <div class="content">
-            <h2>Hi ${subscriber.firstName || "there"}!</h2>
-            <p>🎊 <strong>Congratulations!</strong> You've successfully confirmed your subscription to the Boundless waitlist.</p>
-            
-            <div class="highlight">
-              <h3>🎯 Your Position: #${await this.getSubscriberPosition(subscriber._id)}</h3>
-              <p>You're among the first to join our exclusive community!</p>
-            </div>
-            
-            <p><strong>What to expect:</strong></p>
-            <ul>
-              <li>📧 Regular updates about our development progress</li>
-              <li>🔔 Early access notifications when we launch</li>
-              <li>💎 Exclusive insights and behind-the-scenes content</li>
-              <li>🎁 Special bonuses for early supporters</li>
-              <li>🤝 Invitations to beta testing and feedback sessions</li>
-            </ul>
-            
-            <p><strong>Stay connected:</strong></p>
-            <ul>
-              <li>📱 Follow us on social media for real-time updates</li>
-              <li>💬 Join our community discussions</li>
-              <li>📚 Check out our blog for detailed insights</li>
-            </ul>
-            
-            <p>We're working hard to bring you something amazing. Thank you for being part of this journey!</p>
-            
-            <p>Best regards,<br>The Boundless Team</p>
-            
-            <div class="unsubscribe">
-              <p><small>If you no longer wish to receive these emails, you can <a href="${unsubscribeUrl}">unsubscribe here</a>.</small></p>
-            </div>
-          </div>
-          <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} Boundless. All rights reserved.</p>
-            <p>This email was sent to ${subscriber.email}</p>
-          </div>
-        </div>
-      </body>
-      </html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to Boundless</title>
+  <style>
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+      line-height: 1.6; 
+      color: #374151; 
+      margin: 0; 
+      padding: 0;
+      background-color: #f9fafb;
+    }
+    .container { 
+      max-width: 600px; 
+      margin: 0 auto; 
+      background: white;
+    }
+    .logo-container {
+      background: white;
+      padding: 32px 40px 24px;
+      text-align: center;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .logo {
+      display: inline-block;
+      padding: 12px 20px;
+      background: #f3f4f6;
+      border-radius: 8px;
+      font-size: 24px;
+      font-weight: 700;
+      color: #1f2937;
+      text-decoration: none;
+      border: 1px solid #e5e7eb;
+    }
+    .content { 
+      padding: 40px;
+    }
+    .greeting {
+      font-size: 18px;
+      margin-bottom: 24px;
+      color: #1f2937;
+    }
+    .position-card {
+      background: #f0f9ff;
+      border: 1px solid #0ea5e9;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 24px 0;
+      text-align: center;
+    }
+    .position-number {
+      font-size: 28px;
+      font-weight: 700;
+      color: #0ea5e9;
+      margin-bottom: 4px;
+    }
+    .social-links {
+      margin: 32px 0;
+      text-align: center;
+    }
+    .social-links a {
+      display: inline-block;
+      margin: 0 12px;
+      padding: 8px 16px;
+      background: #f3f4f6;
+      color: #374151;
+      text-decoration: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      border: 1px solid #d1d5db;
+    }
+    .social-links a:hover {
+      background: #e5e7eb;
+    }
+    .footer { 
+      background: #f9fafb;
+      padding: 24px 40px;
+      text-align: center; 
+      color: #6b7280; 
+      font-size: 14px;
+      border-top: 1px solid #e5e7eb;
+    }
+    .unsubscribe {
+      margin-top: 16px;
+      font-size: 12px;
+    }
+    .unsubscribe a {
+      color: #6b7280;
+    }
+    
+    /* Dark mode support for logo container */
+    @media (prefers-color-scheme: dark) {
+      .logo-container {
+        background: #1f2937;
+        border-bottom-color: #374151;
+      }
+      .logo {
+        background: #374151;
+        color: #f9fafb;
+        border-color: #4b5563;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Added proper logo container with dark/light mode support -->
+    <div class="logo-container">
+      <img src="https://i.ibb.co/5hhhZ7KZ/loa.png" class="logo" />
+    </div>
+    
+    <div class="content">
+      <!-- Simplified greeting and removed excessive emojis -->
+      <div class="greeting">
+        Hi ${subscriber.firstName || "there"},
+      </div>
+      
+      <p>Welcome to Boundless. You've successfully joined our waitlist and we're excited to have you on board.</p>
+      
+      <!-- Cleaner position display -->
+      <div class="position-card">
+        <div class="position-number">#${await this.getSubscriberPosition(subscriber._id)}</div>
+        <p style="margin: 0; color: #374151;">Your position on the waitlist</p>
+      </div>
+      
+      <!-- Simplified and more professional copy -->
+      <p><strong>What's next:</strong></p>
+      <p>We'll keep you updated on our progress and notify you when we're ready to launch. You'll be among the first to get access.</p>
+      
+      <!-- Added social media links as requested -->
+      <div class="social-links">
+        <a href="https://x.com/boundless_fi" target="_blank">Follow on X</a>
+        <a href="https://www.linkedin.com/company/boundlesshq/" target="_blank">Connect on LinkedIn</a>
+      </div>
+      
+      <p>Thank you for your interest in Boundless.</p>
+      
+      <p style="margin-bottom: 0;">
+        Best regards,<br>
+        The Boundless Team
+      </p>
+    </div>
+    
+    <div class="footer">
+      <p>&copy; ${new Date().getFullYear()} Boundless. All rights reserved.</p>
+      <p>This email was sent to ${subscriber.email}</p>
+      
+      <div class="unsubscribe">
+        <p><a href="${unsubscribeUrl}">Unsubscribe</a> from these emails</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+
     `;
 
     const text = `
@@ -203,20 +311,17 @@ export class WaitlistService {
       
       🎊 Congratulations! You've successfully confirmed your subscription to the Boundless waitlist.
       
-      Your Position: #${await this.getSubscriberPosition(subscriber._id)}
-      You're among the first to join our exclusive community!
       
       What to expect:
-      📧 Regular updates about our development progress
-      🔔 Early access notifications when we launch
-      💎 Exclusive insights and behind-the-scenes content
-      🎁 Special bonuses for early supporters
-      🤝 Invitations to beta testing and feedback sessions
+      Regular updates about our development progress
+      Early access notifications when we launch
+      Exclusive insights and behind-the-scenes content
+      Invitations to beta testing and feedback sessions
       
       Stay connected:
-      📱 Follow us on social media for real-time updates
-      💬 Join our community discussions
-      📚 Check out our blog for detailed insights
+      Follow us on social media for real-time updates
+      Join our community discussions
+      Check out our blog for detailed insights
       
       We're working hard to bring you something amazing. Thank you for being part of this journey!
       
@@ -245,7 +350,7 @@ export class WaitlistService {
    */
   static async sendUnsubscribeEmail(subscriber: IWaitlist): Promise<void> {
     const subject = "You've been unsubscribed from Boundless";
-    const resubscribeUrl = `${config.frontendUrl}/waitlist/subscribe`;
+    const resubscribeUrl = `${config.frontendUrl}/waitlist`;
 
     const html = `
       <!DOCTYPE html>
