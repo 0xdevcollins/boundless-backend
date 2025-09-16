@@ -64,7 +64,14 @@ export class WaitlistService {
           } catch (emailError) {
             console.error(
               "Failed to send welcome email for reactivated user:",
-              emailError,
+              {
+                email: existingSubscriber.email,
+                error:
+                  emailError instanceof Error
+                    ? emailError.message
+                    : String(emailError),
+                timestamp: new Date().toISOString(),
+              },
             );
           }
           return existingSubscriber;
@@ -98,8 +105,15 @@ export class WaitlistService {
       try {
         await this.sendWelcomeEmail(waitlistEntry);
       } catch (emailError) {
-        console.error("Failed to send welcome email:", emailError);
-        // Don't fail the subscription if email fails
+        console.error("Failed to send welcome email for new subscriber:", {
+          email: waitlistEntry.email,
+          error:
+            emailError instanceof Error
+              ? emailError.message
+              : String(emailError),
+          timestamp: new Date().toISOString(),
+        });
+        // Don't fail the subscription if email fails - the user is still subscribed
       }
 
       return waitlistEntry;
