@@ -46,7 +46,7 @@ export const sendEmail = async (options: EmailOptions): Promise<void> => {
       }
 
       const result = await transporter.sendMail({
-        from: config.EMAIL_FROM,
+        from: `"Boundless Team" <${config.EMAIL_FROM}>`,
         to: options.to,
         subject: options.subject,
         text: options.text,
