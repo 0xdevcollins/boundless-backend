@@ -13,7 +13,8 @@
     "prepare": "if [ \"$RENDER\" != \"true\" ]; then husky install; fi",
     "format": "prettier --write \"src/**/*.ts\"",
     "migrate:trustless-work": "ts-node scripts/migrate-trustless-work.ts",
-    "test:trustless-work": "ts-node scripts/run-trustless-tests.ts"
+    "test:trustless-work": "ts-node scripts/run-trustless-tests.ts",
+    "test:email": "ts-node test-email.ts"
   },
   "keywords": [],
   "author": "",

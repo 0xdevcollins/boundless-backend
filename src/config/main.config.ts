@@ -24,6 +24,7 @@ export class Config {
   public readonly SMTP_PORT: number;
   public readonly SMTP_USER: string;
   public readonly SMTP_PASS: string;
+  public readonly EMAIL_FROM: string;
 
   public readonly cloudinary: {
     cloudName: string;
@@ -71,6 +72,7 @@ export class Config {
     this.SMTP_PORT = this.getEnvVariable("SMTP_PORT", true, parseInt);
     this.SMTP_USER = this.getEnvVariable("SMTP_USER", true);
     this.SMTP_PASS = this.getEnvVariable("SMTP_PASS", true);
+    this.EMAIL_FROM = this.getEnvVariable("EMAIL_FROM", true);
 
     this.cloudinary = {
       cloudName: this.getEnvVariable("CLOUDINARY_CLOUD_NAME", true),
