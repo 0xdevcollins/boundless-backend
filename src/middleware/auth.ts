@@ -17,15 +17,12 @@ declare global {
   }
 }
 
-// Helper function to extract token from request
 const extractToken = (req: Request): string | null => {
-  // First check Authorization header
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith("Bearer ")) {
     return authHeader.split(" ")[1];
   }
 
-  // Then check cookies
   const tokenFromCookie = req.cookies?.token || req.cookies?.accessToken;
   if (tokenFromCookie) {
     return tokenFromCookie;
@@ -62,7 +59,6 @@ export const protect = async (
     req.user = user;
     next();
   } catch (error) {
-    // Only log auth errors in non-test environments
     if (process.env.NODE_ENV !== "test") {
       console.error("Auth error:", error);
     }
@@ -81,30 +77,25 @@ export const optionalAuth = async (
     const token = extractToken(req);
 
     if (!token) {
-      // No token provided, continue without authentication
       next();
       return;
     }
 
     const decoded = verifyToken(token) as { userId: string };
 
-    // Use the already imported User model instead of dynamic import
     const user = await User.findById(decoded.userId).select("-password");
 
     if (user) {
       req.user = user;
     }
-    // Continue even if user is not found (invalid token)
     next();
   } catch (error) {
-    // Continue without authentication if token is invalid
     next();
   }
 };
 
 export const admin = roleMiddleware([UserRole.ADMIN]);
 
-// Enhanced protect middleware with automatic token refresh
 export const protectWithRefresh = async (
   req: Request,
   res: Response,
@@ -121,7 +112,6 @@ export const protectWithRefresh = async (
     }
 
     try {
-      // Try to verify the access token
       const decoded = verifyToken(token) as { userId: string };
       const user = await User.findById(decoded.userId).select("-password");
 
@@ -135,7 +125,6 @@ export const protectWithRefresh = async (
       req.user = user;
       next();
     } catch (accessTokenError) {
-      // Access token is invalid or expired, try to refresh
       const refreshToken = req.cookies?.refreshToken;
 
       if (!refreshToken) {
@@ -146,7 +135,6 @@ export const protectWithRefresh = async (
       }
 
       try {
-        // Verify refresh token
         const refreshDecoded = verifyRefreshToken(refreshToken) as {
           userId: string;
         };
@@ -162,7 +150,6 @@ export const protectWithRefresh = async (
           return;
         }
 
-        // Check if user is still verified
         if (!user.isVerified) {
           res
             .status(401)
@@ -170,27 +157,23 @@ export const protectWithRefresh = async (
           return;
         }
 
-        // Generate new tokens
         const tokens = generateTokens({
           userId: user._id.toString(),
           email: user.email,
           roles: user.roles.map((role) => role.role),
         });
 
-        // Set new cookies
         setAuthCookies(res, tokens);
 
         req.user = user;
         next();
       } catch (refreshTokenError) {
-        // Refresh token is also invalid
         res
           .status(401)
           .json({ success: false, message: "Not authorized, token failed" });
       }
     }
   } catch (error) {
-    // Only log auth errors in non-test environments
     if (process.env.NODE_ENV !== "test") {
       console.error("Auth error:", error);
     }
