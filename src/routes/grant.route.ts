@@ -15,7 +15,7 @@ import { validateRequest } from "../middleware/validateRequest";
 
 const router = Router();
 
-// Validation schema for grant creation
+
 const createGrantSchema = [
   body("title")
     .trim()
@@ -58,17 +58,17 @@ const createGrantSchema = [
     .withMessage("Expected payout must be a non-negative number"),
 ];
 
-// POST /api/grants - Create a new grant
+
 router.post("/", protect, validateRequest(createGrantSchema), createGrant);
 
-// Validation schema for grant status update
+
 const updateGrantStatusSchema = [
   body("status")
     .isIn(["open", "closed"])
     .withMessage("Status must be either 'open' or 'closed'"),
 ];
 
-// PATCH /api/grants/:id/status - Update grant status
+
 router.patch(
   "/:id/status",
   protect,
@@ -76,22 +76,22 @@ router.patch(
   updateGrantStatus,
 );
 
-// Grant application submission endpoint
+
 router.post("/grant-applications", protect, submitGrantApplication);
 
-// Get all grants (public)
+
 router.get("/", getAllGrants);
 
-// Get grants created by the authenticated user (creator)
+
 router.get("/my", protect, getMyGrants);
 
-// Get details for a particular grant by its ID (public)
+
 router.get("/:id", getGrantById);
 
-// Grant application feedback (public)
+
 router.get("/grant-applications/:id", getGrantApplicationWithFeedback);
 
-// Grant application review (admin only)
+
 router.patch("/grant-applications/:id/review", protect, reviewGrantApplication);
 
 export default router;
