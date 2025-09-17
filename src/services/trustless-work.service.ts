@@ -1,9 +1,8 @@
 import axios, { AxiosResponse } from "axios";
 
-// Backward-compatible simple function exports used across the codebase
 const TRUSTLESS_WORK_API_URL =
   process.env.TRUSTLESS_WORK_API_URL || "https://trustless.work/api";
-const TRUSTLESS_WORK_API_KEY = process.env.TRUSTLESS_WORK_API_KEY; // Optional for authentication
+const TRUSTLESS_WORK_API_KEY = process.env.TRUSTLESS_WORK_API_KEY;
 
 function getHeaders() {
   return TRUSTLESS_WORK_API_KEY
@@ -24,7 +23,7 @@ export async function releaseFundsToMilestone({
       { campaignId, milestoneId },
       { headers: getHeaders() },
     );
-    return res.data; // expects { success: boolean, txHash: string }
+    return res.data;
   } catch (err) {
     throw new Error("Trustless Work API release failed");
   }
@@ -43,7 +42,7 @@ export async function markMilestoneApproved({
       { campaignId, milestoneId },
       { headers: getHeaders() },
     );
-    return res.data; // expects { success: boolean }
+    return res.data; 
   } catch (err) {
     throw new Error("Trustless Work API approve failed");
   }
@@ -64,7 +63,7 @@ export async function disputeMilestone({
       { campaignId, milestoneId, reason },
       { headers: getHeaders() },
     );
-    return res.data; // expects { success: boolean }
+    return res.data;
   } catch (err) {
     throw new Error("Trustless Work API dispute failed");
   }
@@ -133,7 +132,7 @@ export interface TrustlessWorkMilestoneStatusRequest {
 
 export interface TrustlessWorkReleaseRequest {
   escrowAddress: string;
-  milestoneIndex?: number; // For multi-release escrows
+  milestoneIndex?: number;
 }
 
 export class TrustlessWorkService {
@@ -169,9 +168,7 @@ export class TrustlessWorkService {
     }
   }
 
-  /**
-   * Deploy a multi-release escrow contract
-   */
+
   async deployMultiReleaseEscrow(
     request: TrustlessWorkEscrowRequest,
   ): Promise<TrustlessWorkEscrowResponse> {
@@ -182,9 +179,7 @@ export class TrustlessWorkService {
     );
   }
 
-  /**
-   * Deploy a single-release escrow contract
-   */
+ 
   async deploySingleReleaseEscrow(
     request: TrustlessWorkEscrowRequest,
   ): Promise<TrustlessWorkEscrowResponse> {
@@ -195,9 +190,7 @@ export class TrustlessWorkService {
     );
   }
 
-  /**
-   * Fund an escrow contract
-   */
+  
   async fundEscrow(
     type: "single" | "multi",
     request: TrustlessWorkFundRequest,
@@ -209,9 +202,7 @@ export class TrustlessWorkService {
     );
   }
 
-  /**
-   * Approve a milestone
-   */
+ 
   async approveMilestone(
     type: "single" | "multi",
     request: TrustlessWorkMilestoneApprovalRequest,
@@ -223,9 +214,7 @@ export class TrustlessWorkService {
     );
   }
 
-  /**
-   * Change milestone status
-   */
+ 
   async changeMilestoneStatus(
     type: "single" | "multi",
     request: TrustlessWorkMilestoneStatusRequest,
@@ -237,9 +226,7 @@ export class TrustlessWorkService {
     );
   }
 
-  /**
-   * Release funds from escrow
-   */
+  
   async releaseFunds(
     type: "single" | "multi",
     request: TrustlessWorkReleaseRequest,
@@ -251,9 +238,7 @@ export class TrustlessWorkService {
     );
   }
 
-  /**
-   * Release milestone funds (multi-release only)
-   */
+
   async releaseMilestoneFunds(
     request: TrustlessWorkReleaseRequest,
   ): Promise<{ xdr: string }> {
@@ -264,9 +249,7 @@ export class TrustlessWorkService {
     );
   }
 
-  /**
-   * Get escrow details
-   */
+  
   async getEscrow(
     type: "single" | "multi",
     escrowAddress: string,
@@ -277,9 +260,7 @@ export class TrustlessWorkService {
     );
   }
 
-  /**
-   * Submit a signed transaction
-   */
+ 
   async submitTransaction(xdr: string): Promise<{ hash: string }> {
     return this.makeRequest<{ hash: string }>(
       "POST",
@@ -288,9 +269,7 @@ export class TrustlessWorkService {
     );
   }
 
-  /**
-   * Set trustline for escrow wallet
-   */
+ 
   async setTrustline(
     escrowAddress: string,
     tokenAddress: string,
@@ -302,9 +281,6 @@ export class TrustlessWorkService {
   }
 }
 
-// Default configuration factory for upstream-compatible class
-
-// Default configuration
 
 export const createTrustlessWorkService = (): TrustlessWorkService => {
   const config: TrustlessWorkConfig = {
