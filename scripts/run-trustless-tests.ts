@@ -21,7 +21,7 @@ class TrustlessWorkTestRunner {
   private results: TestResult[] = [];
 
   async runAllTests(): Promise<void> {
-    console.log("🧪 Running Trustless Work Integration Tests");
+    console.log(" Running Trustless Work Integration Tests");
     console.log("==========================================\n");
 
     for (const testFile of this.testFiles) {
@@ -32,7 +32,7 @@ class TrustlessWorkTestRunner {
   }
 
   private async runTest(testFile: string): Promise<void> {
-    console.log(`📋 Running: ${testFile}`);
+    console.log(` Running: ${testFile}`);
 
     const startTime = Date.now();
 
@@ -51,7 +51,7 @@ class TrustlessWorkTestRunner {
         duration,
       });
 
-      console.log(`✅ PASSED (${duration}ms)\n`);
+      console.log(` PASSED (${duration}ms)\n`);
     } catch (error: any) {
       const duration = Date.now() - startTime;
 
@@ -62,12 +62,12 @@ class TrustlessWorkTestRunner {
         duration,
       });
 
-      console.log(`❌ FAILED (${duration}ms)\n`);
+      console.log(` FAILED (${duration}ms)\n`);
     }
   }
 
   private printSummary(): void {
-    console.log("📊 Test Summary");
+    console.log(" Test Summary");
     console.log("===============\n");
 
     const passed = this.results.filter((r) => r.passed).length;
@@ -75,9 +75,9 @@ class TrustlessWorkTestRunner {
     const failed = total - passed;
 
     console.log(`Total Tests: ${total}`);
-    console.log(`✅ Passed: ${passed}`);
-    console.log(`❌ Failed: ${failed}`);
-    console.log(`📈 Success Rate: ${((passed / total) * 100).toFixed(1)}%\n`);
+    console.log(` Passed: ${passed}`);
+    console.log(` Failed: ${failed}`);
+    console.log(` Success Rate: ${((passed / total) * 100).toFixed(1)}%\n`);
 
     if (failed > 0) {
       console.log("🔍 Failed Tests:");
@@ -86,17 +86,17 @@ class TrustlessWorkTestRunner {
       this.results
         .filter((r) => !r.passed)
         .forEach((result) => {
-          console.log(`❌ ${result.testFile}`);
+          console.log(` ${result.testFile}`);
           console.log(`   Duration: ${result.duration}ms`);
           console.log(`   Output: ${result.output.substring(0, 200)}...\n`);
         });
     }
 
     if (passed === total) {
-      console.log("🎉 All Trustless Work tests passed!");
-      console.log("🚀 The integration is ready for deployment.");
+      console.log(" All Trustless Work tests passed!");
+      console.log(" The integration is ready for deployment.");
     } else {
-      console.log("⚠️  Some tests failed. Please review the output above.");
+      console.log("  Some tests failed. Please review the output above.");
       process.exit(1);
     }
   }
