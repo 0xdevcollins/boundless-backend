@@ -5,11 +5,11 @@ import { config } from "../src/config";
 
 async function migrateTrustlessWork() {
   try {
-    // Connect to database
+    
     await mongoose.connect(config.mongoUri);
     console.log("Connected to database");
 
-    // Update existing campaigns with Trustless Work fields
+    
     const campaigns = await Campaign.find({
       $or: [
         { trustlessWorkStatus: { $exists: false } },
@@ -21,7 +21,7 @@ async function migrateTrustlessWork() {
     console.log(`Found ${campaigns.length} campaigns to migrate`);
 
     for (const campaign of campaigns) {
-      // Set default values for Trustless Work fields
+     
       const updates: any = {};
 
       if (!campaign.trustlessWorkStatus) {
@@ -44,7 +44,7 @@ async function migrateTrustlessWork() {
       }
     }
 
-    // Update existing milestones with payout percentages
+    
     const milestones = await Milestone.find({
       $or: [
         { payoutPercentage: { $exists: false } },
@@ -59,7 +59,7 @@ async function migrateTrustlessWork() {
       const updates: any = {};
 
       if (milestone.payoutPercentage === undefined) {
-        // Get total milestones for this campaign to calculate equal distribution
+        
         const campaignMilestones = await Milestone.find({
           campaignId: milestone.campaignId,
         });
@@ -68,7 +68,7 @@ async function migrateTrustlessWork() {
       }
 
       if (milestone.amount === undefined) {
-        // Get campaign to calculate amount based on payout percentage
+       
         const campaign = await Campaign.findById(milestone.campaignId);
         if (campaign) {
           const campaignMilestones = await Milestone.find({
@@ -101,7 +101,7 @@ async function migrateTrustlessWork() {
   }
 }
 
-// Run migration if this file is executed directly
+
 if (require.main === module) {
   migrateTrustlessWork();
 }
