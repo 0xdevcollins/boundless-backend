@@ -7,12 +7,12 @@ import Project from "../models/project.model";
 import ContractService from "../services/contract.service";
 import Account from "../models/account.model";
 
-// Define statuses - Updated to match the model's string literals
+
 enum ApplicationStatus {
   Submitted = "SUBMITTED",
   Paused = "PAUSED",
   Cancelled = "CANCELLED",
-  AwaitingFinalApproval = "AWAITING_FINAL_APPROVAL", // ✅ Fixed to match model
+  AwaitingFinalApproval = "AWAITING_FINAL_APPROVAL", 
 }
 
 const TRANSITION_RULES: { [key in ApplicationStatus]?: ApplicationStatus[] } = {
@@ -37,12 +37,12 @@ export const updateGrantApplicationStatus = async (
     const { id } = req.params;
     const { status, reason } = req.body;
 
-    // Check if user is authenticated
+
     if (!req.user) {
       return sendError(res, "Authentication required", 401);
     }
 
-    // Validate ID
+
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
       return sendError(
         res,
@@ -52,7 +52,7 @@ export const updateGrantApplicationStatus = async (
       );
     }
 
-    // Validate status
+
     if (
       !status ||
       !Object.values(ApplicationStatus).includes(status as ApplicationStatus)
@@ -64,14 +64,13 @@ export const updateGrantApplicationStatus = async (
       });
     }
 
-    // Validate reason
+
     if (!reason || reason.trim().length === 0) {
       return sendValidationError(res, "Reason required", {
         reason: { msg: "A valid reason is required to change the status." },
       });
     }
 
-    // Fetch the application
     const application = await GrantApplication.findById(id);
     if (!application) {
       return sendError(
@@ -82,7 +81,7 @@ export const updateGrantApplicationStatus = async (
       );
     }
 
-    // Check if the transition is valid
+
     if (!isValidTransition(application.status, status)) {
       return sendError(
         res,
@@ -91,13 +90,8 @@ export const updateGrantApplicationStatus = async (
         `Cannot change status from '${application.status}' to '${status}'.`,
       );
     }
-
-    // Perform update
     application.status = status;
-    // Save the updated application
     await application.save();
-
-    // Send the application as plain object (to avoid TS issues)
     return sendSuccess(res, "Application status updated successfully");
   } catch (error: any) {
     console.error("Error updating grant application status:", error);
@@ -117,13 +111,11 @@ export const updateGrantApplicationStatus = async (
   }
 };
 
-// PATCH /api/grant-applications/:id/escrow
 export const lockEscrow = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { status, txHash, amount } = req.body;
 
-    // Validate input
     if (status !== "locked") {
       return sendError(res, "Status must be 'locked'", 400);
     }
@@ -137,7 +129,7 @@ export const lockEscrow = async (req: Request, res: Response) => {
       return sendError(res, "Invalid grant application ID", 400);
     }
 
-    // Find the project containing this grant application
+
     const project = await Project.findOne({
       "grant.applications._id": id,
       "grant.isGrant": true,
@@ -152,7 +144,6 @@ export const lockEscrow = async (req: Request, res: Response) => {
       return sendError(res, "Grant application not found in project", 404);
     }
 
-    // Get applicant's wallet address from Account model (provider: 'stellar')
     const account = await Account.findOne({
       userId: application.applicant,
       provider: "stellar",
@@ -165,9 +156,6 @@ export const lockEscrow = async (req: Request, res: Response) => {
       );
     }
     const walletAddress = account.providerAccountId;
-
-    // Call Soroban/ContractService to lock funds in escrow
-    // ContractService is exported as a singleton instance
     try {
       await ContractService.fundProject({
         projectId: project._id.toString(),
@@ -183,8 +171,6 @@ export const lockEscrow = async (req: Request, res: Response) => {
         err.message,
       );
     }
-
-    // Update application status and escrow details
     application.status = "IN_PROGRESS";
     application.escrowedAmount = amount;
     application.txHash = txHash;
@@ -205,8 +191,6 @@ export const updateMilestones = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { milestones } = req.body;
-
-    // 1. Validate ID
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
       return sendError(
         res,
@@ -215,8 +199,6 @@ export const updateMilestones = async (req: Request, res: Response) => {
         "Application ID must be a valid MongoDB ObjectId",
       );
     }
-
-    // 2. Validate milestones array and its items
     if (!Array.isArray(milestones) || milestones.length === 0) {
       return sendValidationError(
         res,
@@ -268,8 +250,6 @@ export const updateMilestones = async (req: Request, res: Response) => {
         );
       }
     }
-
-    // 3. Find the project containing this grant application
     const project = await Project.findOne({
       "grant.applications._id": id,
       "grant.isGrant": true,
@@ -286,11 +266,6 @@ export const updateMilestones = async (req: Request, res: Response) => {
     if (!application) {
       return sendError(res, "Grant application not found in project", 404);
     }
-
-    // 4. Authorization check: Ensure the user is a grant creator
-    // Assuming req.user contains the authenticated user's ID and role
-    // This is a placeholder. You'll need to implement actual role-based authorization.
-    // For example, check if req.user.role === 'grant_creator' or if req.user.id is associated with the grant creator.
     if (!req.user || req.user.id !== project.creator.toString()) {
       return sendError(
         res,
@@ -298,14 +273,12 @@ export const updateMilestones = async (req: Request, res: Response) => {
         403,
       );
     }
-
-    // 5. Update milestones and status - ✅ Fixed property mapping
     application.milestones = milestones.map((m: any) => ({
       title: m.title,
       description: m.description,
-      amount: m.expectedPayout, // ✅ Map expectedPayout to amount
+      amount: m.expectedPayout, 
     }));
-    application.status = ApplicationStatus.AwaitingFinalApproval; // ✅ Now matches model
+    application.status = ApplicationStatus.AwaitingFinalApproval; 
 
     await project.save();
 
