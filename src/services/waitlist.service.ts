@@ -40,9 +40,7 @@ export interface WaitlistStats {
 }
 
 export class WaitlistService {
-  /**
-   * Add a new email to the waitlist
-   */
+  
   static async subscribe(
     data: CreateWaitlistData,
     req?: any,
@@ -53,7 +51,7 @@ export class WaitlistService {
       });
 
       if (existingSubscriber) {
-        // If already unsubscribed, reactivate
+        
         if (existingSubscriber.status === WaitlistStatus.UNSUBSCRIBED) {
           existingSubscriber.status = WaitlistStatus.ACTIVE;
           existingSubscriber.isActive = true;
@@ -64,7 +62,7 @@ export class WaitlistService {
           };
           await existingSubscriber.save();
 
-          // Send welcome email for reactivated user (but don't fail if email fails)
+          
           try {
             await this.sendWelcomeEmail(existingSubscriber);
           } catch (emailError) {
@@ -83,16 +81,16 @@ export class WaitlistService {
           return existingSubscriber;
         }
 
-        // If already active, return existing
+        
         if (existingSubscriber.isActive) {
           throw new Error("Email already subscribed to waitlist");
         }
       }
 
-      // Generate unsubscribe token
+      
       const unsubscribeToken = crypto.randomBytes(32).toString("hex");
 
-      // Create new waitlist entry
+      
       const waitlistEntry = new Waitlist({
         ...data,
         email: data.email.toLowerCase(),
@@ -107,7 +105,7 @@ export class WaitlistService {
 
       await waitlistEntry.save();
 
-      // Send welcome email immediately (but don't fail if email fails)
+      
       try {
         await this.sendWelcomeEmail(waitlistEntry);
       } catch (emailError) {
@@ -119,7 +117,7 @@ export class WaitlistService {
               : String(emailError),
           timestamp: new Date().toISOString(),
         });
-        // Don't fail the subscription if email fails - the user is still subscribed
+        
       }
 
       return waitlistEntry;
@@ -128,9 +126,7 @@ export class WaitlistService {
     }
   }
 
-  /**
-   * Unsubscribe from waitlist
-   */
+  
   static async unsubscribe(token: string): Promise<IWaitlist> {
     try {
       const subscriber = await Waitlist.findOne({ unsubscribeToken: token });
@@ -146,7 +142,7 @@ export class WaitlistService {
       subscriber.unsubscribe();
       await subscriber.save();
 
-      // Send unsubscribe confirmation email
+      
       await this.sendUnsubscribeEmail(subscriber);
 
       return subscriber;
@@ -155,16 +151,14 @@ export class WaitlistService {
     }
   }
 
-  /**
-   * Send welcome email after confirmation
-   */
+  
   static async sendWelcomeEmail(subscriber: IWaitlist): Promise<void> {
     const subject = "You're on the Waitlist! 🎉";
     const unsubscribeUrl = `${config.frontendUrl}/waitlist/unsubscribe/${subscriber.unsubscribeToken}`;
     const viewInBrowserUrl = `${config.frontendUrl}/waitlist/email/view/${subscriber.unsubscribeToken}`;
     const ctaUrl = `${config.frontendUrl}/announcement`;
 
-    // Prepare template variables
+    
     const templateVariables: EmailTemplateVariables = {
       firstName: subscriber.firstName,
       lastName: subscriber.lastName,
@@ -184,7 +178,7 @@ export class WaitlistService {
     };
 
     try {
-      // Load and process the email template
+      
       const templatePath = getWaitlistTemplatePath();
       const html = loadEmailTemplate(templatePath, templateVariables);
       const text = generatePlainTextFromTemplate(templateVariables);
@@ -196,13 +190,13 @@ export class WaitlistService {
         html,
       });
 
-      // Update email count
+      
       subscriber.incrementEmailCount();
       await subscriber.save();
     } catch (error) {
       console.error("Error sending welcome email with template:", error);
 
-      // Fallback to simple email if template fails
+      
       const fallbackHtml = `
         <!DOCTYPE html>
         <html>
@@ -247,15 +241,13 @@ export class WaitlistService {
         html: fallbackHtml,
       });
 
-      // Update email count
+      
       subscriber.incrementEmailCount();
       await subscriber.save();
     }
   }
 
-  /**
-   * Send unsubscribe confirmation email
-   */
+  
   static async sendUnsubscribeEmail(subscriber: IWaitlist): Promise<void> {
     const subject = "You've been unsubscribed from Boundless";
     const resubscribeUrl = `${config.frontendUrl}/waitlist`;
@@ -331,9 +323,7 @@ export class WaitlistService {
     });
   }
 
-  /**
-   * Get subscriber position in waitlist
-   */
+  
   static async getSubscriberPosition(
     subscriberId: string | mongoose.Types.ObjectId,
   ): Promise<number> {
@@ -349,9 +339,7 @@ export class WaitlistService {
     return position + 1;
   }
 
-  /**
-   * Get waitlist statistics
-   */
+  
   static async getStats(): Promise<WaitlistStats> {
     const [total, active, unsubscribed, bounced, spam] = await Promise.all([
       Waitlist.countDocuments(),
@@ -361,7 +349,7 @@ export class WaitlistService {
       Waitlist.countDocuments({ status: WaitlistStatus.SPAM }),
     ]);
 
-    // Calculate growth rate (last 30 days vs previous 30 days)
+    
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -382,8 +370,8 @@ export class WaitlistService {
 
     return {
       total,
-      pending: 0, // No pending status anymore
-      confirmed: active, // All active subscribers are confirmed
+      pending: 0, 
+      confirmed: active, 
       unsubscribed,
       bounced,
       spam,
@@ -392,9 +380,7 @@ export class WaitlistService {
     };
   }
 
-  /**
-   * Get subscribers with pagination
-   */
+  
   static async getSubscribers(
     page: number = 1,
     limit: number = 20,
@@ -440,9 +426,7 @@ export class WaitlistService {
     };
   }
 
-  /**
-   * Add tags to subscriber
-   */
+  
   static async addTags(
     subscriberId: string,
     tags: string[],
@@ -452,7 +436,7 @@ export class WaitlistService {
       throw new Error("Subscriber not found");
     }
 
-    // Add new tags without duplicates
+    
     const existingTags = new Set(subscriber.tags || []);
     tags.forEach((tag) => existingTags.add(tag));
     subscriber.tags = Array.from(existingTags);
@@ -461,9 +445,7 @@ export class WaitlistService {
     return subscriber;
   }
 
-  /**
-   * Remove tags from subscriber
-   */
+  
   static async removeTags(
     subscriberId: string,
     tags: string[],
@@ -480,9 +462,7 @@ export class WaitlistService {
     return subscriber;
   }
 
-  /**
-   * Mark email as bounced
-   */
+  
   static async markAsBounced(email: string): Promise<void> {
     const subscriber = await Waitlist.findOne({ email: email.toLowerCase() });
     if (subscriber) {
@@ -491,9 +471,7 @@ export class WaitlistService {
     }
   }
 
-  /**
-   * Mark email as spam
-   */
+  
   static async markAsSpam(email: string): Promise<void> {
     const subscriber = await Waitlist.findOne({ email: email.toLowerCase() });
     if (subscriber) {
@@ -502,9 +480,7 @@ export class WaitlistService {
     }
   }
 
-  /**
-   * Export subscribers for email campaigns
-   */
+  
   static async exportSubscribers(
     status?: WaitlistStatus,
     tags?: string[],
