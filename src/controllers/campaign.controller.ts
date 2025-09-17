@@ -10,7 +10,6 @@ import {
   TrustlessWorkEscrowRequest,
 } from "../services/trustless-work.service";
 
-// Validation utility (can be moved to a separate file if needed)
 const validateCampaignInput = (body: any) => {
   const errors: string[] = [];
   if (!body.title || typeof body.title !== "string") {
@@ -50,7 +49,6 @@ const validateCampaignInput = (body: any) => {
     });
   }
 
-  // Validate stakeholders if provided
   if (body.stakeholders) {
     const requiredRoles = [
       "marker",
@@ -74,7 +72,6 @@ const validateCampaignInput = (body: any) => {
 
 export const createCampaign = async (req: Request, res: Response) => {
   try {
-    // Only creators can create campaigns
     const user = req.user;
     if (!user || !user.roles.some((r) => r.role === UserRole.CREATOR)) {
       res.status(403).json({ message: "Only creators can create campaigns." });
@@ -97,7 +94,7 @@ export const createCampaign = async (req: Request, res: Response) => {
       currency = "USDC",
     } = req.body;
 
-    // Check project exists and is validated
+
     const project = await Project.findById(projectId);
     if (!project) {
       res.status(404).json({ message: "Project not found." });
@@ -109,19 +106,16 @@ export const createCampaign = async (req: Request, res: Response) => {
       });
       return;
     }
-    // Check user is project owner
+
     if (project.owner.type.toString() !== user._id.toString()) {
       res
         .status(403)
         .json({ message: "You are not the owner of this project." });
       return;
     }
-
-    // Start transaction
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
-      // Create campaign
       const campaign = await Campaign.create(
         [
           {
@@ -140,8 +134,6 @@ export const createCampaign = async (req: Request, res: Response) => {
         { session },
       );
       const campaignDoc = campaign[0];
-
-      //Initialize Escrow
       if (stakeholders) {
         try {
           const trustlessWorkService = createTrustlessWorkService();
@@ -177,8 +169,6 @@ export const createCampaign = async (req: Request, res: Response) => {
 
           const escrowResponse =
             await trustlessWorkService.deployMultiReleaseEscrow(escrowRequest);
-
-          // Update campaign with escrow details
           campaignDoc.trustlessCampaignId = campaignDoc._id?.toString() || "";
           campaignDoc.escrowAddress = escrowResponse.escrowAddress;
           campaignDoc.escrowType = "multi";
@@ -188,21 +178,18 @@ export const createCampaign = async (req: Request, res: Response) => {
           campaignDoc.trustlessWorkStatus = "failed";
         }
       }
-      // Create milestones with payout percentages
       const milestoneDocs = milestones.map((m: any, idx: number) => ({
         campaignId: campaignDoc._id,
         title: m.title,
         description: m.description,
         index: idx,
-        payoutPercentage: m.payoutPercentage || 100 / milestones.length, // Default equal distribution
+        payoutPercentage: m.payoutPercentage || 100 / milestones.length,
         amount:
           m.amount ||
           (goalAmount * (m.payoutPercentage || 100 / milestones.length)) / 100,
         trustlessMilestoneIndex: idx,
       }));
       await Milestone.insertMany(milestoneDocs, { session });
-
-      // Set campaign status to pending_approval
       campaignDoc.status = "pending_approval";
       await campaignDoc.save({ session });
 
@@ -246,9 +233,7 @@ export const approveCampaign = async (req: Request, res: Response) => {
       res.status(400).json({ message: "Campaign is not pending approval." });
       return;
     }
-    // Placeholder: Deploy to Soroban smart contract
-    // In real implementation, integrate with Soroban SDK/API
-    const deployedAddress = `soroban_contract_${campaign._id}`; // Placeholder
+    const deployedAddress = `soroban_contract_${campaign._id}`; 
     campaign.status = "live";
     campaign.smartContractAddress = deployedAddress;
     await campaign.save();
@@ -272,7 +257,7 @@ export const backCampaign = async (req: Request, res: Response) => {
     }
     const { id } = req.params;
     const { amount, txHash } = req.body;
-    // Validate input
+
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
       res.status(400).json({ message: "Valid campaignId is required." });
       return;
@@ -285,17 +270,14 @@ export const backCampaign = async (req: Request, res: Response) => {
       res.status(400).json({ message: "Valid txHash is required." });
       return;
     }
-    // Find campaign
     const campaign = await Campaign.findById(id);
     if (!campaign) {
       res.status(404).json({ message: "Campaign not found." });
       return;
     }
-    // Start transaction
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
-      // Log funding
       const funding = await Funding.create(
         [
           {
@@ -307,7 +289,6 @@ export const backCampaign = async (req: Request, res: Response) => {
         ],
         { session },
       );
-      // Update campaign fundsRaised
       campaign.fundsRaised += amount;
       await campaign.save({ session });
       await session.commitTransaction();
@@ -374,8 +355,6 @@ export const fundEscrow = async (req: Request, res: Response) => {
           amount,
         },
       );
-
-      // Update campaign funding status
       campaign.trustlessWorkStatus = "funded";
       campaign.fundsRaised += amount;
       await campaign.save();
@@ -431,8 +410,6 @@ export const approveMilestone = async (req: Request, res: Response) => {
       res.status(400).json({ message: "Campaign escrow is not funded." });
       return;
     }
-
-    // Check if user is the approver
     if (campaign.stakeholders?.approver !== user._id.toString()) {
       res
         .status(403)
@@ -450,8 +427,6 @@ export const approveMilestone = async (req: Request, res: Response) => {
           milestoneIndex: parseInt(milestoneIndex),
         },
       );
-
-      // Update milestone status
       const milestone = await Milestone.findOne({
         campaignId: campaign._id,
         trustlessMilestoneIndex: parseInt(milestoneIndex),
@@ -516,8 +491,6 @@ export const markMilestoneComplete = async (req: Request, res: Response) => {
       res.status(400).json({ message: "Campaign escrow is not funded." });
       return;
     }
-
-    // Check if user is the marker
     if (campaign.stakeholders?.marker !== user._id.toString()) {
       res
         .status(403)
@@ -536,8 +509,6 @@ export const markMilestoneComplete = async (req: Request, res: Response) => {
           status: "complete",
         },
       );
-
-      // Update milestone status
       const milestone = await Milestone.findOne({
         campaignId: campaign._id,
         trustlessMilestoneIndex: parseInt(milestoneIndex),
@@ -602,8 +573,6 @@ export const releaseMilestoneFunds = async (req: Request, res: Response) => {
       res.status(400).json({ message: "Campaign escrow is not funded." });
       return;
     }
-
-    // Check if user is the releaser
     if (campaign.stakeholders?.releaser !== user._id.toString()) {
       res
         .status(403)
