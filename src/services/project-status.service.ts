@@ -9,7 +9,7 @@ export interface StatusTransitionConfig {
   voteThreshold: number;
   positiveVoteRatio: number;
   negativeVoteRatio: number;
-  timeThreshold?: number; // in hours
+  timeThreshold?: number;
 }
 
 export interface StatusTransitionResult {
@@ -27,18 +27,14 @@ export interface StatusTransitionResult {
 }
 
 export class ProjectStatusService {
-  // Default configuration for status transitions
+  
   private static readonly DEFAULT_CONFIG: StatusTransitionConfig = {
     voteThreshold: 100,
-    positiveVoteRatio: 0.6, // 60% positive votes required
-    negativeVoteRatio: 0.4, // 40% or more negative votes = rejection
-    timeThreshold: 168, // 7 days in hours
+    positiveVoteRatio: 0.6,
+    negativeVoteRatio: 0.4,
+    timeThreshold: 168, 
   };
 
-  /**
-   * Check and update project statuses based on vote thresholds
-   * This method should be called periodically (e.g., via cron job)
-   */
   static async processStatusTransitions(
     config: Partial<StatusTransitionConfig> = {},
   ): Promise<StatusTransitionResult[]> {
@@ -48,7 +44,6 @@ export class ProjectStatusService {
     const session = await mongoose.startSession();
 
     try {
-      // Get all projects in 'idea' status that might need status updates
       const projectsToCheck = await Project.find({
         status: ProjectStatus.IDEA,
         type: ProjectType.CROWDFUND,
@@ -76,7 +71,7 @@ export class ProjectStatusService {
         }
       }
 
-      // Also check for expired voting deadlines
+      
       const expiredResults =
         await this.processExpiredVotingDeadlines(finalConfig);
       results.push(...expiredResults);
@@ -90,16 +85,13 @@ export class ProjectStatusService {
     }
   }
 
-  /**
-   * Check and update a single project's status
-   */
   private static async checkAndUpdateSingleProject(
     projectId: string,
     config: StatusTransitionConfig,
     session: mongoose.ClientSession,
   ): Promise<StatusTransitionResult | null> {
     try {
-      // Get current vote counts
+      
       const voteCounts = await Vote.getVoteCounts(
         new mongoose.Types.ObjectId(projectId),
       );
@@ -110,7 +102,7 @@ export class ProjectStatusService {
         netVotes: 0,
       };
 
-      // Check if we have enough votes to make a decision
+
       if (voteData.totalVotes < config.voteThreshold) {
         return null;
       }
@@ -132,7 +124,7 @@ export class ProjectStatusService {
       let newCrowdfundStatus: CrowdfundStatus;
       let reason: string;
 
-      // Determine new status based on vote ratio
+
       if (positiveRatio >= config.positiveVoteRatio) {
         newStatus = ProjectStatus.REVIEWING;
         newCrowdfundStatus = CrowdfundStatus.UNDER_REVIEW;
@@ -142,25 +134,25 @@ export class ProjectStatusService {
         newCrowdfundStatus = CrowdfundStatus.REJECTED;
         reason = `Rejected due to low positive vote ratio: ${(positiveRatio * 100).toFixed(1)}%`;
       } else {
-        // Not enough clear consensus yet
+
         return null;
       }
 
-      // Update project status
+
       const oldStatus = project.status;
       project.status = newStatus;
       await project.save({ session });
 
-      // Update crowdfund status
+
       crowdfund.status = newCrowdfundStatus;
       if (newStatus === ProjectStatus.REJECTED) {
         crowdfund.rejectedReason = reason;
       } else if (newStatus === ProjectStatus.REVIEWING) {
-        // Don't set validatedAt yet, wait for manual review
+
       }
       await crowdfund.save({ session });
 
-      // Send notification to project owner
+
       await this.sendStatusChangeNotification(
         project,
         oldStatus,
@@ -187,16 +179,13 @@ export class ProjectStatusService {
     }
   }
 
-  /**
-   * Process projects with expired voting deadlines
-   */
+
   private static async processExpiredVotingDeadlines(
     config: StatusTransitionConfig,
   ): Promise<StatusTransitionResult[]> {
     const results: StatusTransitionResult[] = [];
 
     try {
-      // Find crowdfunds with expired deadlines
       const expiredCrowdfunds = await Crowdfund.find({
         voteDeadline: { $lt: new Date() },
         status: CrowdfundStatus.PENDING,
@@ -243,7 +232,7 @@ export class ProjectStatusService {
             reason = `Voting deadline expired with insufficient total votes (${voteData.totalVotes}/${config.voteThreshold})`;
           }
 
-          // Update project
+
           const oldStatus = project.status;
           await Project.findByIdAndUpdate(
             project._id,
@@ -251,7 +240,7 @@ export class ProjectStatusService {
             { session },
           );
 
-          // Update crowdfund
+
           crowdfund.status = newCrowdfundStatus;
           if (newStatus === ProjectStatus.REJECTED) {
             crowdfund.rejectedReason = reason;
@@ -260,7 +249,7 @@ export class ProjectStatusService {
 
           await session.commitTransaction();
 
-          // Send notification
+
           await this.sendStatusChangeNotification(
             project,
             oldStatus,
@@ -302,9 +291,7 @@ export class ProjectStatusService {
     }
   }
 
-  /**
-   * Manually update project status (admin function)
-   */
+
   static async updateProjectStatus(
     projectId: string,
     newStatus: ProjectStatus,
@@ -326,7 +313,7 @@ export class ProjectStatusService {
       project.status = newStatus;
       await project.save({ session });
 
-      // Update crowdfund status if exists
+
       if (crowdfund) {
         switch (newStatus) {
           case ProjectStatus.REVIEWING:
@@ -346,14 +333,14 @@ export class ProjectStatusService {
         await crowdfund.save({ session });
       }
 
-      // Log admin action
+
       console.log(
         `Admin ${adminUserId} updated project ${projectId} status from ${oldStatus} to ${newStatus}`,
       );
 
       await session.commitTransaction();
 
-      // Send notification
+
       const finalReason = reason || `Status updated by administrator`;
       await this.sendStatusChangeNotification(
         project,
@@ -377,9 +364,7 @@ export class ProjectStatusService {
     }
   }
 
-  /**
-   * Get projects that need manual review
-   */
+
   static async getProjectsForReview(
     page = 1,
     limit = 10,
@@ -403,7 +388,7 @@ export class ProjectStatusService {
             "owner.type",
             "profile.firstName profile.lastName profile.username profile.email",
           )
-          .sort({ updatedAt: 1 }) // Oldest first for review queue
+          .sort({ updatedAt: 1 }) 
           .skip(skip)
           .limit(limit)
           .lean(),
@@ -412,7 +397,7 @@ export class ProjectStatusService {
         }),
       ]);
 
-      // Get vote data for each project
+
       const projectsWithVotes = await Promise.all(
         projects.map(async (project) => {
           const voteCounts = await Vote.getVoteCounts(project._id);
@@ -452,9 +437,7 @@ export class ProjectStatusService {
     }
   }
 
-  /**
-   * Get status transition statistics
-   */
+
   static async getStatusTransitionStats(days = 30): Promise<{
     totalTransitions: number;
     transitionsByStatus: Array<{
@@ -463,14 +446,13 @@ export class ProjectStatusService {
       count: number;
     }>;
     averageVotesAtTransition: number;
-    averageTimeToTransition: number; // in hours
+    averageTimeToTransition: number; 
   }> {
     try {
       const dateThreshold = new Date();
       dateThreshold.setDate(dateThreshold.getDate() - days);
 
-      // This would require a transition log collection in a real implementation
-      // For now, we'll return mock data structure
+
       return {
         totalTransitions: 0,
         transitionsByStatus: [],
@@ -483,9 +465,7 @@ export class ProjectStatusService {
     }
   }
 
-  /**
-   * Send notification to project owner about status change
-   */
+
   private static async sendStatusChangeNotification(
     project: any,
     oldStatus: ProjectStatus,
@@ -493,7 +473,7 @@ export class ProjectStatusService {
     reason: string,
   ): Promise<void> {
     try {
-      // Get project owner details
+ 
       const owner = await User.findById(project.owner.type).select(
         "email profile.firstName profile.lastName",
       );
@@ -535,10 +515,6 @@ export class ProjectStatusService {
           subject: "Your project has been completed",
           message: "Congratulations! Your project has been completed.",
         },
-        // [ProjectStatus.FAILED]: {
-        //   subject: "Your project has failed",
-        //   message: "Unfortunately, your project did not succeed.",
-        // },
         [ProjectStatus.PAUSED]: {
           subject: "Your project has been paused",
           message: "Your project is currently paused.",
@@ -551,10 +527,6 @@ export class ProjectStatusService {
           subject: "Your project is in draft",
           message: "Your project is currently in draft status.",
         },
-        // [ProjectStatus.UNDER_REVIEW]: {
-        //   subject: "Your project is under review",
-        //   message: "Your project is currently under review.",
-        // },
         [ProjectStatus.AWAITING_BOUNDLESS_VERIFICATION]: {
           subject: "Awaiting Boundless Verification",
           message:
@@ -607,13 +579,10 @@ export class ProjectStatusService {
       });
     } catch (error) {
       console.error("Error sending status change notification:", error);
-      // Don't throw error as this is not critical
     }
   }
 
-  /**
-   * Force check a specific project (useful for testing or manual triggers)
-   */
+
   static async forceCheckProject(
     projectId: string,
   ): Promise<StatusTransitionResult | null> {
@@ -653,7 +622,6 @@ async function sendEmail({
   subject: string;
   html: string;
 }) {
-  // Configure your SMTP transport (replace with your real SMTP credentials)
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || "smtp.example.com",
     port: Number(process.env.SMTP_PORT) || 587,
