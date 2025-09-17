@@ -2,7 +2,6 @@ import { Router } from "express";
 import {
   createCampaign,
   backCampaign,
-  // approveCampaignV2,
   getCampaignById,
   fundEscrow,
   approveMilestone,
@@ -17,19 +16,12 @@ import { body, param } from "express-validator";
 
 const router = Router();
 
-// GET /api/campaigns/:id
 router.get("/:id", getCampaignById);
 
-// POST /api/campaigns
 router.post("/", authMiddleware, createCampaign);
 
-// POST /api/campaigns/:id/back
 router.post("/:id/back", authMiddleware, backCampaign);
 
-// PATCH /api/campaigns/:id/approve
-// router.patch("/:id/approve", authMiddleware, approveCampaignV2);
-
-// PATCH /api/campaigns/:id/milestones/:milestoneId/status
 router.patch(
   "/:id/milestones/:milestoneId/status",
   authMiddleware,
@@ -44,32 +36,26 @@ router.patch(
   updateMilestoneStatus,
 );
 
-// Trustless Work integration endpoints
-// POST /api/campaigns/:campaignId/fund-escrow
 router.post("/:campaignId/fund-escrow", authMiddleware, fundEscrow);
 
-// POST /api/campaigns/:campaignId/milestones/:milestoneIndex/approve
 router.post(
   "/:campaignId/milestones/:milestoneIndex/approve",
   authMiddleware,
   approveMilestone,
 );
 
-// POST /api/campaigns/:campaignId/milestones/:milestoneIndex/complete
 router.post(
   "/:campaignId/milestones/:milestoneIndex/complete",
   authMiddleware,
   markMilestoneComplete,
 );
 
-// POST /api/campaigns/:campaignId/milestones/:milestoneIndex/release
 router.post(
   "/:campaignId/milestones/:milestoneIndex/release",
   authMiddleware,
   releaseMilestoneFunds,
 );
 
-// GET /api/campaigns/:campaignId/escrow-details
 router.get("/:campaignId/escrow-details", authMiddleware, getEscrowDetails);
 
 export default router;
