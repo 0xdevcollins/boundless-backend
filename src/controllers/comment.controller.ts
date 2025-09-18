@@ -5,7 +5,6 @@ import mongoose, { SortOrder } from "mongoose";
 import { checkSpam } from "../utils/moderation.utils";
 import { ParsedQs } from "qs";
 
-// Create a new comment
 export const createComment = async (
   req: Request,
   res: Response,
@@ -15,20 +14,16 @@ export const createComment = async (
     const { id: projectId } = req.params;
     const userId = (req as any).user._id;
 
-    // Validate content
     const validationError = validateContent(content);
     if (validationError) {
       res.status(400).json({ message: validationError });
       return;
     }
 
-    // Extract mentions
     const mentions = await extractMentions(content);
 
-    // Check for spam
     const isSpam = await checkSpam(content);
 
-    // Create comment
     const comment = await Comment.create({
       content,
       projectId,
@@ -51,7 +46,6 @@ export const createComment = async (
   }
 };
 
-// Helper function to validate and convert sort parameter
 const validateAndConvertSort = (sortParam: any): Record<string, SortOrder> => {
   const defaultSort = { createdAt: -1 as SortOrder };
 
@@ -65,7 +59,6 @@ const validateAndConvertSort = (sortParam: any): Record<string, SortOrder> => {
     return defaultSort;
   }
 
-  // Validate sort field
   const validSortFields = ["createdAt", "updatedAt", "reactionCounts.LIKE"];
   const sortField = sortValue.startsWith("-") ? sortValue.slice(1) : sortValue;
 
@@ -90,7 +83,6 @@ interface QueryParams {
   sort?: string;
 }
 
-// Get comments for a project
 /**
  * @swagger
  * /projects/{id}/comments:
@@ -124,7 +116,6 @@ export const getComments = async (
       sort = "-createdAt",
     } = req.query as QueryParams;
 
-    // Convert string values to numbers
     const page = parseInt(pageStr as string, 10);
     const limit = parseInt(limitStr as string, 10);
 
@@ -136,7 +127,7 @@ export const getComments = async (
     if (parentId) {
       query.parentCommentId = parentId;
     } else {
-      query.parentCommentId = null; // Get top-level comments only
+      query.parentCommentId = null; 
     }
 
     const skip = (page - 1) * limit;
@@ -168,7 +159,6 @@ export const getComments = async (
   }
 };
 
-// Update a comment
 export const updateComment = async (
   req: Request,
   res: Response,
@@ -192,24 +182,20 @@ export const updateComment = async (
       return;
     }
 
-    // Validate content
     const validationError = validateContent(content);
     if (validationError) {
       res.status(400).json({ message: validationError });
       return;
     }
 
-    // Extract mentions
     const mentions = await extractMentions(content);
 
-    // Add to edit history
     comment.editHistory.push({
       content: comment.content,
       editedAt: new Date(),
       editedBy: new mongoose.Types.ObjectId(userId),
     });
 
-    // Update comment
     comment.content = content;
     comment.mentions = mentions;
     await comment.save();
@@ -226,7 +212,6 @@ export const updateComment = async (
   }
 };
 
-// Delete a comment
 export const deleteComment = async (
   req: Request,
   res: Response,
@@ -259,7 +244,6 @@ export const deleteComment = async (
   }
 };
 
-// Report a comment
 export const reportComment = async (
   req: Request,
   res: Response,
@@ -276,7 +260,6 @@ export const reportComment = async (
       return;
     }
 
-    // Check if user has already reported this comment
     const existingReport = comment.reports.find(
       (report) => report.userId.toString() === userId.toString(),
     );
@@ -295,7 +278,6 @@ export const reportComment = async (
       createdAt: new Date(),
     });
 
-    // If comment receives multiple reports, flag it for moderation
     if (comment.reports.length >= 3) {
       comment.status = "flagged";
     }
