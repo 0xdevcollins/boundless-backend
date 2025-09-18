@@ -14,10 +14,10 @@ dotenv.config();
 
 const seedDatabase = async () => {
   try {
-    // Connect to MongoDB
+    
     await mongoose.connect(process.env.MONGODB_URI || "");
 
-    // Clear existing data
+    
     await Promise.all([
       User.deleteMany({}),
       Project.deleteMany({}),
@@ -166,7 +166,7 @@ const seedDatabase = async () => {
       ],
     });
 
-    // Create test projects
+    
     const project1 = await Project.create({
       title: "Decentralized Social Network",
       description:
@@ -181,7 +181,7 @@ const seedDatabase = async () => {
         goal: 100000,
         raised: 25000,
         currency: "USDC",
-        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 
         contributors: [
           {
             user: backerUser._id,
@@ -192,8 +192,8 @@ const seedDatabase = async () => {
         ],
       },
       voting: {
-        startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
-        endDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+        startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), 
+        endDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
         totalVotes: 100,
         positiveVotes: 85,
         negativeVotes: 15,
@@ -259,7 +259,7 @@ const seedDatabase = async () => {
         goal: 50000,
         raised: 0,
         currency: "ETH",
-        endDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000), // 45 days from now
+        endDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000), 
         contributors: [],
       },
       milestones: [
@@ -302,7 +302,7 @@ const seedDatabase = async () => {
       },
     });
 
-    // Create test comments
+    
     const comment1 = await Comment.create({
       content:
         "This is an exciting project! I love the idea of a decentralized social network.",
@@ -377,7 +377,7 @@ const seedDatabase = async () => {
       },
     });
 
-    // Create a flagged comment
+    
     const comment6 = await Comment.create({
       content: "This is spam content! Buy my tokens!",
       projectId: project1._id,
@@ -400,7 +400,7 @@ const seedDatabase = async () => {
       },
     });
 
-    // Create test grants
+    
     const grantCreatorUser = await User.create({
       email: "grantcreator@boundless.com",
       password: hashedPassword,
