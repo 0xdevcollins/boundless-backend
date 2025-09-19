@@ -21,14 +21,14 @@ export const submitMilestoneProof = async (req: Request, res: Response) => {
   const userId = req.user?.id;
 
   try {
-    // Find the milestone
+    
     const milestone = await Milestone.findById(milestoneId);
     if (!milestone) {
       res.status(404).json({ message: "Milestone not found" });
       return;
     }
 
-    // Fetch the campaign separately
+    
     const campaign = await Campaign.findById(milestone.campaignId);
     if (!campaign) {
       console.log(
@@ -39,7 +39,7 @@ export const submitMilestoneProof = async (req: Request, res: Response) => {
       return;
     }
 
-    // Check if user owns the campaign
+    
     if (!req.user || !userId || campaign.creatorId.toString() !== userId) {
       res
         .status(403)
@@ -47,7 +47,7 @@ export const submitMilestoneProof = async (req: Request, res: Response) => {
       return;
     }
 
-    // Check if milestone is in a submittable state
+    
     const submittableStates = ["pending", "in-progress", "revision-requested"];
     if (!submittableStates.includes(milestone.status)) {
       res.status(409).json({
@@ -57,7 +57,7 @@ export const submitMilestoneProof = async (req: Request, res: Response) => {
       return;
     }
 
-    // Update milestone with proof data
+    
     milestone.proofDescription = description;
     milestone.proofLinks = proofLinks;
     milestone.status = "submitted";
@@ -102,9 +102,9 @@ export const reviewMilestone = async (
       milestone.status = "approved";
       if (adminNote) milestone.adminNote = adminNote;
       await milestone.save();
-      // Trigger Soroban payout asynchronously
+      
       triggerSorobanPayout(milestone).catch((err) => {
-        // Log error, but don't block response
+      
         console.error("Soroban payout error:", err);
       });
       res.json({ message: "Milestone approved and payout triggered" });
@@ -128,7 +128,7 @@ export const reviewMilestone = async (
   }
 };
 
-// PATCH /api/campaigns/:id/milestones/:milestoneId/status
+
 export const updateMilestoneStatus = async (
   req: Request,
   res: Response,
@@ -139,7 +139,7 @@ export const updateMilestoneStatus = async (
   const userRoles = req.user?.roles || [];
 
   try {
-    // Fetch campaign and milestone
+    
     const campaign = await Campaign.findById(campaignId);
     if (!campaign) {
       res.status(404).json({ message: "Campaign not found" });
@@ -161,14 +161,14 @@ export const updateMilestoneStatus = async (
       return;
     }
 
-    // Role checks
+    
     const isAdmin = (userRoles as UserRoleAssignment[]).some(
       (r) => r.role === "admin",
     );
     const isMarker = campaign.marker && campaign.marker.toString() === userId;
     const isCreator = campaign.creatorId.toString() === userId;
 
-    // Status transition logic
+    
     const currentStatus = milestone.status;
     let allowed = false;
     let update: any = {};
@@ -194,7 +194,7 @@ export const updateMilestoneStatus = async (
         allowed = true;
         update.status = "released";
         update.releasedAt = new Date();
-        // Trustless Work: release funds
+        
         try {
           const result = await releaseFundsToMilestone({
             campaignId,
@@ -221,7 +221,7 @@ export const updateMilestoneStatus = async (
         update.status = "disputed";
         update.disputedAt = new Date();
         update.disputeReason = disputeReason;
-        // Trustless Work: dispute
+        
         try {
           await disputeMilestone({
             campaignId,
@@ -244,7 +244,7 @@ export const updateMilestoneStatus = async (
       return;
     }
 
-    // Update milestone
+    
     Object.assign(milestone, update);
     await milestone.save();
     res.status(200).json({ success: true, milestone });
