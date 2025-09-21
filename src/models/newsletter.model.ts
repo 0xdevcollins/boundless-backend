@@ -2,6 +2,7 @@ import { Schema, model, Document } from "mongoose";
 
 export interface INewsletterSubscriber extends Document {
   email: string;
+  name?: string;
   source?: string;
   subscribedAt: Date;
   metadata?: {
@@ -18,6 +19,12 @@ const newsletterSchema = new Schema<INewsletterSubscriber>(
       unique: true,
       lowercase: true,
       trim: true,
+      index: true,
+    },
+    name: {
+      type: String,
+      trim: true,
+      maxlength: 100,
     },
     source: {
       type: String,

@@ -11,6 +11,10 @@ import {
   sendNotFound,
   sendInternalServerError,
 } from "../utils/apiResponse";
+import {
+  detectSourceWithContext,
+  SOURCE_CONFIGS,
+} from "../utils/sourceDetector.utils";
 
 /**
  * @route   POST /api/waitlist/subscribe
@@ -19,7 +23,6 @@ import {
  */
 export const subscribe = async (req: Request, res: Response): Promise<void> => {
   try {
-    // Check validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       sendBadRequest(
@@ -35,14 +38,26 @@ export const subscribe = async (req: Request, res: Response): Promise<void> => {
 
     const { email, firstName, lastName, source, referrer, tags } = req.body;
 
+    const detectedSource =
+      source ||
+      detectSourceWithContext(
+        req,
+        {
+          source: req.query.utm_source as string,
+          medium: req.query.utm_medium as string,
+          campaign: req.query.utm_campaign as string,
+        },
+        SOURCE_CONFIGS.WAITLIST,
+      );
+
     const waitlistData: CreateWaitlistData = {
       email,
       firstName,
       lastName,
-      source,
+      source: detectedSource,
       referrer,
       metadata: {
-        ipAddress: req.ip || req.connection?.remoteAddress,
+        ipAddress: req.ip || req.socket?.remoteAddress,
         userAgent: req.headers["user-agent"],
         utmSource: req.query.utm_source as string,
         utmMedium: req.query.utm_medium as string,
@@ -74,7 +89,7 @@ export const subscribe = async (req: Request, res: Response): Promise<void> => {
       sendError(res, "Email already subscribed to waitlist", 409);
       return;
     }
-    // Check for validation errors
+
     if (error.name === "ValidationError") {
       sendError(res, "Validation error", 400, error.message);
       return;
@@ -166,7 +181,6 @@ export const getSubscribers = async (
     const tag = req.query.tag as string;
     const search = req.query.search as string;
 
-    // Validate pagination
     if (page < 1 || limit < 1 || limit > 100) {
       sendBadRequest(res, "Invalid pagination parameters");
       return;
@@ -311,7 +325,6 @@ export const exportSubscribers = async (
 
     const subscribers = await WaitlistService.exportSubscribers(status, tags);
 
-    // Set headers for CSV download
     res.setHeader("Content-Type", "text/csv");
     res.setHeader(
       "Content-Disposition",
@@ -394,7 +407,6 @@ export const handleSpam = async (
   }
 };
 
-// Validation middleware for subscribe endpoint
 export const validateSubscribe = [
   body("email")
     .isEmail()
