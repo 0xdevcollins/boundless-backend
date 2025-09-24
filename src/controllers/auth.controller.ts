@@ -10,7 +10,6 @@ import axios from "axios";
 import { OAuth2Client } from "google-auth-library";
 
 import { generateOTP } from "../utils/otp.utils";
-import sendEmail from "../utils/sendMail.utils";
 import {
   sendSuccess,
   sendCreated,
@@ -21,13 +20,12 @@ import {
   sendInternalServerError,
   checkResource,
 } from "../utils/apiResponse";
-
+import { sendEmail } from "../utils/email.utils";
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password, firstName, lastName, username } = req.body;
 
-    
     const existingUser = await User.findOne({
       $or: [{ email }, { "profile.username": username }],
     });
@@ -36,7 +34,6 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    
     const user = new User({
       email,
       password,
@@ -68,6 +65,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     await sendEmail({
       to: email,
       subject: "Verify your email",
+      text: `Your verification code is: ${otp}`,
       html: `Your verification code is: ${otp}`,
     });
 
@@ -82,12 +80,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
 
-   
     const user = await User.findOne({ email });
     if (!user) {
       sendUnauthorized(res, "Invalid credentials");
@@ -100,23 +96,19 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    
     if (!user.isVerified) {
       sendUnauthorized(res, "Please verify your email first");
       return;
     }
 
-   
     const tokens = generateTokens({
       userId: user._id.toString(),
       email: user.email,
       roles: user.roles.map((role) => role.role),
     });
 
-  
     setAuthCookies(res, tokens);
 
-    
     user.lastLogin = new Date();
     await user.save();
 
@@ -127,7 +119,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-
 export const githubAuth = async (
   req: Request,
   res: Response,
@@ -135,7 +126,6 @@ export const githubAuth = async (
   try {
     const { code } = req.body;
 
-    
     const { data: tokenData } = await axios.post(
       "https://github.com/login/oauth/access_token",
       {
@@ -150,7 +140,6 @@ export const githubAuth = async (
       },
     );
 
-   
     const { data: userData } = await axios.get("https://api.github.com/user", {
       headers: {
         Authorization: `Bearer ${tokenData.access_token}`,
@@ -159,7 +148,6 @@ export const githubAuth = async (
 
     const { email, id, name, avatar_url } = userData;
 
-    
     let user = await User.findOne({ email });
     if (!user) {
       user = new User({
@@ -188,7 +176,6 @@ export const githubAuth = async (
       await user.save();
     }
 
-  
     await Account.findOneAndUpdate(
       { provider: "github", providerAccountId: id.toString() },
       {
@@ -200,14 +187,12 @@ export const githubAuth = async (
       { upsert: true },
     );
 
-    
     const tokens = generateTokens({
       userId: user._id.toString(),
       email: user.email,
       roles: user.roles.map((role) => role.role),
     });
 
-    
     setAuthCookies(res, tokens);
 
     sendSuccess(res, tokens, "GitHub authentication successful");
@@ -216,7 +201,6 @@ export const githubAuth = async (
     sendInternalServerError(res, "Error with GitHub authentication");
   }
 };
-
 
 export const googleAuth = async (
   req: Request,
@@ -239,7 +223,6 @@ export const googleAuth = async (
 
     const { email, sub, name, picture } = payload;
 
-    
     let user = await User.findOne({ email });
     if (!user) {
       user = new User({
@@ -268,7 +251,6 @@ export const googleAuth = async (
       await user.save();
     }
 
-    
     await Account.findOneAndUpdate(
       { provider: "google", providerAccountId: sub },
       {
@@ -280,14 +262,12 @@ export const googleAuth = async (
       { upsert: true },
     );
 
-  
     const tokens = generateTokens({
       userId: user._id.toString(),
       email: user.email,
       roles: user.roles.map((role) => role.role),
     });
 
-  
     setAuthCookies(res, tokens);
 
     sendSuccess(res, tokens, "Google authentication successful");
@@ -296,7 +276,6 @@ export const googleAuth = async (
     sendInternalServerError(res, "Error with Google authentication");
   }
 };
-
 
 export const getMe = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -313,14 +292,12 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-
 export const logout = async (req: Request, res: Response) => {
   try {
     if (req.user) {
       await Session.deleteMany({ userId: req.user._id });
     }
 
-    
     clearAuthCookies(res);
 
     sendSuccess(
@@ -346,22 +323,24 @@ export const forgotPassword = async (
       return;
     }
 
-    if (!user) return; 
+    if (!user) return;
 
-   
     const resetToken = generateOTP();
     user.resetPasswordToken = resetToken;
     user.resetPasswordExpires = new Date(Date.now() + 3600000); // 1 hour
     await user.save();
 
-    
     const { config } = await import("../config/index");
     const resetLink = `${config.cors.origin}/auth/reset-password?token=${resetToken}`;
 
-   
     await sendEmail({
       to: email,
       subject: "Password Reset",
+      text: `
+        You requested a password reset. Click the link below to reset your password:
+        ${resetLink}
+        If you did not request this, please ignore this email.
+      `,
       html: `
         <p>You requested a password reset. Click the link below to reset your password:</p>
         <p><a href="${resetLink}">${resetLink}</a></p>
@@ -396,7 +375,7 @@ export const resetPassword = async (
       return;
     }
 
-    if (!user) return; 
+    if (!user) return;
 
     user.password = newPassword;
     user.resetPasswordToken = undefined;
@@ -414,7 +393,6 @@ export const resetPassword = async (
   }
 };
 
-
 export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, otp } = req.body;
@@ -429,7 +407,6 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-   
     if (user.otp !== otp) {
       sendBadRequest(res, "Invalid OTP");
       return;
@@ -450,7 +427,6 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-
 export const resendOtp = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email } = req.body;
@@ -468,6 +444,7 @@ export const resendOtp = async (req: Request, res: Response): Promise<void> => {
     await sendEmail({
       to: email,
       subject: "Your verification code",
+      text: `Your verification code is: ${otp}`,
       html: `Your verification code is: ${otp}`,
     });
 
@@ -482,7 +459,6 @@ export const resendOtp = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-
 export const refreshToken = async (
   req: Request,
   res: Response,
@@ -495,7 +471,6 @@ export const refreshToken = async (
       return;
     }
 
-    
     const decoded = verifyRefreshToken(refreshToken) as any;
 
     if (!decoded || !decoded.userId) {
@@ -503,27 +478,23 @@ export const refreshToken = async (
       return;
     }
 
-   
     const user = await User.findById(decoded.userId);
     if (!user) {
       sendUnauthorized(res, "User not found");
       return;
     }
 
-  
     if (!user.isVerified) {
       sendUnauthorized(res, "User not verified");
       return;
     }
 
-   
     const tokens = generateTokens({
       userId: user._id.toString(),
       email: user.email,
       roles: user.roles.map((role) => role.role),
     });
 
-   
     setAuthCookies(res, tokens);
 
     sendSuccess(
