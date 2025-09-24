@@ -127,7 +127,7 @@ export const getComments = async (
     if (parentId) {
       query.parentCommentId = parentId;
     } else {
-      query.parentCommentId = null; 
+      query.parentCommentId = null;
     }
 
     const skip = (page - 1) * limit;

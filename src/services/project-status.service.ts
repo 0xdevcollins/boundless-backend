@@ -27,12 +27,11 @@ export interface StatusTransitionResult {
 }
 
 export class ProjectStatusService {
-  
   private static readonly DEFAULT_CONFIG: StatusTransitionConfig = {
     voteThreshold: 100,
     positiveVoteRatio: 0.6,
     negativeVoteRatio: 0.4,
-    timeThreshold: 168, 
+    timeThreshold: 168,
   };
 
   static async processStatusTransitions(
@@ -71,7 +70,6 @@ export class ProjectStatusService {
         }
       }
 
-      
       const expiredResults =
         await this.processExpiredVotingDeadlines(finalConfig);
       results.push(...expiredResults);
@@ -91,7 +89,6 @@ export class ProjectStatusService {
     session: mongoose.ClientSession,
   ): Promise<StatusTransitionResult | null> {
     try {
-      
       const voteCounts = await Vote.getVoteCounts(
         new mongoose.Types.ObjectId(projectId),
       );
@@ -101,7 +98,6 @@ export class ProjectStatusService {
         totalVotes: 0,
         netVotes: 0,
       };
-
 
       if (voteData.totalVotes < config.voteThreshold) {
         return null;
@@ -124,7 +120,6 @@ export class ProjectStatusService {
       let newCrowdfundStatus: CrowdfundStatus;
       let reason: string;
 
-
       if (positiveRatio >= config.positiveVoteRatio) {
         newStatus = ProjectStatus.REVIEWING;
         newCrowdfundStatus = CrowdfundStatus.UNDER_REVIEW;
@@ -134,24 +129,19 @@ export class ProjectStatusService {
         newCrowdfundStatus = CrowdfundStatus.REJECTED;
         reason = `Rejected due to low positive vote ratio: ${(positiveRatio * 100).toFixed(1)}%`;
       } else {
-
         return null;
       }
-
 
       const oldStatus = project.status;
       project.status = newStatus;
       await project.save({ session });
 
-
       crowdfund.status = newCrowdfundStatus;
       if (newStatus === ProjectStatus.REJECTED) {
         crowdfund.rejectedReason = reason;
       } else if (newStatus === ProjectStatus.REVIEWING) {
-
       }
       await crowdfund.save({ session });
-
 
       await this.sendStatusChangeNotification(
         project,
@@ -178,7 +168,6 @@ export class ProjectStatusService {
       throw error;
     }
   }
-
 
   private static async processExpiredVotingDeadlines(
     config: StatusTransitionConfig,
@@ -232,14 +221,12 @@ export class ProjectStatusService {
             reason = `Voting deadline expired with insufficient total votes (${voteData.totalVotes}/${config.voteThreshold})`;
           }
 
-
           const oldStatus = project.status;
           await Project.findByIdAndUpdate(
             project._id,
             { status: newStatus },
             { session },
           );
-
 
           crowdfund.status = newCrowdfundStatus;
           if (newStatus === ProjectStatus.REJECTED) {
@@ -248,7 +235,6 @@ export class ProjectStatusService {
           await crowdfund.save({ session });
 
           await session.commitTransaction();
-
 
           await this.sendStatusChangeNotification(
             project,
@@ -291,7 +277,6 @@ export class ProjectStatusService {
     }
   }
 
-
   static async updateProjectStatus(
     projectId: string,
     newStatus: ProjectStatus,
@@ -313,7 +298,6 @@ export class ProjectStatusService {
       project.status = newStatus;
       await project.save({ session });
 
-
       if (crowdfund) {
         switch (newStatus) {
           case ProjectStatus.REVIEWING:
@@ -333,13 +317,11 @@ export class ProjectStatusService {
         await crowdfund.save({ session });
       }
 
-
       console.log(
         `Admin ${adminUserId} updated project ${projectId} status from ${oldStatus} to ${newStatus}`,
       );
 
       await session.commitTransaction();
-
 
       const finalReason = reason || `Status updated by administrator`;
       await this.sendStatusChangeNotification(
@@ -364,7 +346,6 @@ export class ProjectStatusService {
     }
   }
 
-
   static async getProjectsForReview(
     page = 1,
     limit = 10,
@@ -388,7 +369,7 @@ export class ProjectStatusService {
             "owner.type",
             "profile.firstName profile.lastName profile.username profile.email",
           )
-          .sort({ updatedAt: 1 }) 
+          .sort({ updatedAt: 1 })
           .skip(skip)
           .limit(limit)
           .lean(),
@@ -396,7 +377,6 @@ export class ProjectStatusService {
           status: ProjectStatus.REVIEWING,
         }),
       ]);
-
 
       const projectsWithVotes = await Promise.all(
         projects.map(async (project) => {
@@ -437,7 +417,6 @@ export class ProjectStatusService {
     }
   }
 
-
   static async getStatusTransitionStats(days = 30): Promise<{
     totalTransitions: number;
     transitionsByStatus: Array<{
@@ -446,12 +425,11 @@ export class ProjectStatusService {
       count: number;
     }>;
     averageVotesAtTransition: number;
-    averageTimeToTransition: number; 
+    averageTimeToTransition: number;
   }> {
     try {
       const dateThreshold = new Date();
       dateThreshold.setDate(dateThreshold.getDate() - days);
-
 
       return {
         totalTransitions: 0,
@@ -465,7 +443,6 @@ export class ProjectStatusService {
     }
   }
 
-
   private static async sendStatusChangeNotification(
     project: any,
     oldStatus: ProjectStatus,
@@ -473,7 +450,6 @@ export class ProjectStatusService {
     reason: string,
   ): Promise<void> {
     try {
- 
       const owner = await User.findById(project.owner.type).select(
         "email profile.firstName profile.lastName",
       );
@@ -581,7 +557,6 @@ export class ProjectStatusService {
       console.error("Error sending status change notification:", error);
     }
   }
-
 
   static async forceCheckProject(
     projectId: string,

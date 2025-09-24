@@ -1,10 +1,9 @@
 import rateLimit from "express-rate-limit";
 import { Request } from "express";
 
-
 export const generalRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, 
-  max: 100, 
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   message: {
     success: false,
     message: "Too many requests from this IP, please try again later",
@@ -14,10 +13,9 @@ export const generalRateLimit = rateLimit({
   legacyHeaders: false,
 });
 
-
 export const votingRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, 
-  max: 10, 
+  windowMs: 15 * 60 * 1000,
+  max: 10,
   message: {
     success: false,
     message: "Too many vote attempts, please try again later",
@@ -26,15 +24,13 @@ export const votingRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req: Request) => {
-    
     return req.user?._id?.toString() || req.ip || "";
   },
 });
 
-
 export const commentRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, 
-  max: 20, 
+  windowMs: 15 * 60 * 1000,
+  max: 20,
   message: {
     success: false,
     message: "Too many comment attempts, please try again later",
@@ -47,10 +43,9 @@ export const commentRateLimit = rateLimit({
   },
 });
 
-
 export const projectCreationRateLimit = rateLimit({
-  windowMs: 60 * 60 * 1000, 
-  max: 5, 
+  windowMs: 60 * 60 * 1000,
+  max: 5,
   message: {
     success: false,
     message: "Too many project creation attempts, please try again later",
@@ -63,10 +58,9 @@ export const projectCreationRateLimit = rateLimit({
   },
 });
 
-
 export const reportRateLimit = rateLimit({
-  windowMs: 60 * 60 * 1000, 
-  max: 10, 
+  windowMs: 60 * 60 * 1000,
+  max: 10,
   message: {
     success: false,
     message: "Too many report attempts, please try again later",

@@ -42,7 +42,7 @@ export async function markMilestoneApproved({
       { campaignId, milestoneId },
       { headers: getHeaders() },
     );
-    return res.data; 
+    return res.data;
   } catch (err) {
     throw new Error("Trustless Work API approve failed");
   }
@@ -168,7 +168,6 @@ export class TrustlessWorkService {
     }
   }
 
-
   async deployMultiReleaseEscrow(
     request: TrustlessWorkEscrowRequest,
   ): Promise<TrustlessWorkEscrowResponse> {
@@ -179,7 +178,6 @@ export class TrustlessWorkService {
     );
   }
 
- 
   async deploySingleReleaseEscrow(
     request: TrustlessWorkEscrowRequest,
   ): Promise<TrustlessWorkEscrowResponse> {
@@ -190,7 +188,6 @@ export class TrustlessWorkService {
     );
   }
 
-  
   async fundEscrow(
     type: "single" | "multi",
     request: TrustlessWorkFundRequest,
@@ -202,7 +199,6 @@ export class TrustlessWorkService {
     );
   }
 
- 
   async approveMilestone(
     type: "single" | "multi",
     request: TrustlessWorkMilestoneApprovalRequest,
@@ -214,7 +210,6 @@ export class TrustlessWorkService {
     );
   }
 
- 
   async changeMilestoneStatus(
     type: "single" | "multi",
     request: TrustlessWorkMilestoneStatusRequest,
@@ -226,7 +221,6 @@ export class TrustlessWorkService {
     );
   }
 
-  
   async releaseFunds(
     type: "single" | "multi",
     request: TrustlessWorkReleaseRequest,
@@ -238,7 +232,6 @@ export class TrustlessWorkService {
     );
   }
 
-
   async releaseMilestoneFunds(
     request: TrustlessWorkReleaseRequest,
   ): Promise<{ xdr: string }> {
@@ -249,7 +242,6 @@ export class TrustlessWorkService {
     );
   }
 
-  
   async getEscrow(
     type: "single" | "multi",
     escrowAddress: string,
@@ -260,7 +252,6 @@ export class TrustlessWorkService {
     );
   }
 
- 
   async submitTransaction(xdr: string): Promise<{ hash: string }> {
     return this.makeRequest<{ hash: string }>(
       "POST",
@@ -269,7 +260,6 @@ export class TrustlessWorkService {
     );
   }
 
- 
   async setTrustline(
     escrowAddress: string,
     tokenAddress: string,
@@ -280,7 +270,6 @@ export class TrustlessWorkService {
     });
   }
 }
-
 
 export const createTrustlessWorkService = (): TrustlessWorkService => {
   const config: TrustlessWorkConfig = {

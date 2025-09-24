@@ -7,12 +7,11 @@ import Project from "../models/project.model";
 import ContractService from "../services/contract.service";
 import Account from "../models/account.model";
 
-
 enum ApplicationStatus {
   Submitted = "SUBMITTED",
   Paused = "PAUSED",
   Cancelled = "CANCELLED",
-  AwaitingFinalApproval = "AWAITING_FINAL_APPROVAL", 
+  AwaitingFinalApproval = "AWAITING_FINAL_APPROVAL",
 }
 
 const TRANSITION_RULES: { [key in ApplicationStatus]?: ApplicationStatus[] } = {
@@ -37,11 +36,9 @@ export const updateGrantApplicationStatus = async (
     const { id } = req.params;
     const { status, reason } = req.body;
 
-
     if (!req.user) {
       return sendError(res, "Authentication required", 401);
     }
-
 
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
       return sendError(
@@ -51,7 +48,6 @@ export const updateGrantApplicationStatus = async (
         "Application ID must be a valid MongoDB ObjectId",
       );
     }
-
 
     if (
       !status ||
@@ -63,7 +59,6 @@ export const updateGrantApplicationStatus = async (
         },
       });
     }
-
 
     if (!reason || reason.trim().length === 0) {
       return sendValidationError(res, "Reason required", {
@@ -80,7 +75,6 @@ export const updateGrantApplicationStatus = async (
         "No application found with the provided ID",
       );
     }
-
 
     if (!isValidTransition(application.status, status)) {
       return sendError(
@@ -128,7 +122,6 @@ export const lockEscrow = async (req: Request, res: Response) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return sendError(res, "Invalid grant application ID", 400);
     }
-
 
     const project = await Project.findOne({
       "grant.applications._id": id,
@@ -276,9 +269,9 @@ export const updateMilestones = async (req: Request, res: Response) => {
     application.milestones = milestones.map((m: any) => ({
       title: m.title,
       description: m.description,
-      amount: m.expectedPayout, 
+      amount: m.expectedPayout,
     }));
-    application.status = ApplicationStatus.AwaitingFinalApproval; 
+    application.status = ApplicationStatus.AwaitingFinalApproval;
 
     await project.save();
 

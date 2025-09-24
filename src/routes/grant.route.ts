@@ -15,7 +15,6 @@ import { validateRequest } from "../middleware/validateRequest";
 
 const router = Router();
 
-
 const createGrantSchema = [
   body("title")
     .trim()
@@ -58,16 +57,13 @@ const createGrantSchema = [
     .withMessage("Expected payout must be a non-negative number"),
 ];
 
-
 router.post("/", protect, validateRequest(createGrantSchema), createGrant);
-
 
 const updateGrantStatusSchema = [
   body("status")
     .isIn(["open", "closed"])
     .withMessage("Status must be either 'open' or 'closed'"),
 ];
-
 
 router.patch(
   "/:id/status",
@@ -76,21 +72,15 @@ router.patch(
   updateGrantStatus,
 );
 
-
 router.post("/grant-applications", protect, submitGrantApplication);
-
 
 router.get("/", getAllGrants);
 
-
 router.get("/my", protect, getMyGrants);
-
 
 router.get("/:id", getGrantById);
 
-
 router.get("/grant-applications/:id", getGrantApplicationWithFeedback);
-
 
 router.patch("/grant-applications/:id/review", protect, reviewGrantApplication);
 

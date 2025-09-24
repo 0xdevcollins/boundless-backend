@@ -14,10 +14,8 @@ dotenv.config();
 
 const seedDatabase = async () => {
   try {
-    
     await mongoose.connect(process.env.MONGODB_URI || "");
 
-    
     await Promise.all([
       User.deleteMany({}),
       Project.deleteMany({}),
@@ -166,7 +164,6 @@ const seedDatabase = async () => {
       ],
     });
 
-    
     const project1 = await Project.create({
       title: "Decentralized Social Network",
       description:
@@ -181,7 +178,7 @@ const seedDatabase = async () => {
         goal: 100000,
         raised: 25000,
         currency: "USDC",
-        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         contributors: [
           {
             user: backerUser._id,
@@ -192,7 +189,7 @@ const seedDatabase = async () => {
         ],
       },
       voting: {
-        startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), 
+        startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
         endDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
         totalVotes: 100,
         positiveVotes: 85,
@@ -259,7 +256,7 @@ const seedDatabase = async () => {
         goal: 50000,
         raised: 0,
         currency: "ETH",
-        endDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000), 
+        endDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000),
         contributors: [],
       },
       milestones: [
@@ -302,7 +299,6 @@ const seedDatabase = async () => {
       },
     });
 
-    
     const comment1 = await Comment.create({
       content:
         "This is an exciting project! I love the idea of a decentralized social network.",
@@ -377,7 +373,6 @@ const seedDatabase = async () => {
       },
     });
 
-    
     const comment6 = await Comment.create({
       content: "This is spam content! Buy my tokens!",
       projectId: project1._id,
@@ -400,7 +395,6 @@ const seedDatabase = async () => {
       },
     });
 
-    
     const grantCreatorUser = await User.create({
       email: "grantcreator@boundless.com",
       password: hashedPassword,

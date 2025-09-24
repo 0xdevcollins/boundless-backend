@@ -94,7 +94,6 @@ export const createCampaign = async (req: Request, res: Response) => {
       currency = "USDC",
     } = req.body;
 
-
     const project = await Project.findById(projectId);
     if (!project) {
       res.status(404).json({ message: "Project not found." });
@@ -233,7 +232,7 @@ export const approveCampaign = async (req: Request, res: Response) => {
       res.status(400).json({ message: "Campaign is not pending approval." });
       return;
     }
-    const deployedAddress = `soroban_contract_${campaign._id}`; 
+    const deployedAddress = `soroban_contract_${campaign._id}`;
     campaign.status = "live";
     campaign.smartContractAddress = deployedAddress;
     await campaign.save();
