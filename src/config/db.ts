@@ -29,9 +29,9 @@ const connectDB = async (): Promise<void> => {
       retryWrites: true,
       retryReads: true,
 
-      // Buffer settings to allow operations before connection
+      // Buffer settings to prevent timeout errors
       bufferMaxEntries: 0, // Disable mongoose buffering
-      bufferCommands: true, // Enable buffering to allow operations before connection
+      bufferCommands: false, // Disable mongoose buffering
 
       // Heartbeat settings
       heartbeatFrequencyMS: 10000, // Send a ping every 10 seconds
