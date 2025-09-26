@@ -92,6 +92,23 @@ function isNonRetryableError(error: any): boolean {
 }
 
 /**
+ * Wait for MongoDB connection to be ready
+ * @param timeout - Maximum time to wait in milliseconds
+ * @returns Promise that resolves when connection is ready
+ */
+async function waitForConnection(timeout = 30000): Promise<void> {
+  const mongoose = await import("mongoose");
+  const startTime = Date.now();
+
+  while (mongoose.default.connection.readyState !== 1) {
+    if (Date.now() - startTime > timeout) {
+      throw new Error("Connection timeout: MongoDB connection not ready");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
+/**
  * Wrapper for Mongoose operations with retry logic
  * @param operation - The Mongoose operation
  * @param options - Retry configuration options
@@ -101,6 +118,9 @@ export async function mongooseWithRetry<T>(
   operation: () => Promise<T>,
   options: RetryOptions = {},
 ): Promise<T> {
+  // First ensure connection is ready
+  await waitForConnection();
+
   return executeWithRetry(operation, options);
 }
 

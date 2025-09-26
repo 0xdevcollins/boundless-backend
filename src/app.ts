@@ -50,7 +50,13 @@ if (process.env.NODE_ENV === "test") {
 }
 
 if (config.NODE_ENV !== "test") {
-  connectDB();
+  // Initialize database connection
+  connectDB().catch((error) => {
+    console.error("Failed to connect to database:", error);
+    if (config.NODE_ENV === "production") {
+      process.exit(1);
+    }
+  });
 }
 
 const app: Application = express();
