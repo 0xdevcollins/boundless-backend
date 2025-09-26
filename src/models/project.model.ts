@@ -37,6 +37,21 @@ export interface IProject extends Document {
     type: mongoose.Types.ObjectId;
     ref: "User";
   };
+  // Crowdfunding specific fields
+  vision?: string;
+  githubUrl?: string;
+  gitlabUrl?: string;
+  bitbucketUrl?: string;
+  projectWebsite?: string;
+  demoVideo?: string;
+  socialLinks?: Array<{
+    platform: string;
+    url: string;
+  }>;
+  contact?: {
+    primary: string;
+    backup?: string;
+  };
   funding: {
     goal: number;
     raised: number;
@@ -153,6 +168,23 @@ const ProjectSchema = new Schema<IProject>(
     creator: { type: Schema.Types.ObjectId, ref: "User", required: true }, // ✅ Added creator field
     owner: {
       type: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    },
+    // Crowdfunding specific fields
+    vision: { type: String },
+    githubUrl: { type: String },
+    gitlabUrl: { type: String },
+    bitbucketUrl: { type: String },
+    projectWebsite: { type: String },
+    demoVideo: { type: String },
+    socialLinks: [
+      {
+        platform: { type: String, required: true },
+        url: { type: String, required: true },
+      },
+    ],
+    contact: {
+      primary: { type: String, required: true },
+      backup: { type: String },
     },
     funding: {
       goal: { type: Number, required: true },

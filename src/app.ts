@@ -40,6 +40,7 @@ import grantApplicationRoutes from "./routes/grant-application.route";
 import milestoneRoutes from "./routes/milestone.route";
 import waitlistRoutes from "./routes/waitlist.route";
 import newsletterRoutes from "./routes/newsletter.route";
+import crowdfundingRoutes from "./routes/crowdfunding.route";
 
 dotenv.config();
 
@@ -52,6 +53,8 @@ if (config.NODE_ENV !== "test") {
 }
 
 const app: Application = express();
+
+app.set("trust proxy", 1);
 
 // Middlewares
 app.use(helmet());
@@ -114,6 +117,7 @@ app.use("/api/grant-applications", grantApplicationRoutes);
 app.use("/api/milestones", milestoneRoutes);
 app.use("/api/waitlist", waitlistRoutes);
 app.use("/api/newsletter", newsletterRoutes);
+app.use("/api/crowdfunding", crowdfundingRoutes);
 
 // Swagger Docs
 setupSwagger(app);
