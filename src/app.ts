@@ -17,6 +17,7 @@ import connectDB from "./config/db";
 import { setupSwagger } from "./config/swagger";
 import { sendError } from "./utils/apiResponse";
 import { authMiddleware } from "./utils/jwt.utils";
+import { checkDatabaseHealth, getDatabaseStatus } from "./utils/db.utils";
 
 import { config } from "./config/main.config";
 
@@ -81,17 +82,36 @@ if (config.NODE_ENV !== "test") {
   app.use(morgan("combined"));
 }
 
-// Health Check
-app.get("/health", (req: Request, res: Response) => {
-  res.status(200).json({
-    success: true,
-    message: "Server is healthy",
-    timestamp: new Date().toISOString(),
-    environment: config.NODE_ENV,
-  });
+app.get("/health", async (req: Request, res: Response) => {
+  try {
+    const dbHealthy = await checkDatabaseHealth();
+    const dbStatus = getDatabaseStatus();
+
+    const healthStatus = {
+      success: true,
+      message: "Server is healthy",
+      timestamp: new Date().toISOString(),
+      environment: config.NODE_ENV,
+      database: {
+        healthy: dbHealthy,
+        status: dbStatus,
+      },
+    };
+
+    const statusCode = dbHealthy ? 200 : 503;
+    res.status(statusCode).json(healthStatus);
+  } catch (error) {
+    console.error("Health check error:", error);
+    res.status(503).json({
+      success: false,
+      message: "Server health check failed",
+      timestamp: new Date().toISOString(),
+      environment: config.NODE_ENV,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
 });
 
-// Root
 app.get("/", (req, res) => {
   res.send("API is running...");
 });
@@ -127,8 +147,7 @@ app.use("*", (req, res) => {
   sendError(res, `Route ${req.originalUrl} not found`, 404);
 });
 
-// Global Error Handler
-app.use((error: any, req: Request, res: Response, next: NextFunction) => {
+app.use((error: any, req: Request, res: Response, _next: NextFunction) => {
   console.error("Global error handler:", error);
 
   if (error.name === "ValidationError") {

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 
-import User, { IUser } from "../models/user.model";
+import User from "../models/user.model";
 import Account from "../models/account.model";
 import Session from "../models/session.model";
 import { generateTokens, verifyRefreshToken } from "../utils/jwt.utils";
@@ -22,6 +22,7 @@ import {
 } from "../utils/apiResponse";
 import { sendEmail } from "../utils/email.utils";
 import EmailTemplatesService from "../services/email-templates.service";
+import { mongooseWithRetry } from "../utils/db.utils";
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -96,7 +97,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    // Use retry utility for database operations
+    const user = await mongooseWithRetry(
+      () => User.findOne({ email }).maxTimeMS(10000),
+      { maxRetries: 3, timeout: 15000 },
+    );
+
     if (!user) {
       sendUnauthorized(res, "Invalid credentials");
       return;
@@ -121,13 +127,43 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     setAuthCookies(res, tokens);
 
-    user.lastLogin = new Date();
-    await user.save();
+    // Update last login with retry logic (non-blocking)
+    try {
+      await mongooseWithRetry(
+        () => {
+          user.lastLogin = new Date();
+          return user.save();
+        },
+        { maxRetries: 2, timeout: 5000 },
+      );
+    } catch (saveError) {
+      // Don't fail the login if we can't save lastLogin
+      console.error("Failed to update lastLogin:", saveError);
+    }
 
     sendSuccess(res, tokens, "Login successful");
   } catch (error) {
     console.error("Login error:", error);
-    sendInternalServerError(res, "Error logging in");
+
+    // Provide more specific error messages based on error type
+    if (
+      (error as any).name === "MongooseError" &&
+      (error as any).message.includes("buffering timed out")
+    ) {
+      sendInternalServerError(
+        res,
+        "Database connection timeout. Please try again.",
+      );
+    } else if ((error as any).name === "MongoNetworkError") {
+      sendInternalServerError(
+        res,
+        "Database connection error. Please try again.",
+      );
+    } else if ((error as any).message === "Operation timeout") {
+      sendInternalServerError(res, "Request timeout. Please try again.");
+    } else {
+      sendInternalServerError(res, "Error logging in");
+    }
   }
 };
 
