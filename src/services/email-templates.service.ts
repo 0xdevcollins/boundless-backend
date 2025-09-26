@@ -1,4 +1,5 @@
 import { EmailTemplate } from "./notification.service";
+import EmailTemplateUtils from "../utils/email-template.utils";
 
 export class EmailTemplatesService {
   /**
@@ -20,6 +21,7 @@ export class EmailTemplatesService {
       welcome: () => this.getWelcomeTemplate(data),
       "password-reset": () => this.getPasswordResetTemplate(data),
       "email-verification": () => this.getEmailVerificationTemplate(data),
+      "otp-verification": () => this.getOtpVerificationTemplate(data),
     };
 
     const templateFunction = templates[templateType];
@@ -475,107 +477,72 @@ export class EmailTemplatesService {
   /**
    * Welcome Template
    */
-  private static getWelcomeTemplate(_data: any): EmailTemplate {
+  private static getWelcomeTemplate(data: any): EmailTemplate {
+    const recipientName = data.recipientName || data.firstName || "there";
     return {
-      subject: `🎉 Welcome to Boundless, {{recipientName}}!`,
+      subject: `🎉 Welcome to Boundless, ${recipientName}!`,
       priority: "high",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #2c3e50; margin-bottom: 10px;">🎉 Welcome to Boundless!</h1>
-            <p style="color: #7f8c8d; font-size: 16px;">Your account has been successfully created</p>
-          </div>
-          
-          <div style="background: #e8f5e8; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-            <h2 style="color: #27ae60; margin-top: 0;">Get Started</h2>
-            <ul style="color: #2c3e50;">
-              <li>Complete your profile setup</li>
-              <li>Explore existing projects</li>
-              <li>Create your first crowdfunding project</li>
-              <li>Connect with the community</li>
-            </ul>
-          </div>
-          
-          <div style="text-align: center; margin-top: 30px;">
-            <a href="{{frontendUrl}}/dashboard" 
-               style="background: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
-              Go to Dashboard
-            </a>
-          </div>
-          
-          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1; color: #7f8c8d; font-size: 12px;">
-            <p>This is an automated welcome email from Boundless.</p>
-          </div>
-        </div>
-      `,
+      html: EmailTemplateUtils.generateWelcomeEmail(recipientName),
     };
   }
 
   /**
    * Password Reset Template
    */
-  private static getPasswordResetTemplate(_data: any): EmailTemplate {
+  private static getPasswordResetTemplate(data: any): EmailTemplate {
+    const resetToken = data.resetToken;
+    const recipientName = data.recipientName || data.firstName;
+
+    if (!resetToken) {
+      throw new Error("Reset token is required for password reset email");
+    }
+
     return {
       subject: `🔐 Password reset request for Boundless`,
       priority: "high",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #e74c3c; margin-bottom: 10px;">🔐 Password Reset</h1>
-            <p style="color: #7f8c8d; font-size: 16px;">You requested a password reset for your Boundless account</p>
-          </div>
-          
-          <div style="background: #fdf2f2; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-            <h2 style="color: #e74c3c; margin-top: 0;">Reset Your Password</h2>
-            <p style="color: #2c3e50;">Click the button below to reset your password. This link will expire in 1 hour.</p>
-          </div>
-          
-          <div style="text-align: center; margin-top: 30px;">
-            <a href="{{frontendUrl}}/reset-password?token={{resetToken}}" 
-               style="background: #e74c3c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
-              Reset Password
-            </a>
-          </div>
-          
-          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1; color: #7f8c8d; font-size: 12px;">
-            <p>If you didn't request this password reset, please ignore this email.</p>
-          </div>
-        </div>
-      `,
+      html: EmailTemplateUtils.generatePasswordResetEmail(
+        resetToken,
+        recipientName,
+      ),
     };
   }
 
   /**
    * Email Verification Template
    */
-  private static getEmailVerificationTemplate(_data: any): EmailTemplate {
+  private static getEmailVerificationTemplate(data: any): EmailTemplate {
+    const verificationToken = data.verificationToken;
+    const recipientName = data.recipientName || data.firstName;
+
+    if (!verificationToken) {
+      throw new Error("Verification token is required for email verification");
+    }
+
     return {
       subject: `📧 Verify your email address for Boundless`,
       priority: "high",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #3498db; margin-bottom: 10px;">📧 Verify Your Email</h1>
-            <p style="color: #7f8c8d; font-size: 16px;">Please verify your email address to complete your registration</p>
-          </div>
-          
-          <div style="background: #e8f4f8; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-            <h2 style="color: #3498db; margin-top: 0;">Email Verification</h2>
-            <p style="color: #2c3e50;">Click the button below to verify your email address and activate your account.</p>
-          </div>
-          
-          <div style="text-align: center; margin-top: 30px;">
-            <a href="{{frontendUrl}}/verify-email?token={{verificationToken}}" 
-               style="background: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
-              Verify Email
-            </a>
-          </div>
-          
-          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1; color: #7f8c8d; font-size: 12px;">
-            <p>If you didn't create an account, please ignore this email.</p>
-          </div>
-        </div>
-      `,
+      html: EmailTemplateUtils.generateEmailVerificationEmail(
+        verificationToken,
+        recipientName,
+      ),
+    };
+  }
+
+  /**
+   * OTP Verification Template
+   */
+  private static getOtpVerificationTemplate(data: any): EmailTemplate {
+    const otpCode = data.otpCode || data.otp;
+    const recipientName = data.recipientName || data.firstName;
+
+    if (!otpCode) {
+      throw new Error("OTP code is required for OTP verification email");
+    }
+
+    return {
+      subject: `🔐 Your verification code for Boundless`,
+      priority: "high",
+      html: EmailTemplateUtils.generateOtpEmail(otpCode, recipientName),
     };
   }
 }

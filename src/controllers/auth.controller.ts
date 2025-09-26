@@ -21,6 +21,7 @@ import {
   checkResource,
 } from "../utils/apiResponse";
 import { sendEmail } from "../utils/email.utils";
+import EmailTemplatesService from "../services/email-templates.service";
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -59,14 +60,25 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       isVerified: false,
     });
 
+    const otp = generateOTP();
+    user.otp = otp;
     await user.save();
 
-    const otp = generateOTP();
+    // Use professional email template
+    const emailTemplate = EmailTemplatesService.getTemplate(
+      "otp-verification",
+      {
+        otpCode: otp,
+        firstName: firstName,
+        recipientName: firstName,
+      },
+    );
+
     await sendEmail({
       to: email,
-      subject: "Verify your email",
+      subject: emailTemplate.subject,
       text: `Your verification code is: ${otp}`,
-      html: `Your verification code is: ${otp}`,
+      html: emailTemplate.html,
     });
 
     sendCreated(
@@ -330,22 +342,18 @@ export const forgotPassword = async (
     user.resetPasswordExpires = new Date(Date.now() + 3600000); // 1 hour
     await user.save();
 
-    const { config } = await import("../config/index");
-    const resetLink = `${config.cors.origin}/auth/reset-password?token=${resetToken}`;
+    // Use professional email template
+    const emailTemplate = EmailTemplatesService.getTemplate("password-reset", {
+      resetToken: resetToken,
+      firstName: user.profile.firstName,
+      recipientName: user.profile.firstName,
+    });
 
     await sendEmail({
       to: email,
-      subject: "Password Reset",
-      text: `
-        You requested a password reset. Click the link below to reset your password:
-        ${resetLink}
-        If you did not request this, please ignore this email.
-      `,
-      html: `
-        <p>You requested a password reset. Click the link below to reset your password:</p>
-        <p><a href="${resetLink}">${resetLink}</a></p>
-        <p>If you did not request this, please ignore this email.</p>
-      `,
+      subject: emailTemplate.subject,
+      text: `You requested a password reset. Please use the link in the email to reset your password.`,
+      html: emailTemplate.html,
     });
 
     sendSuccess(
@@ -416,6 +424,24 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
     user.otp = undefined;
     await user.save();
 
+    // Send welcome email after successful verification
+    try {
+      const welcomeTemplate = EmailTemplatesService.getTemplate("welcome", {
+        firstName: user.profile.firstName,
+        recipientName: user.profile.firstName,
+      });
+
+      await sendEmail({
+        to: user.email,
+        subject: welcomeTemplate.subject,
+        text: `Welcome to Boundless, ${user.profile.firstName}! Your account has been verified and is ready to use.`,
+        html: welcomeTemplate.html,
+      });
+    } catch (emailError) {
+      console.error("Failed to send welcome email:", emailError);
+      // Don't fail the verification if welcome email fails
+    }
+
     sendSuccess(
       res,
       { message: "Email verified successfully" },
@@ -441,11 +467,21 @@ export const resendOtp = async (req: Request, res: Response): Promise<void> => {
     user.otp = otp;
     await user.save();
 
+    // Use professional email template
+    const emailTemplate = EmailTemplatesService.getTemplate(
+      "otp-verification",
+      {
+        otpCode: otp,
+        firstName: user.profile.firstName,
+        recipientName: user.profile.firstName,
+      },
+    );
+
     await sendEmail({
       to: email,
-      subject: "Your verification code",
+      subject: emailTemplate.subject,
       text: `Your verification code is: ${otp}`,
-      html: `Your verification code is: ${otp}`,
+      html: emailTemplate.html,
     });
 
     sendSuccess(
