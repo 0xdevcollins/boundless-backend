@@ -112,7 +112,13 @@ export async function checkDatabaseHealth(): Promise<boolean> {
   try {
     const mongoose = await import("mongoose");
 
+    // Check if connection is established
     if (mongoose.default.connection.readyState !== 1) {
+      return false;
+    }
+
+    // Check if db object exists
+    if (!mongoose.default.connection.db) {
       return false;
     }
 
