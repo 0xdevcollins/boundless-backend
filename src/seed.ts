@@ -31,7 +31,7 @@ const seedDatabase = async () => {
     const hashedPassword = await bcrypt.hash("test123", 10);
 
     const adminUser = await User.create({
-      email: "admin@boundless.com",
+      email: "admin@boundlessfi.xyz",
       password: hashedPassword,
       profile: {
         firstName: "Admin",
@@ -40,7 +40,7 @@ const seedDatabase = async () => {
         avatar: "https://example.com/avatar1.jpg",
         bio: "System Administrator",
         location: "Global",
-        website: "https://boundless.com",
+        website: "https://boundlessfi.xyz",
         socialLinks: {
           twitter: "https://twitter.com/admin",
           linkedin: "https://linkedin.com/in/admin",
@@ -73,7 +73,7 @@ const seedDatabase = async () => {
     });
 
     const creatorUser = await User.create({
-      email: "creator@boundless.com",
+      email: "creator@boundlessfi.xyz",
       password: hashedPassword,
       profile: {
         firstName: "Project",
@@ -119,7 +119,7 @@ const seedDatabase = async () => {
     });
 
     const backerUser = await User.create({
-      email: "backer@boundless.com",
+      email: "backer@boundlessfi.xyz",
       password: hashedPassword,
       profile: {
         firstName: "Project",
@@ -396,7 +396,7 @@ const seedDatabase = async () => {
     });
 
     const grantCreatorUser = await User.create({
-      email: "grantcreator@boundless.com",
+      email: "grantcreator@boundlessfi.xyz",
       password: hashedPassword,
       profile: {
         firstName: "Grant",

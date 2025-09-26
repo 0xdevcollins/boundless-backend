@@ -60,7 +60,7 @@ EMAIL_PORT=587
 EMAIL_SECURE=false
 EMAIL_USER=your-email@gmail.com
 EMAIL_PASSWORD=your-app-specific-password
-EMAIL_FROM=noreply@boundless.com
+EMAIL_FROM=noreply@boundlessfi.xyz
 
 # Google OAuth Configuration
 GOOGLE_CLIENT_ID=your-google-client-id

@@ -608,7 +608,7 @@ async function sendEmail({
   });
 
   await transporter.sendMail({
-    from: process.env.SMTP_FROM || '"Boundless" <no-reply@boundless.com>',
+    from: process.env.SMTP_FROM || '"Boundless" <no-reply@boundlessfi.xyz>',
     to,
     subject,
     html,

@@ -52,7 +52,7 @@ interface EmailOptions {
 const generateMessageId = (): string => {
   const timestamp = Date.now();
   const random = randomBytes(8).toString("hex");
-  const domain = config.EMAIL_FROM.split("@")[1] || "boundless.com";
+  const domain = config.EMAIL_FROM.split("@")[1] || "boundlessfi.xyz";
   return `<${timestamp}.${random}@${domain}>`;
 };
 
@@ -68,7 +68,6 @@ const buildEmailHeaders = (
     "Message-ID": messageId,
     Date: new Date().toUTCString(),
     "MIME-Version": "1.0",
-    "Content-Type": "text/html; charset=UTF-8",
 
     // Security and authentication headers
     "X-Mailer": "Boundless Platform v1.0",
@@ -89,7 +88,7 @@ const buildEmailHeaders = (
     // List management headers
     "List-Unsubscribe":
       options.listUnsubscribe ||
-      `<mailto:unsubscribe@${config.EMAIL_FROM.split("@")[1] || "boundless.com"}>, <https://boundless.com/unsubscribe>`,
+      `<mailto:unsubscribe@${config.EMAIL_FROM.split("@")[1] || "boundlessfi.xyz"}>, <https://boundlessfi.xyz/unsubscribe>`,
     "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
 
     // Threading headers
@@ -321,7 +320,7 @@ export const sendNewsletterEmail = async (
       <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #dee2e6;">
         <p style="color: #666; font-size: 12px;">
           You received this email because you subscribed to our newsletter.
-          <a href="${unsubscribeUrl || "https://boundless.com/unsubscribe"}" style="color: #007bff;">Unsubscribe</a>
+          <a href="${unsubscribeUrl || "https://boundlessfi.xyz/unsubscribe"}" style="color: #007bff;">Unsubscribe</a>
         </p>
       </div>
     </div>
@@ -333,7 +332,7 @@ export const sendNewsletterEmail = async (
     text,
     html,
     priority: "low",
-    listUnsubscribe: unsubscribeUrl || "https://boundless.com/unsubscribe",
+    listUnsubscribe: unsubscribeUrl || "https://boundlessfi.xyz/unsubscribe",
     customHeaders: {
       "X-Email-Type": "newsletter",
     },

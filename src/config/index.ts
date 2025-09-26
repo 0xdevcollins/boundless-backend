@@ -60,7 +60,7 @@ export const config: Config = {
       process.env.SMTP_SECURE === "true" || process.env.EMAIL_SECURE === "true",
     user: process.env.SMTP_USER || process.env.EMAIL_USER || "",
     password: process.env.SMTP_PASS || process.env.EMAIL_PASSWORD || "",
-    from: process.env.EMAIL_FROM || "noreply@boundless.com",
+    from: process.env.EMAIL_FROM || "noreply@boundlessfi.xyz",
   },
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:3000",
   google: {
