@@ -29,15 +29,8 @@ const connectDB = async (): Promise<void> => {
       retryWrites: true,
       retryReads: true,
 
-      // Buffer settings to prevent timeout errors
-      bufferMaxEntries: 0, // Disable mongoose buffering
-      bufferCommands: false, // Disable mongoose buffering
-
       // Heartbeat settings
       heartbeatFrequencyMS: 10000, // Send a ping every 10 seconds
-
-      // Additional reliability settings
-      family: 4, // Use IPv4, skip trying IPv6
     };
 
     await mongoose.connect(process.env.MONGODB_URI, options);
