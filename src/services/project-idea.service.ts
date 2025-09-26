@@ -41,9 +41,6 @@ export interface CrowdfundStats {
 }
 
 export class ProjectIdeaService {
-  /**
-   * Get comprehensive statistics for project ideas
-   */
   static async getProjectIdeaStats(): Promise<ProjectIdeaStats> {
     try {
       const [
@@ -136,9 +133,6 @@ export class ProjectIdeaService {
     }
   }
 
-  /**
-   * Get comprehensive statistics for crowdfunds
-   */
   static async getCrowdfundStats(): Promise<CrowdfundStats> {
     try {
       const [
@@ -201,9 +195,6 @@ export class ProjectIdeaService {
     }
   }
 
-  /**
-   * Update project status (admin function)
-   */
   static async updateProjectStatus(
     projectId: string,
     newStatus: ProjectStatus,
@@ -218,11 +209,9 @@ export class ProjectIdeaService {
         throw new Error("Project not found");
       }
 
-      // Update project status
       project.status = newStatus;
       await project.save({ session });
 
-      // Update associated crowdfund if exists
       const crowdfund = await Crowdfund.findOne({ projectId }).session(session);
       if (crowdfund) {
         switch (newStatus) {
@@ -253,9 +242,6 @@ export class ProjectIdeaService {
     }
   }
 
-  /**
-   * Get projects that need review (admin function)
-   */
   static async getProjectsForReview(
     page = 1,
     limit = 10,
@@ -279,7 +265,7 @@ export class ProjectIdeaService {
             "owner.type",
             "profile.firstName profile.lastName profile.username",
           )
-          .sort({ createdAt: 1 }) // Oldest first for review queue
+          .sort({ createdAt: 1 })
           .skip(skip)
           .limit(limit)
           .lean(),
@@ -305,9 +291,6 @@ export class ProjectIdeaService {
     }
   }
 
-  /**
-   * Check and update expired voting deadlines
-   */
   static async processExpiredVotingDeadlines(): Promise<number> {
     try {
       const expiredCrowdfunds = await Crowdfund.find({
@@ -322,9 +305,7 @@ export class ProjectIdeaService {
         session.startTransaction();
 
         try {
-          // Check if threshold was met
           if (crowdfund.totalVotes >= crowdfund.thresholdVotes) {
-            // Move to under review
             crowdfund.status = CrowdfundStatus.UNDER_REVIEW;
             await crowdfund.save({ session });
 
@@ -334,7 +315,6 @@ export class ProjectIdeaService {
               { session },
             );
           } else {
-            // Reject due to insufficient votes
             crowdfund.status = CrowdfundStatus.REJECTED;
             crowdfund.rejectedReason =
               "Insufficient votes received before deadline";
@@ -367,12 +347,8 @@ export class ProjectIdeaService {
     }
   }
 
-  /**
-   * Get trending project ideas based on recent votes
-   */
   static async getTrendingProjects(limit = 10): Promise<IProject[]> {
     try {
-      // Get projects with recent vote activity (last 7 days)
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -398,9 +374,6 @@ export class ProjectIdeaService {
     }
   }
 
-  /**
-   * Search project ideas with advanced filtering
-   */
   static async searchProjects(
     searchQuery: string,
     filters: {
@@ -433,7 +406,6 @@ export class ProjectIdeaService {
     try {
       const searchFilter: any = {};
 
-      // Text search
       if (searchQuery.trim()) {
         searchFilter.$or = [
           { title: { $regex: searchQuery, $options: "i" } },
@@ -443,7 +415,6 @@ export class ProjectIdeaService {
         ];
       }
 
-      // Apply filters
       if (filters.type) {
         searchFilter.type = filters.type;
       }
