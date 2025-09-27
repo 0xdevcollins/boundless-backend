@@ -30,7 +30,7 @@ const connectDB = async (): Promise<void> => {
       retryReads: true,
 
       // Heartbeat settings
-      heartbeatFrequencyMS: 10000, // Send a ping every 10 seconds
+      heartbeatFrequencyMS: 10000,
     };
 
     await mongoose.connect(process.env.MONGODB_URI, options);
