@@ -25,7 +25,6 @@ const BlogCategorySchema = new Schema<IBlogCategory>(
     slug: {
       type: String,
       required: true,
-      unique: true,
       lowercase: true,
       trim: true,
     },
@@ -70,6 +69,7 @@ const BlogCategorySchema = new Schema<IBlogCategory>(
 );
 
 // Indexes
+BlogCategorySchema.index({ slug: 1 }, { unique: true });
 BlogCategorySchema.index({ parent: 1 });
 BlogCategorySchema.index({ featured: 1 });
 

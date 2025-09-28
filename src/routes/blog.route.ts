@@ -3,6 +3,7 @@ import { BlogController } from "../controllers/blog.controller";
 import { validateRequestMarkdown } from "../middleware/validateRequest";
 import { protect } from "../middleware/auth";
 import { roleMiddleware } from "../utils/jwt.utils";
+import { blogAdminRateLimit } from "../middleware/blogRateLimit";
 import {
   analyticsValidation,
   blogIdValidation,
@@ -26,6 +27,7 @@ router.get(
 
 router.post(
   "/",
+  blogAdminRateLimit,
   createBlogValidation,
   validateRequestMarkdown,
   BlogController.createBlog,
@@ -49,6 +51,7 @@ router.get(
 
 router.put(
   "/:id",
+  blogAdminRateLimit,
   [...blogIdValidation, ...updateBlogValidation],
   validateRequestMarkdown,
   BlogController.updateBlog,
@@ -56,6 +59,7 @@ router.put(
 
 router.delete(
   "/:id",
+  blogAdminRateLimit,
   deleteBlogValidation,
   validateRequestMarkdown,
   BlogController.deleteBlog,

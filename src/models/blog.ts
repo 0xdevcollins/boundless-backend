@@ -5,9 +5,9 @@ export interface IBlog extends Document {
   slug: string;
   content: string;
   excerpt: string;
-  coverImage?: string;
+  image?: string; // Changed from coverImage to match your spec
   category: mongoose.Types.ObjectId;
-  tags: string[];
+  tags: mongoose.Types.ObjectId[]; // Changed to reference Tag model
   status: "draft" | "published" | "archived";
   seo: {
     metaTitle?: string;
@@ -48,7 +48,6 @@ const BlogSchema = new Schema<IBlog>(
     slug: {
       type: String,
       required: true,
-      unique: true,
       lowercase: true,
       trim: true,
     },
@@ -61,7 +60,7 @@ const BlogSchema = new Schema<IBlog>(
       required: true,
       maxlength: 500,
     },
-    coverImage: {
+    image: {
       type: String,
       trim: true,
     },
@@ -72,9 +71,8 @@ const BlogSchema = new Schema<IBlog>(
     },
     tags: [
       {
-        type: String,
-        trim: true,
-        lowercase: true,
+        type: Schema.Types.ObjectId,
+        ref: "Tag",
       },
     ],
     status: {
@@ -104,7 +102,7 @@ const BlogSchema = new Schema<IBlog>(
     authors: [
       {
         type: Schema.Types.ObjectId,
-        ref: "User",
+        ref: "Author",
         required: true,
       },
     ],
@@ -174,6 +172,7 @@ const BlogSchema = new Schema<IBlog>(
 );
 
 // Indexes for better query performance
+BlogSchema.index({ slug: 1 }, { unique: true });
 BlogSchema.index({ status: 1, publishedAt: -1 });
 BlogSchema.index({ category: 1, status: 1 });
 BlogSchema.index({ tags: 1, status: 1 });

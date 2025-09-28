@@ -29,6 +29,7 @@ import projectIdeaRoutes from "./routes/project-idea.route";
 import projectVotingRoutes from "./routes/project-voting.route";
 import projectCommentRoutes from "./routes/project-comment.route";
 import blogRoutes from "./routes/blog.route";
+import publicBlogRoutes from "./routes/public-blog.route";
 import commentRoutes from "./routes/comment.route";
 // import adminRoutes from "./routes/admin.route";
 // import adminFundingRoutes from "./routes/admin.funding.route";
@@ -129,7 +130,8 @@ app.use("/api/users", userRoutes);
 app.use("/api/projects", projectIdeaRoutes);
 app.use("/api/projects", projectVotingRoutes);
 app.use("/api/projects", projectCommentRoutes);
-app.use("/api/blogs", blogRoutes);
+app.use("/api/blog", publicBlogRoutes); // Public blog routes
+app.use("/api/blogs", blogRoutes); // Admin blog routes
 app.use("/api/comments", commentRoutes);
 // app.use("/api/funding", adminFundingRoutes);
 // app.use("/api/admin", authMiddleware, adminRoutes);

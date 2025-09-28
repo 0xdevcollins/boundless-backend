@@ -101,7 +101,7 @@ export interface IUser extends Document {
 
 const userSchema = new Schema<IUser>(
   {
-    email: { type: String, required: true, unique: true },
+    email: { type: String, required: true },
     password: { type: String, required: true },
     isVerified: { type: Boolean, default: false },
     otp: { type: String },
@@ -110,7 +110,7 @@ const userSchema = new Schema<IUser>(
     profile: {
       firstName: { type: String, required: true },
       lastName: { type: String, required: true },
-      username: { type: String, required: true, unique: true },
+      username: { type: String, required: true },
       avatar: { type: String },
       bio: { type: String },
       location: { type: String },
@@ -224,6 +224,10 @@ userSchema.pre("save", async function (next) {
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
+
+// Add indexes explicitly
+userSchema.index({ email: 1 }, { unique: true });
+userSchema.index({ "profile.username": 1 }, { unique: true });
 
 export default (mongoose.models.User as mongoose.Model<IUser>) ||
   mongoose.model<IUser>("User", userSchema);

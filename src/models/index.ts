@@ -13,6 +13,8 @@ import "./activity.model";
 import "./admin.transaction.model";
 import "./blog.category";
 import "./blog";
+import "./author.model";
+import "./tag.model";
 import "./otp.model";
 import "./crowdfund.model";
 import "./waitlist.model";
