@@ -40,6 +40,28 @@ interface Config {
     windowMs: number;
     max: number;
   };
+  cloudinary: {
+    cloudName: string;
+    apiKey: string;
+    apiSecret: string;
+  };
+  stellar: {
+    testnet: {
+      rpcUrl: string;
+      horizonUrl: string;
+      networkPassphrase: string;
+    };
+    mainnet: {
+      rpcUrl: string;
+      horizonUrl: string;
+      networkPassphrase: string;
+    };
+    futurenet: {
+      rpcUrl: string;
+      horizonUrl: string;
+      networkPassphrase: string;
+    };
+  };
 }
 
 export const config: Config = {
@@ -86,5 +108,39 @@ export const config: Config = {
   rateLimit: {
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100, // limit each IP to 100 requests per windowMs
+  },
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || "",
+    apiKey: process.env.CLOUDINARY_API_KEY || "",
+    apiSecret: process.env.CLOUDINARY_API_SECRET || "",
+  },
+  stellar: {
+    testnet: {
+      rpcUrl:
+        process.env.STELLAR_TESTNET_RPC_URL ||
+        "https://soroban-testnet.stellar.org",
+      horizonUrl:
+        process.env.STELLAR_TESTNET_HORIZON_URL ||
+        "https://horizon-testnet.stellar.org",
+      networkPassphrase: "Test SDF Network ; September 2015",
+    },
+    mainnet: {
+      rpcUrl:
+        process.env.STELLAR_MAINNET_RPC_URL ||
+        "https://soroban-mainnet.stellar.org",
+      horizonUrl:
+        process.env.STELLAR_MAINNET_HORIZON_URL ||
+        "https://horizon.stellar.org",
+      networkPassphrase: "Public Global Stellar Network ; September 2015",
+    },
+    futurenet: {
+      rpcUrl:
+        process.env.STELLAR_FUTURENET_RPC_URL ||
+        "https://soroban-futurenet.stellar.org",
+      horizonUrl:
+        process.env.STELLAR_FUTURENET_HORIZON_URL ||
+        "https://horizon-futurenet.stellar.org",
+      networkPassphrase: "Test SDF Future Network ; October 2022",
+    },
   },
 };

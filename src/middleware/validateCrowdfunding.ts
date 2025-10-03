@@ -160,13 +160,30 @@ export const validateCrowdfundingProject = [
     .trim()
     .notEmpty()
     .withMessage("Primary contact is required")
-    .isEmail()
-    .withMessage("Primary contact must be a valid email address"),
+    .matches(/^@?[a-zA-Z0-9_]{5,32}$/)
+    .withMessage(
+      "Primary contact must be a valid Telegram username (5-32 characters, alphanumeric and underscores only)",
+    ),
 
   body("contact.backup")
     .optional()
-    .isEmail()
-    .withMessage("Backup contact must be a valid email address"),
+    .custom((value) => {
+      if (!value) return true;
+
+      // Check if it's a Discord username (username#1234 or @username)
+      const discordPattern =
+        /^(?:@?[a-zA-Z0-9_.]{2,32}#\d{4}|@?[a-zA-Z0-9_.]{2,32})$/;
+      // Check if it's a WhatsApp number (international format)
+      const whatsappPattern = /^\+[1-9]\d{1,14}$/;
+
+      if (discordPattern.test(value) || whatsappPattern.test(value)) {
+        return true;
+      }
+
+      throw new Error(
+        "Backup contact must be a valid Discord username or WhatsApp number",
+      );
+    }),
 
   // Social links validation
   body("socialLinks")

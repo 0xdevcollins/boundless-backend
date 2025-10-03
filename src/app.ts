@@ -43,6 +43,8 @@ import milestoneRoutes from "./routes/milestone.route";
 import waitlistRoutes from "./routes/waitlist.route";
 import newsletterRoutes from "./routes/newsletter.route";
 import crowdfundingRoutes from "./routes/crowdfunding.route";
+import uploadRoutes from "./routes/upload.route";
+// import contractRoutes from "./routes/contract.route";
 
 dotenv.config();
 
@@ -146,6 +148,8 @@ app.use("/api/milestones", milestoneRoutes);
 app.use("/api/waitlist", waitlistRoutes);
 app.use("/api/newsletter", newsletterRoutes);
 app.use("/api/crowdfunding", crowdfundingRoutes);
+app.use("/api/upload", uploadRoutes);
+// app.use("/api/contracts", contractRoutes);
 
 // Swagger Docs
 setupSwagger(app);
