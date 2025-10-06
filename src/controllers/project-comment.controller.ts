@@ -72,18 +72,18 @@ export const addProjectComment = async (
         }
 
         // Check if project status allows comments
-        const commentableStatuses = [
-          ProjectStatus.IDEA,
-          ProjectStatus.REVIEWING,
-          ProjectStatus.VALIDATED,
-          ProjectStatus.CAMPAIGNING,
-          ProjectStatus.LIVE,
-        ];
-        if (!commentableStatuses.includes(project!.status)) {
-          sendBadRequest(res, "Project is not available for comments");
-          await session.abortTransaction();
-          return;
-        }
+        // const commentableStatuses = [
+        //   ProjectStatus.IDEA,
+        //   ProjectStatus.REVIEWING,
+        //   ProjectStatus.VALIDATED,
+        //   ProjectStatus.CAMPAIGNING,
+        //   ProjectStatus.LIVE,
+        // ];
+        // if (!commentableStatuses.includes(project!.status)) {
+        //   sendBadRequest(res, "Project is not available for comments");
+        //   await session.abortTransaction();
+        //   return;
+        // }
 
         // Validate parent comment if provided
         let parentComment = null;
