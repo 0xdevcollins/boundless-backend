@@ -56,6 +56,7 @@ export const NETWORKS = {
   TESTNET: Networks.TESTNET,
   MAINNET: Networks.PUBLIC,
   FUTURENET: Networks.FUTURENET,
+  SANDBOX: Networks.SANDBOX,
 } as const;
 
 export const NETWORK_CONFIGS = {
@@ -79,6 +80,13 @@ export const NETWORK_CONFIGS = {
     horizonUrl: "https://horizon-futurenet.stellar.org",
     networkPassphrase: "Test SDF Future Network ; October 2022",
     chainId: "futurenet",
+  },
+  [Networks.SANDBOX]: {
+    name: "Sandbox",
+    rpcUrl: "https://soroban-sandbox.stellar.org",
+    horizonUrl: "https://horizon-sandbox.stellar.org",
+    networkPassphrase: "Test SDF Sandbox Network ; October 2022",
+    chainId: "sandbox",
   },
 } as const;
 
@@ -331,6 +339,8 @@ export function getDefaultFee(network: Networks): string {
     case Networks.TESTNET:
       return COMMON_VALUES.LOW_FEE;
     case Networks.FUTURENET:
+      return COMMON_VALUES.LOW_FEE;
+    case Networks.SANDBOX:
       return COMMON_VALUES.LOW_FEE;
     default:
       return COMMON_VALUES.DEFAULT_FEE;
