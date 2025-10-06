@@ -156,11 +156,11 @@ ProjectCommentSchema.pre("save", async function (next) {
 
     // Only allow comments on active projects
     const commentableStatuses = [
-      "idea",
-      "reviewing",
-      "validated",
-      "campaigning",
-      "live",
+      "IDEA",
+      "REVIEWING",
+      "VALIDATED",
+      "CAMPAIGNING",
+      "LIVE",
     ];
     if (!commentableStatuses.includes(project.status)) {
       return next(new Error("Project is not available for comments"));

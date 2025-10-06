@@ -13,6 +13,7 @@ import {
 } from "../utils/apiResponse";
 import { checkSpam } from "../utils/moderation.utils";
 import { retryTransaction } from "../utils/retry.utils";
+import { validateCommentContent } from "../utils/sanitization.utils";
 
 /**
  * @desc    Add a comment to a project
@@ -39,16 +40,23 @@ export const addProjectComment = async (
     return;
   }
 
-  // Validate content
+  // Validate and sanitize content
   if (!content || content.trim().length === 0) {
     sendBadRequest(res, "Comment content is required");
     return;
   }
 
-  if (content.trim().length > 2000) {
-    sendBadRequest(res, "Comment content cannot exceed 2000 characters");
+  const contentValidation = validateCommentContent(content);
+  if (!contentValidation.isValid) {
+    sendBadRequest(
+      res,
+      "Invalid comment content",
+      contentValidation.warnings.join(", "),
+    );
     return;
   }
+
+  const sanitizedContent = contentValidation.sanitizedContent;
 
   try {
     await retryTransaction(async () => {
@@ -116,13 +124,13 @@ export const addProjectComment = async (
         }
 
         // Moderate content for spam/inappropriate content
-        const isSpam = await checkSpam(content.trim());
+        const isSpam = await checkSpam(sanitizedContent);
 
         // Create the comment
         const comment = new ProjectComment({
           userId,
           projectId,
-          content: content.trim(),
+          content: sanitizedContent,
           parentCommentId: parentCommentId || null,
           status: isSpam ? "flagged" : "active",
           isSpam,
@@ -285,51 +293,71 @@ export const getProjectComments = async (
       : "createdAt";
     sortOptions[sortField as string] = sortOrder === "asc" ? 1 : -1;
 
-    // Get comments and total count
+    // Get comments and total count using aggregation for better performance
     const [comments, totalCount] = await Promise.all([
-      ProjectComment.find(filter)
-        .populate(
-          "userId",
-          "profile.firstName profile.lastName profile.username profile.avatar",
-        )
-        .populate("replyCount")
-        .select("-reports -editHistory")
-        .sort(sortOptions)
-        .skip(skip)
-        .limit(limitNum)
-        .lean(),
+      ProjectComment.aggregate([
+        { $match: filter },
+        {
+          $lookup: {
+            from: "users",
+            localField: "userId",
+            foreignField: "_id",
+            as: "user",
+            pipeline: [
+              {
+                $project: {
+                  "profile.firstName": 1,
+                  "profile.lastName": 1,
+                  "profile.username": 1,
+                  "profile.avatar": 1,
+                },
+              },
+            ],
+          },
+        },
+        {
+          $lookup: {
+            from: "projectcomments",
+            localField: "_id",
+            foreignField: "parentCommentId",
+            as: "replies",
+            pipeline: [{ $match: { status: "active" } }, { $count: "count" }],
+          },
+        },
+        {
+          $addFields: {
+            userId: { $arrayElemAt: ["$user", 0] },
+            replyCount: {
+              $ifNull: [{ $arrayElemAt: ["$replies.count", 0] }, 0],
+            },
+            totalReactions: {
+              $add: [
+                "$reactionCounts.LIKE",
+                "$reactionCounts.DISLIKE",
+                "$reactionCounts.HELPFUL",
+              ],
+            },
+          },
+        },
+        {
+          $project: {
+            reports: 0,
+            editHistory: 0,
+            user: 0,
+            replies: 0,
+          },
+        },
+        { $sort: sortOptions },
+        { $skip: skip },
+        { $limit: limitNum },
+      ]),
       ProjectComment.countDocuments(filter),
     ]);
 
     const totalPages = Math.ceil(totalCount / limitNum);
 
-    // Get reply counts for top-level comments
-    const commentsWithReplies = await Promise.all(
-      comments.map(async (comment) => {
-        if (!comment.parentCommentId) {
-          const replyCount = await ProjectComment.countDocuments({
-            parentCommentId: comment._id,
-            status: "active",
-          });
-          return {
-            ...comment,
-            replyCount,
-            totalReactions:
-              comment.reactionCounts.LIKE +
-              comment.reactionCounts.DISLIKE +
-              comment.reactionCounts.HELPFUL,
-          };
-        }
-        return {
-          ...comment,
-          replyCount: 0,
-          totalReactions:
-            comment.reactionCounts.LIKE +
-            comment.reactionCounts.DISLIKE +
-            comment.reactionCounts.HELPFUL,
-        };
-      }),
-    );
+    // Comments are already processed with reply counts and total reactions
+    const commentsWithReplies = comments;
 
     const responseData = {
       comments: commentsWithReplies,
@@ -368,124 +396,139 @@ export const updateProjectComment = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
-    const { id: projectId, commentId } = req.params;
-    const { content } = req.body;
-    const userId = req.user?._id;
+    await retryTransaction(async () => {
+      const session = await mongoose.startSession();
+      session.startTransaction();
 
-    // Validate IDs
-    if (
-      !mongoose.Types.ObjectId.isValid(projectId) ||
-      !mongoose.Types.ObjectId.isValid(commentId)
-    ) {
-      sendBadRequest(res, "Invalid ID format");
-      return;
-    }
+      try {
+        const { id: projectId, commentId } = req.params;
+        const { content } = req.body;
+        const userId = req.user?._id;
 
-    // Validate user authentication
-    if (!userId) {
-      sendUnauthorized(res, "Authentication required");
-      return;
-    }
+        // Validate IDs
+        if (
+          !mongoose.Types.ObjectId.isValid(projectId) ||
+          !mongoose.Types.ObjectId.isValid(commentId)
+        ) {
+          sendBadRequest(res, "Invalid ID format");
+          return;
+        }
 
-    // Validate content
-    if (!content || content.trim().length === 0) {
-      sendBadRequest(res, "Comment content is required");
-      return;
-    }
+        // Validate user authentication
+        if (!userId) {
+          sendUnauthorized(res, "Authentication required");
+          return;
+        }
 
-    if (content.trim().length > 2000) {
-      sendBadRequest(res, "Comment content cannot exceed 2000 characters");
-      return;
-    }
+        // Validate and sanitize content
+        if (!content || content.trim().length === 0) {
+          sendBadRequest(res, "Comment content is required");
+          return;
+        }
 
-    // Find the comment
-    const comment = await ProjectComment.findOne({
-      _id: commentId,
-      projectId,
-      userId,
-      status: { $in: ["active", "flagged"] },
-    }).session(session);
+        const contentValidation = validateCommentContent(content);
+        if (!contentValidation.isValid) {
+          sendBadRequest(
+            res,
+            "Invalid comment content",
+            contentValidation.warnings.join(", "),
+          );
+          return;
+        }
 
-    if (
-      checkResource(
-        res,
-        !comment,
-        "Comment not found or you don't have permission to edit it",
-        404,
-      )
-    ) {
-      await session.abortTransaction();
-      return;
-    }
+        const sanitizedContent = contentValidation.sanitizedContent;
 
-    // Check if comment is too old to edit (24 hours)
-    const editTimeLimit = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-    if (Date.now() - comment!.createdAt.getTime() > editTimeLimit) {
-      sendBadRequest(
-        res,
-        "Comment can only be edited within 24 hours of posting",
-      );
-      await session.abortTransaction();
-      return;
-    }
+        // Find the comment
+        const comment = await ProjectComment.findOne({
+          _id: commentId,
+          projectId,
+          userId,
+          status: { $in: ["active", "flagged"] },
+        }).session(session);
 
-    // Store original content in edit history
-    comment!.editHistory.push({
-      content: comment!.content,
-      editedAt: new Date(),
+        if (
+          checkResource(
+            res,
+            !comment,
+            "Comment not found or you don't have permission to edit it",
+            404,
+          )
+        ) {
+          await session.abortTransaction();
+          return;
+        }
+
+        // Check if comment is too old to edit (24 hours)
+        const editTimeLimit = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+        if (Date.now() - comment!.createdAt.getTime() > editTimeLimit) {
+          sendBadRequest(
+            res,
+            "Comment can only be edited within 24 hours of posting",
+          );
+          await session.abortTransaction();
+          return;
+        }
+
+        // Store original content in edit history
+        comment!.editHistory.push({
+          content: comment!.content,
+          editedAt: new Date(),
+        });
+
+        // Moderate new content
+        const isSpam = await checkSpam(sanitizedContent);
+
+        // Update comment
+        comment!.content = sanitizedContent;
+        comment!.status = isSpam ? "flagged" : "active";
+        comment!.isSpam = isSpam;
+
+        await comment!.save({ session });
+
+        await session.commitTransaction();
+
+        // Populate comment data for response
+        await comment!.populate([
+          {
+            path: "userId",
+            select:
+              "profile.firstName profile.lastName profile.username profile.avatar",
+          },
+        ]);
+
+        const responseData = {
+          comment: {
+            _id: comment!._id,
+            content: comment!.content,
+            userId: comment!.userId,
+            status: comment!.status,
+            reactionCounts: comment!.reactionCounts,
+            createdAt: comment!.createdAt,
+            updatedAt: comment!.updatedAt,
+            editHistory: comment!.editHistory.length,
+          },
+          moderationResult: {
+            flagged: isSpam,
+            reason: isSpam ? "Content flagged for review" : null,
+          },
+        };
+
+        sendSuccess(
+          res,
+          responseData,
+          isSpam
+            ? "Comment updated and submitted for review"
+            : "Comment updated successfully",
+        );
+      } catch (error) {
+        await session.abortTransaction();
+        throw error;
+      } finally {
+        session.endSession();
+      }
     });
-
-    // Moderate new content
-    const isSpam = await checkSpam(content.trim());
-
-    // Update comment
-    comment!.content = content.trim();
-    comment!.status = isSpam ? "flagged" : "active";
-    comment!.isSpam = isSpam;
-
-    await comment!.save({ session });
-
-    await session.commitTransaction();
-
-    // Populate comment data for response
-    await comment!.populate([
-      {
-        path: "userId",
-        select:
-          "profile.firstName profile.lastName profile.username profile.avatar",
-      },
-    ]);
-
-    const responseData = {
-      comment: {
-        _id: comment!._id,
-        content: comment!.content,
-        userId: comment!.userId,
-        status: comment!.status,
-        reactionCounts: comment!.reactionCounts,
-        createdAt: comment!.createdAt,
-        updatedAt: comment!.updatedAt,
-        editHistory: comment!.editHistory.length,
-      },
-      moderationResult: {
-        flagged: isSpam,
-        reason: isSpam ? "Content flagged for review" : null,
-      },
-    };
-
-    sendSuccess(
-      res,
-      responseData,
-      isSpam
-        ? "Comment updated and submitted for review"
-        : "Comment updated successfully",
-    );
   } catch (error) {
-    await session.abortTransaction();
     console.error("Update project comment error:", error);
 
     if (error instanceof mongoose.Error.ValidationError) {
@@ -501,8 +544,6 @@ export const updateProjectComment = async (
       "Failed to update comment",
       error instanceof Error ? error.message : "Unknown error",
     );
-  } finally {
-    session.endSession();
   }
 };
 
@@ -515,84 +556,90 @@ export const deleteProjectComment = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
-    const { id: projectId, commentId } = req.params;
-    const userId = req.user?._id;
+    await retryTransaction(async () => {
+      const session = await mongoose.startSession();
+      session.startTransaction();
 
-    // Validate IDs
-    if (
-      !mongoose.Types.ObjectId.isValid(projectId) ||
-      !mongoose.Types.ObjectId.isValid(commentId)
-    ) {
-      sendBadRequest(res, "Invalid ID format");
-      return;
-    }
+      try {
+        const { id: projectId, commentId } = req.params;
+        const userId = req.user?._id;
 
-    // Validate user authentication
-    if (!userId) {
-      sendUnauthorized(res, "Authentication required");
-      return;
-    }
+        // Validate IDs
+        if (
+          !mongoose.Types.ObjectId.isValid(projectId) ||
+          !mongoose.Types.ObjectId.isValid(commentId)
+        ) {
+          sendBadRequest(res, "Invalid ID format");
+          return;
+        }
 
-    // Find the comment
-    const comment = await ProjectComment.findOne({
-      _id: commentId,
-      projectId,
-      userId,
-      status: { $ne: "deleted" },
-    }).session(session);
+        // Validate user authentication
+        if (!userId) {
+          sendUnauthorized(res, "Authentication required");
+          return;
+        }
 
-    if (
-      checkResource(
-        res,
-        !comment,
-        "Comment not found or you don't have permission to delete it",
-        404,
-      )
-    ) {
-      await session.abortTransaction();
-      return;
-    }
+        // Find the comment
+        const comment = await ProjectComment.findOne({
+          _id: commentId,
+          projectId,
+          userId,
+          status: { $ne: "deleted" },
+        }).session(session);
 
-    // Soft delete the comment
-    comment!.status = "deleted";
-    comment!.content = "[Comment deleted by user]";
-    await comment!.save({ session });
+        if (
+          checkResource(
+            res,
+            !comment,
+            "Comment not found or you don't have permission to delete it",
+            404,
+          )
+        ) {
+          await session.abortTransaction();
+          return;
+        }
 
-    // Update user comment stats
-    await User.findByIdAndUpdate(
-      userId,
-      {
-        $inc: { "stats.commentsPosted": -1 },
-      },
-      { session },
-    );
+        // Soft delete the comment
+        comment!.status = "deleted";
+        comment!.content = "[Comment deleted by user]";
+        await comment!.save({ session });
 
-    // Update project comment count
-    await Project.findByIdAndUpdate(
-      projectId,
-      {
-        $inc: { "stats.commentsCount": -1 },
-      },
-      { session },
-    );
+        // Update user comment stats
+        await User.findByIdAndUpdate(
+          userId,
+          {
+            $inc: { "stats.commentsPosted": -1 },
+          },
+          { session },
+        );
 
-    await session.commitTransaction();
+        // Update project comment count
+        await Project.findByIdAndUpdate(
+          projectId,
+          {
+            $inc: { "stats.commentsCount": -1 },
+          },
+          { session },
+        );
 
-    sendSuccess(res, null, "Comment deleted successfully");
+        await session.commitTransaction();
+
+        sendSuccess(res, null, "Comment deleted successfully");
+      } catch (error) {
+        await session.abortTransaction();
+        throw error;
+      } finally {
+        session.endSession();
+      }
+    });
   } catch (error) {
-    await session.abortTransaction();
     console.error("Delete project comment error:", error);
     sendInternalServerError(
       res,
       "Failed to delete comment",
       error instanceof Error ? error.message : "Unknown error",
     );
-  } finally {
-    session.endSession();
   }
 };
 

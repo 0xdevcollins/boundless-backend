@@ -67,6 +67,7 @@ export interface IUser extends Document {
     totalContributed: number;
     reputation: number;
     communityScore: number;
+    commentsPosted: number;
   };
   status: UserStatus;
   badges: Array<{
@@ -153,6 +154,7 @@ const userSchema = new Schema<IUser>(
       totalContributed: { type: Number, default: 0 },
       reputation: { type: Number, default: 0 },
       communityScore: { type: Number, default: 0 },
+      commentsPosted: { type: Number, default: 0 },
     },
     status: {
       type: String,

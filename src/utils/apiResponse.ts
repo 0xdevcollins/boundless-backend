@@ -145,6 +145,14 @@ export const sendInternalServerError = (
   sendError(res, message, 500, error);
 };
 
+export const sendTooManyRequests = (
+  res: Response,
+  message: string = "Too Many Requests",
+  error?: string,
+): void => {
+  sendError(res, message, 429, error);
+};
+
 // Pagination Response Helper
 export const sendPaginatedResponse = <T>(
   res: Response,
