@@ -59,7 +59,16 @@ export const NETWORKS = {
   SANDBOX: Networks.SANDBOX,
 } as const;
 
-export const NETWORK_CONFIGS = {
+export const NETWORK_CONFIGS: Record<
+  Networks,
+  {
+    name: string;
+    rpcUrl: string;
+    horizonUrl: string;
+    networkPassphrase: string;
+    chainId: string;
+  }
+> = {
   [Networks.TESTNET]: {
     name: "Testnet",
     rpcUrl: "https://soroban-testnet.stellar.org",
