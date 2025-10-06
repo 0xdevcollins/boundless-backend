@@ -284,7 +284,7 @@ export function getMilestoneStatusName(status: MilestoneStatus): string {
  * Get network name from Networks enum
  */
 export function getNetworkName(network: Networks): string {
-  return NETWORK_CONFIGS[network]?.name || "Unknown";
+  return (NETWORK_CONFIGS as any)[network]?.name || "Unknown";
 }
 
 /**
