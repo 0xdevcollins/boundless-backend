@@ -75,10 +75,10 @@ export interface TrustlessWorkConfig {
 }
 
 export interface TrustlessWorkStakeholders {
-  marker: string;
+  serviceProvider: string;
   approver: string;
-  releaser: string;
-  resolver: string;
+  releaseSigner: string;
+  disputeResolver: string;
   receiver: string;
   platformAddress?: string;
 }
@@ -90,6 +90,7 @@ export interface TrustlessWorkMilestone {
 }
 
 export interface TrustlessWorkEscrowRequest {
+  signer: string;
   engagementId: string;
   title: string;
   description: string;
@@ -104,19 +105,19 @@ export interface TrustlessWorkEscrowRequest {
 }
 
 export interface TrustlessWorkEscrowResponse {
-  escrowAddress: string;
-  xdr: string;
-  network: string;
+  status: string;
+  unsignedTransaction: string;
 }
 
 export interface TrustlessWorkFundRequest {
-  escrowAddress: string;
+  contractId: string;
+  signer: string;
   amount: number;
 }
 
 export interface TrustlessWorkFundResponse {
-  xdr: string;
-  network: string;
+  status: string;
+  unsignedTransaction: string;
 }
 
 export interface TrustlessWorkMilestoneApprovalRequest {
@@ -152,7 +153,7 @@ export class TrustlessWorkService {
         method,
         url: `${this.config.baseURL}${endpoint}`,
         headers: {
-          Authorization: `Bearer ${this.config.apiKey}`,
+          "x-api-key": this.config.apiKey,
           "Content-Type": "application/json",
         },
         data,
@@ -194,7 +195,7 @@ export class TrustlessWorkService {
   ): Promise<TrustlessWorkFundResponse> {
     return this.makeRequest<TrustlessWorkFundResponse>(
       "POST",
-      `/escrow/${type}/fund-escrow`,
+      `/escrow/${type}-release/fund-escrow`,
       request,
     );
   }
@@ -252,12 +253,13 @@ export class TrustlessWorkService {
     );
   }
 
-  async submitTransaction(xdr: string): Promise<{ hash: string }> {
-    return this.makeRequest<{ hash: string }>(
+  async submitTransaction(signedXdr: string): Promise<any> {
+    const response = await this.makeRequest<any>(
       "POST",
       "/helper/send-transaction",
-      { xdr },
+      { signedXdr },
     );
+    return response;
   }
 
   async setTrustline(

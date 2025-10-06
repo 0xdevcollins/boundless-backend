@@ -18,6 +18,7 @@ import {
   sendUnauthorized,
   checkResource,
 } from "../utils/apiResponse";
+import { CROWDFUNDING_STAKEHOLDERS } from "../constants/stakeholders.constants";
 
 /**
  * @desc    Create a new Project Idea
@@ -245,6 +246,8 @@ export const createProjectIdea = async (
         whitepaper: whitepaperUrl?.trim() || "",
         pitchDeck: "",
       },
+      // Include stakeholders in initial project data to avoid validation errors
+      stakeholders: CROWDFUNDING_STAKEHOLDERS,
     };
 
     const project = new Project(projectData);

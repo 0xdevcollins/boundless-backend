@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import Milestone from "../models/milestone.model";
 import Campaign from "../models/campaign.model";
-import { triggerSorobanPayout } from "../services/contract.service";
+// import { triggerSorobanPayout } from "../services/contract.service";
 import {
   releaseFundsToMilestone,
   markMilestoneApproved,
@@ -98,9 +98,9 @@ export const reviewMilestone = async (
       if (adminNote) milestone.adminNote = adminNote;
       await milestone.save();
 
-      triggerSorobanPayout(milestone).catch((err) => {
-        console.error("Soroban payout error:", err);
-      });
+      // triggerSorobanPayout(milestone).catch((err) => {
+      //   console.error("Soroban payout error:", err);
+      // });
       res.json({ message: "Milestone approved and payout triggered" });
       return;
     } else if (status === "rejected") {

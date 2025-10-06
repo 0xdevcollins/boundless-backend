@@ -4,7 +4,7 @@ import GrantApplication from "../models/grant-application.model";
 import { sendError, sendValidationError } from "../utils/apiResponse";
 import { sendSuccess } from "../utils/apiResponse";
 import Project from "../models/project.model";
-import ContractService from "../services/contract.service";
+// import { ContractService } from "../services/contract.service";
 import Account from "../models/account.model";
 
 enum ApplicationStatus {
@@ -150,12 +150,12 @@ export const lockEscrow = async (req: Request, res: Response) => {
     }
     const walletAddress = account.providerAccountId;
     try {
-      await ContractService.fundProject({
-        projectId: project._id.toString(),
-        amount,
-        walletAddress,
-        transactionHash: txHash,
-      });
+      // await ContractService.fundProject({
+      //   projectId: project._id.toString(),
+      //   amount,
+      //   walletAddress,
+      //   transactionHash: txHash,
+      // });
     } catch (err: any) {
       return sendError(
         res,

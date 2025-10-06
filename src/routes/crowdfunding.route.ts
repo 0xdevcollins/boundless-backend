@@ -1,6 +1,9 @@
 import { Router } from "express";
 import {
-  createCrowdfundingProject,
+  prepareCrowdfundingProject,
+  confirmCrowdfundingProject,
+  fundCrowdfundingProject,
+  confirmCrowdfundingProjectFunding,
   getCrowdfundingProjects,
   getCrowdfundingProject,
   updateCrowdfundingProject,
@@ -206,10 +209,10 @@ const router = Router();
 
 /**
  * @swagger
- * /api/crowdfunding/projects:
+ * /api/crowdfunding/projects/prepare:
  *   post:
- *     summary: Create a new crowdfunding project
- *     description: Create a new crowdfunding project with all required fields including vision, milestones, team, and contact information
+ *     summary: Step 1: Prepare crowdfunding project and create escrow
+ *     description: Validates project data and creates escrow, returns unsigned XDR for frontend to sign
  *     tags: [Crowdfunding]
  *     security:
  *       - bearerAuth: []
@@ -220,6 +223,82 @@ const router = Router();
  *           schema:
  *             $ref: '#/components/schemas/CrowdfundingProject'
  *     responses:
+ *       200:
+ *         description: Project prepared successfully, unsigned XDR returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unsignedXdr:
+ *                       type: string
+ *                       description: Unsigned transaction XDR for frontend to sign
+ *                     escrowAddress:
+ *                       type: string
+ *                       description: Generated escrow address
+ *                     network:
+ *                       type: string
+ *                       description: Network identifier
+ *                     projectData:
+ *                       type: object
+ *                       description: Prepared project data
+ *       400:
+ *         description: Validation error or bad request
+ *       401:
+ *         description: Unauthorized - Authentication required
+ *       500:
+ *         description: Internal server error
+ */
+router.post(
+  "/projects/prepare",
+  protect,
+  validateRequest(validateCrowdfundingProject),
+  prepareCrowdfundingProject,
+);
+
+/**
+ * @swagger
+ * /api/crowdfunding/projects/confirm:
+ *   post:
+ *     summary: Step 2: Submit signed transaction and create project
+ *     description: Submits the signed transaction and creates the project in the database
+ *     tags: [Crowdfunding]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - signedXdr
+ *               - escrowAddress
+ *               - projectData
+ *             properties:
+ *               signedXdr:
+ *                 type: string
+ *                 description: Signed transaction XDR from frontend
+ *               escrowAddress:
+ *                 type: string
+ *                 description: Escrow address from step 1
+ *               projectData:
+ *                 type: object
+ *                 description: Project data from step 1
+ *               mappedMilestones:
+ *                 type: array
+ *                 description: Mapped milestones from step 1
+ *               mappedTeam:
+ *                 type: array
+ *                 description: Mapped team from step 1
+ *     responses:
  *       201:
  *         description: Crowdfunding project created successfully
  *         content:
@@ -228,36 +307,12 @@ const router = Router();
  *               $ref: '#/components/schemas/CrowdfundingProjectResponse'
  *       400:
  *         description: Validation error or bad request
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: false
- *                 message:
- *                   type: string
- *                 errors:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       field:
- *                         type: string
- *                       message:
- *                         type: string
  *       401:
  *         description: Unauthorized - Authentication required
  *       500:
  *         description: Internal server error
  */
-router.post(
-  "/projects",
-  protect,
-  validateRequest(validateCrowdfundingProject),
-  createCrowdfundingProject,
-);
+router.post("/projects/confirm", protect, confirmCrowdfundingProject);
 
 /**
  * @swagger
@@ -511,5 +566,176 @@ router.put(
  *         description: Internal server error
  */
 router.delete("/projects/:id", protect, deleteCrowdfundingProject);
+
+/**
+ * @swagger
+ * /api/crowdfunding/projects/{id}/fund:
+ *   post:
+ *     summary: Fund a crowdfunding project (Step 1: Prepare funding transaction)
+ *     description: Prepares a funding transaction for a crowdfunding project and returns unsigned XDR
+ *     tags: [Crowdfunding]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - amount
+ *               - signer
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 description: Funding amount
+ *                 example: 1000
+ *               signer:
+ *                 type: string
+ *                 description: User's wallet address for signing
+ *                 example: "GCRU2PL3AI4WW64E7U5SA6BXRP7ULDSLRQVNGSNW4LVSZWQD345NK57F"
+ *     responses:
+ *       200:
+ *         description: Funding transaction prepared successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unsignedXdr:
+ *                       type: string
+ *                       description: Unsigned transaction XDR for frontend to sign
+ *                     contractId:
+ *                       type: string
+ *                       description: Escrow contract ID
+ *                     amount:
+ *                       type: number
+ *                       description: Funding amount
+ *                     projectId:
+ *                       type: string
+ *                       description: Project ID
+ *                     projectTitle:
+ *                       type: string
+ *                       description: Project title
+ *                     currentRaised:
+ *                       type: number
+ *                       description: Current amount raised
+ *                     fundingGoal:
+ *                       type: number
+ *                       description: Total funding goal
+ *                     remainingGoal:
+ *                       type: number
+ *                       description: Remaining amount to reach goal
+ *       400:
+ *         description: Validation error or project not fundable
+ *       401:
+ *         description: Unauthorized - Authentication required
+ *       404:
+ *         description: Project not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post("/projects/:id/fund", protect, fundCrowdfundingProject);
+
+/**
+ * @swagger
+ * /api/crowdfunding/projects/{id}/fund/confirm:
+ *   post:
+ *     summary: Confirm crowdfunding project funding (Step 2: Submit signed transaction)
+ *     description: Submits the signed funding transaction and updates the project
+ *     tags: [Crowdfunding]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - signedXdr
+ *               - amount
+ *               - transactionHash
+ *             properties:
+ *               signedXdr:
+ *                 type: string
+ *                 description: Signed transaction XDR from frontend
+ *               amount:
+ *                 type: number
+ *                 description: Funding amount
+ *                 example: 1000
+ *               transactionHash:
+ *                 type: string
+ *                 description: Blockchain transaction hash
+ *                 example: "abc123def456..."
+ *     responses:
+ *       201:
+ *         description: Project funding confirmed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     tx:
+ *                       type: object
+ *                       description: Transaction response from Trustless Work
+ *                     project:
+ *                       type: object
+ *                       description: Updated project with new funding
+ *                     funding:
+ *                       type: object
+ *                       properties:
+ *                         amount:
+ *                           type: number
+ *                         transactionHash:
+ *                           type: string
+ *                         newTotalRaised:
+ *                           type: number
+ *                         isFullyFunded:
+ *                           type: boolean
+ *                         remainingGoal:
+ *                           type: number
+ *       400:
+ *         description: Validation error or transaction failed
+ *       401:
+ *         description: Unauthorized - Authentication required
+ *       404:
+ *         description: Project not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post(
+  "/projects/:id/fund/confirm",
+  protect,
+  confirmCrowdfundingProjectFunding,
+);
 
 export default router;

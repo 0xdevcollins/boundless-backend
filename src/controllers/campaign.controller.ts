@@ -137,6 +137,7 @@ export const createCampaign = async (req: Request, res: Response) => {
         try {
           const trustlessWorkService = createTrustlessWorkService();
           const escrowRequest: TrustlessWorkEscrowRequest = {
+            signer: campaignDoc.creatorId.toString(),
             engagementId: campaignDoc._id?.toString() || "",
             title: `Campaign: ${campaignDoc._id}`,
             description: `Escrow for campaign ${campaignDoc._id}`,
@@ -169,7 +170,6 @@ export const createCampaign = async (req: Request, res: Response) => {
           const escrowResponse =
             await trustlessWorkService.deployMultiReleaseEscrow(escrowRequest);
           campaignDoc.trustlessCampaignId = campaignDoc._id?.toString() || "";
-          campaignDoc.escrowAddress = escrowResponse.escrowAddress;
           campaignDoc.escrowType = "multi";
           campaignDoc.trustlessWorkStatus = "deployed";
         } catch (error) {
@@ -350,7 +350,8 @@ export const fundEscrow = async (req: Request, res: Response) => {
       const fundResponse = await trustlessWorkService.fundEscrow(
         campaign.escrowType || "multi",
         {
-          escrowAddress: campaign.escrowAddress,
+          signer: campaign.escrowAddress,
+          contractId: campaign.escrowAddress,
           amount,
         },
       );
@@ -360,7 +361,7 @@ export const fundEscrow = async (req: Request, res: Response) => {
 
       res.status(200).json({
         message: "Escrow funded successfully.",
-        xdr: fundResponse.xdr,
+        xdr: fundResponse.unsignedTransaction,
         campaign,
       });
     } catch (trustlessError: unknown) {

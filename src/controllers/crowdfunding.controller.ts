@@ -18,22 +18,23 @@ import {
 import NotificationService from "../services/notification.service";
 import EmailTemplatesService from "../services/email-templates.service";
 import { NotificationType } from "../models/notification.model";
+import {
+  createTrustlessWorkService,
+  TrustlessWorkEscrowRequest,
+} from "../services/trustless-work.service";
+import { CROWDFUNDING_STAKEHOLDERS } from "../constants/stakeholders.constants";
 
 /**
- * @desc    Create a new Crowdfunding Project
- * @route   POST /api/crowdfunding/projects
+ * @desc    Step 1: Prepare crowdfunding project and create escrow (returns unsigned XDR)
+ * @route   POST /api/crowdfunding/projects/prepare
  * @access  Private
  */
-export const createCrowdfundingProject = async (
+export const prepareCrowdfundingProject = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const {
-      // Required fields
       title,
       logo,
       vision,
@@ -43,8 +44,8 @@ export const createCrowdfundingProject = async (
       milestones,
       team,
       contact,
+      signer,
 
-      // Optional fields
       githubUrl,
       gitlabUrl,
       bitbucketUrl,
@@ -53,7 +54,6 @@ export const createCrowdfundingProject = async (
       socialLinks,
     } = req.body;
 
-    // Validate required fields
     if (!title?.trim()) {
       sendBadRequest(res, "Project name is required");
       return;
@@ -99,7 +99,11 @@ export const createCrowdfundingProject = async (
       return;
     }
 
-    // Validate social links - at least one is required
+    if (!signer?.trim()) {
+      sendBadRequest(res, "Signer address is required");
+      return;
+    }
+
     if (
       !socialLinks ||
       !Array.isArray(socialLinks) ||
@@ -114,51 +118,40 @@ export const createCrowdfundingProject = async (
       return;
     }
 
-    // Validate creator exists
-    const creator = await User.findById(req.user._id).session(session);
+    const creator = await User.findById(req.user._id);
     if (checkResource(res, !creator, "Creator not found", 404)) {
-      await session.abortTransaction();
       return;
     }
 
-    // Validate milestones structure
     for (const milestone of milestones) {
       if (!milestone.name?.trim() || !milestone.description?.trim()) {
         sendBadRequest(res, "Each milestone must have a name and description");
-        await session.abortTransaction();
         return;
       }
       if (!milestone.startDate || !milestone.endDate) {
         sendBadRequest(res, "Each milestone must have start and end dates");
-        await session.abortTransaction();
         return;
       }
       if (new Date(milestone.startDate) >= new Date(milestone.endDate)) {
         sendBadRequest(res, "Milestone start date must be before end date");
-        await session.abortTransaction();
         return;
       }
     }
 
-    // Validate team structure
     for (const member of team) {
       if (!member.name?.trim() || !member.role?.trim()) {
         sendBadRequest(res, "Each team member must have a name and role");
-        await session.abortTransaction();
         return;
       }
     }
 
-    // Validate social links structure
     for (const link of socialLinks) {
       if (!link.platform?.trim() || !link.url?.trim()) {
         sendBadRequest(res, "Each social link must have a platform and URL");
-        await session.abortTransaction();
         return;
       }
     }
 
-    // Validate URLs if provided
     const urlFields = [
       { field: githubUrl, name: "GitHub URL" },
       { field: gitlabUrl, name: "GitLab URL" },
@@ -170,40 +163,44 @@ export const createCrowdfundingProject = async (
     for (const { field, name } of urlFields) {
       if (field && !isValidUrl(field)) {
         sendBadRequest(res, `Invalid ${name}`);
-        await session.abortTransaction();
         return;
       }
     }
 
-    // Validate social links URLs
     for (const link of socialLinks) {
       if (!isValidUrl(link.url)) {
         sendBadRequest(res, `Invalid URL for ${link.platform} social link`);
-        await session.abortTransaction();
         return;
       }
     }
 
-    // Map milestones to the expected format
+    const milestoneAmount = fundingAmount / milestones.length;
+
+    if (milestoneAmount <= 0) {
+      sendBadRequest(
+        res,
+        "Invalid milestone amount calculated. Please check funding amount and milestones.",
+      );
+      return;
+    }
+
     const mappedMilestones = milestones.map((milestone: any) => ({
       title: milestone.name.trim(),
       description: milestone.description.trim(),
-      amount: milestone.amount || 0,
+      amount: milestoneAmount,
       dueDate: new Date(milestone.endDate),
       status: "pending",
     }));
 
-    // Map team to the expected format
     const mappedTeam = team.map((member: any) => ({
-      userId: member.userId || new mongoose.Types.ObjectId(), // Create a placeholder if no userId
+      userId: member.userId || new mongoose.Types.ObjectId(),
       role: member.role.trim(),
       joinedAt: new Date(),
     }));
 
-    // Create the Project
     const projectData: Partial<IProject> = {
       title: title.trim(),
-      description: details.trim(), // Using details as description
+      description: details.trim(),
       type: ProjectType.CROWDFUND,
       category: category.trim(),
       status: ProjectStatus.IDEA,
@@ -227,13 +224,12 @@ export const createCrowdfundingProject = async (
         type: req.user._id,
         ref: "User",
       },
-      // Initialize other required fields with defaults
       summary: vision.trim(),
       funding: {
         goal: fundingAmount,
         raised: 0,
         currency: "USD",
-        endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days default
+        endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
         contributors: [],
       },
       voting: {
@@ -255,9 +251,153 @@ export const createCrowdfundingProject = async (
         whitepaper: "",
         pitchDeck: "",
       },
+      stakeholders: CROWDFUNDING_STAKEHOLDERS,
     };
 
-    const project = new Project(projectData);
+    // Create escrow and get unsigned XDR
+    try {
+      const trustlessWorkService = createTrustlessWorkService();
+      const escrowRequest: TrustlessWorkEscrowRequest = {
+        signer: signer.trim(),
+        engagementId: new mongoose.Types.ObjectId().toString(), // Generate temp ID
+        title: `Crowdfunding Project: ${title}`,
+        description: `Escrow for crowdfunding project ${title}`,
+        roles: CROWDFUNDING_STAKEHOLDERS,
+        platformFee: Number(process.env.PLATFORM_FEE) || 5, // Default to 5% if not set
+        trustline: {
+          address:
+            process.env.USDC_TOKEN_ADDRESS ||
+            "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+          decimals: 10000000,
+        },
+        milestones: mappedMilestones.map((milestone) => ({
+          description: milestone.description,
+          amount: milestoneAmount,
+          payoutPercentage: (milestoneAmount / fundingAmount) * 100,
+        })),
+      };
+
+      const escrowResponse =
+        await trustlessWorkService.deployMultiReleaseEscrow(escrowRequest);
+
+      // Return unsigned XDR and project data for frontend to sign
+      sendSuccess(
+        res,
+        {
+          unsignedXdr: escrowResponse.unsignedTransaction,
+          escrowAddress:
+            "GCRU2PL3AI4WW64E7U5SA6BXRP7ULDSLRQVNGSNW4LVSZWQD345NK57F",
+          network: "Testnet",
+          projectData, // Send back the prepared project data
+          milestoneAmount,
+          mappedMilestones,
+          mappedTeam,
+        },
+        "Project prepared successfully. Please sign the transaction to complete creation.",
+      );
+    } catch (error) {
+      console.error("Escrow preparation failed:", error);
+      sendInternalServerError(
+        res,
+        "Failed to prepare escrow for project creation",
+      );
+    }
+  } catch (error) {
+    console.error("Error preparing crowdfunding project:", error);
+    sendInternalServerError(res, "Failed to prepare crowdfunding project");
+  }
+};
+
+/**
+ * @desc    Step 2: Submit signed transaction and create the project
+ * @route   POST /api/crowdfunding/projects/confirm
+ * @access  Private
+ */
+export const confirmCrowdfundingProject = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const {
+      signedXdr,
+      escrowAddress = "GCRU2PL3AI4WW64E7U5SA6BXRP7ULDSLRQVNGSNW4LVSZWQD345NK57F",
+      projectData,
+    } = req.body;
+
+    if (!signedXdr?.trim()) {
+      sendBadRequest(res, "Signed transaction XDR is required");
+      return;
+    }
+
+    if (!escrowAddress?.trim()) {
+      sendBadRequest(res, "Escrow address is required");
+      return;
+    }
+
+    if (!projectData) {
+      sendBadRequest(res, "Project data is required");
+      return;
+    }
+
+    if (!req.user?._id) {
+      sendUnauthorized(res, "Authentication required");
+      return;
+    }
+
+    // Validate creator exists
+    const creator = await User.findById(req.user._id).session(session);
+    if (checkResource(res, !creator, "Creator not found", 404)) {
+      await session.abortTransaction();
+      return;
+    }
+
+    // Submit the signed transaction to Trustless Work
+    let tx: any;
+    try {
+      const trustlessWorkService = createTrustlessWorkService();
+      tx = await trustlessWorkService.submitTransaction(signedXdr);
+
+      console.log(`Transaction submitted successfully:`, tx);
+    } catch (error) {
+      console.error("Transaction submission failed:", error);
+      sendBadRequest(res, "Failed to submit signed transaction");
+      await session.abortTransaction();
+      return;
+    }
+
+    // Extract escrow information from transaction response
+    const escrowInfo = tx?.escrow || {};
+    const contractId = tx?.contractId || escrowAddress.trim();
+    const actualEscrowAddress = escrowInfo?.engagementId
+      ? `Contract: ${contractId}`
+      : escrowAddress.trim();
+
+    // Create the Project with escrow information
+    const finalProjectData: Partial<IProject> = {
+      ...projectData,
+      trustlessWorkStatus: "deployed",
+      escrowAddress: actualEscrowAddress,
+      escrowType: "multi",
+      // Store additional escrow details
+      escrowDetails: {
+        contractId: contractId,
+        engagementId: escrowInfo?.engagementId,
+        title: escrowInfo?.title,
+        description: escrowInfo?.description,
+        roles: escrowInfo?.roles,
+        platformFee: escrowInfo?.platformFee,
+        milestones: escrowInfo?.milestones,
+        trustline: escrowInfo?.trustline,
+        receiverMemo: escrowInfo?.receiverMemo,
+        transactionStatus: tx?.status,
+        transactionMessage: tx?.message,
+      },
+    };
+
+    const project = new Project(finalProjectData);
     await project.save({ session });
 
     // Create associated Crowdfund record
@@ -302,6 +442,7 @@ export const createCrowdfundingProject = async (
     sendCreated(
       res,
       {
+        tx,
         project,
         crowdfund,
       },
@@ -309,8 +450,8 @@ export const createCrowdfundingProject = async (
     );
   } catch (error) {
     await session.abortTransaction();
-    console.error("Error creating crowdfunding project:", error);
-    sendInternalServerError(res, "Failed to create crowdfunding project");
+    console.error("Error confirming crowdfunding project:", error);
+    sendInternalServerError(res, "Failed to confirm crowdfunding project");
   } finally {
     session.endSession();
   }
@@ -589,6 +730,301 @@ export const deleteCrowdfundingProject = async (
   }
 };
 
+/**
+ * @desc    Fund a crowdfunding project
+ * @route   POST /api/crowdfunding/projects/:id/fund
+ * @access  Private
+ */
+export const fundCrowdfundingProject = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { id } = req.params;
+    const { amount, signer } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      sendBadRequest(res, "Invalid project ID");
+      return;
+    }
+
+    if (!req.user?._id) {
+      sendUnauthorized(res, "Authentication required");
+      return;
+    }
+
+    if (!amount || typeof amount !== "number" || amount <= 0) {
+      sendBadRequest(res, "Valid funding amount is required");
+      return;
+    }
+
+    if (!signer?.trim()) {
+      sendBadRequest(res, "Signer address is required");
+      return;
+    }
+
+    // Find the project
+    const project = await Project.findOne({
+      _id: id,
+      type: ProjectType.CROWDFUND,
+    }).session(session);
+
+    if (!project) {
+      sendBadRequest(res, "Crowdfunding project not found");
+      await session.abortTransaction();
+      return;
+    }
+
+    // Check if project is in a fundable state
+    if (
+      ![
+        ProjectStatus.VALIDATED,
+        ProjectStatus.CAMPAIGNING,
+        ProjectStatus.LIVE,
+      ].includes(project.status)
+    ) {
+      sendBadRequest(res, "Project is not currently accepting funding");
+      await session.abortTransaction();
+      return;
+    }
+
+    // Check if funding period has ended
+    if (project.funding.endDate && new Date() > project.funding.endDate) {
+      sendBadRequest(res, "Funding period has ended");
+      await session.abortTransaction();
+      return;
+    }
+
+    // Check if project has reached its funding goal
+    if (project.funding.raised >= project.funding.goal) {
+      sendBadRequest(res, "Project has already reached its funding goal");
+      await session.abortTransaction();
+      return;
+    }
+
+    // Validate user exists
+    const user = await User.findById(req.user._id).session(session);
+    if (checkResource(res, !user, "User not found", 404)) {
+      await session.abortTransaction();
+      return;
+    }
+
+    // Check if user is trying to fund their own project
+    // if (project.creator.toString() === req.user._id.toString()) {
+    //   sendBadRequest(res, "You cannot fund your own project");
+    //   await session.abortTransaction();
+    //   return;
+    // }
+
+    // Get escrow contract ID from project
+    const contractId = project.escrowDetails?.contractId;
+    if (!contractId) {
+      sendBadRequest(res, "Project escrow contract not found");
+      await session.abortTransaction();
+      return;
+    }
+
+    // Create funding transaction via Trustless Work
+    let fundingTx: any;
+    try {
+      const trustlessWorkService = createTrustlessWorkService();
+      const fundRequest = {
+        contractId: contractId,
+        signer: signer.trim(),
+        amount: amount,
+      };
+
+      fundingTx = await trustlessWorkService.fundEscrow("multi", fundRequest);
+      console.log(`Funding transaction prepared:`, fundingTx);
+    } catch (error) {
+      console.error("Funding transaction preparation failed:", error);
+      sendBadRequest(res, "Failed to prepare funding transaction");
+      await session.abortTransaction();
+      return;
+    }
+
+    // Return unsigned XDR for frontend to sign
+    sendSuccess(
+      res,
+      {
+        unsignedXdr: fundingTx.unsignedTransaction,
+        contractId: contractId,
+        amount: amount,
+        projectId: project._id,
+        projectTitle: project.title,
+        currentRaised: project.funding.raised,
+        fundingGoal: project.funding.goal,
+        remainingGoal: project.funding.goal - project.funding.raised,
+      },
+      "Funding transaction prepared. Please sign to complete funding.",
+    );
+  } catch (error) {
+    await session.abortTransaction();
+    console.error("Error preparing crowdfunding project funding:", error);
+    sendInternalServerError(res, "Failed to prepare project funding");
+  } finally {
+    session.endSession();
+  }
+};
+
+/**
+ * @desc    Confirm crowdfunding project funding
+ * @route   POST /api/crowdfunding/projects/:id/fund/confirm
+ * @access  Private
+ */
+export const confirmCrowdfundingProjectFunding = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { id } = req.params;
+    const { signedXdr, amount, transactionHash } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      sendBadRequest(res, "Invalid project ID");
+      return;
+    }
+
+    if (!req.user?._id) {
+      sendUnauthorized(res, "Authentication required");
+      return;
+    }
+
+    if (!signedXdr?.trim()) {
+      sendBadRequest(res, "Signed transaction XDR is required");
+      return;
+    }
+
+    if (!amount || typeof amount !== "number" || amount <= 0) {
+      sendBadRequest(res, "Valid funding amount is required");
+      return;
+    }
+
+    if (!transactionHash?.trim()) {
+      sendBadRequest(res, "Transaction hash is required");
+      return;
+    }
+
+    // Find the project
+    const project = await Project.findOne({
+      _id: id,
+      type: ProjectType.CROWDFUND,
+    }).session(session);
+
+    if (!project) {
+      sendBadRequest(res, "Crowdfunding project not found");
+      await session.abortTransaction();
+      return;
+    }
+
+    // Validate user exists
+    const user = await User.findById(req.user._id).session(session);
+    if (checkResource(res, !user, "User not found", 404)) {
+      await session.abortTransaction();
+      return;
+    }
+
+    // Submit the signed transaction to Trustless Work
+    let tx: any;
+    try {
+      const trustlessWorkService = createTrustlessWorkService();
+      tx = await trustlessWorkService.submitTransaction(signedXdr);
+      console.log(`Funding transaction submitted successfully:`, tx);
+    } catch (error) {
+      console.error("Funding transaction submission failed:", error);
+      sendBadRequest(res, "Failed to submit funding transaction");
+      await session.abortTransaction();
+      return;
+    }
+
+    // Update project funding
+    const newRaisedAmount = project.funding.raised + amount;
+    const isFullyFunded = newRaisedAmount >= project.funding.goal;
+
+    // Add contributor to the project
+    const contributor = {
+      user: req.user._id,
+      amount: amount,
+      date: new Date(),
+      transactionHash: transactionHash.trim(),
+    };
+
+    // Update project
+    await Project.findByIdAndUpdate(
+      id,
+      {
+        $inc: { "funding.raised": amount },
+        $push: { "funding.contributors": contributor },
+        ...(isFullyFunded && { status: ProjectStatus.FUNDED }),
+      },
+      { session },
+    );
+
+    // Update user stats
+    await User.findByIdAndUpdate(
+      req.user._id,
+      { $inc: { "stats.totalContributed": amount } },
+      { session },
+    );
+
+    // Update project creator stats
+    await User.findByIdAndUpdate(
+      project.creator,
+      { $inc: { "stats.totalRaised": amount } },
+      { session },
+    );
+
+    await session.commitTransaction();
+
+    // Get updated project
+    const updatedProject = await Project.findById(id)
+      .populate(
+        "creator",
+        "profile.firstName profile.lastName profile.username",
+      )
+      .populate(
+        "funding.contributors.user",
+        "profile.firstName profile.lastName",
+      );
+
+    // Send notifications
+    try {
+      await sendProjectFundingNotifications(updatedProject, user, amount);
+    } catch (notificationError) {
+      console.error("Error sending funding notifications:", notificationError);
+      // Don't fail the main request if notifications fail
+    }
+
+    sendCreated(
+      res,
+      {
+        tx,
+        project: updatedProject,
+        funding: {
+          amount: amount,
+          transactionHash: transactionHash,
+          newTotalRaised: newRaisedAmount,
+          isFullyFunded: isFullyFunded,
+          remainingGoal: Math.max(0, project.funding.goal - newRaisedAmount),
+        },
+      },
+      `Successfully funded project with $${amount}. ${isFullyFunded ? "Project is now fully funded!" : ""}`,
+    );
+  } catch (error) {
+    await session.abortTransaction();
+    console.error("Error confirming crowdfunding project funding:", error);
+    sendInternalServerError(res, "Failed to confirm project funding");
+  } finally {
+    session.endSession();
+  }
+};
+
 // Helper function to validate URLs
 function isValidUrl(string: string): boolean {
   try {
@@ -743,6 +1179,112 @@ async function sendProjectDeletedNotifications(project: any): Promise<void> {
     console.log(`✅ Notifications sent for project deletion: ${project.title}`);
   } catch (error) {
     console.error("Error sending project deletion notifications:", error);
+    throw error;
+  }
+}
+
+/**
+ * Send notifications when a project receives funding
+ */
+async function sendProjectFundingNotifications(
+  project: any,
+  contributor: any,
+  amount: number,
+): Promise<void> {
+  try {
+    // 1. Notify the project creator
+    await NotificationService.notifyProjectCreator(
+      project._id,
+      project.title,
+      project.creator,
+      {
+        type: NotificationType.PROJECT_FUNDED,
+        title: "💰 Your project received funding!",
+        message: `Your project "${project.title}" received $${amount} in funding.`,
+        data: {
+          projectId: project._id,
+          amount: amount,
+          contributorName:
+            `${contributor.profile?.firstName || ""} ${contributor.profile?.lastName || ""}`.trim() ||
+            "Anonymous",
+          totalRaised: project.funding.raised,
+          fundingGoal: project.funding.goal,
+        },
+        emailTemplate: EmailTemplatesService.getTemplate("project-funded", {
+          projectTitle: project.title,
+          projectId: project._id,
+          amount: amount,
+          contributorName:
+            `${contributor.profile?.firstName || ""} ${contributor.profile?.lastName || ""}`.trim() ||
+            "Anonymous",
+          totalRaised: project.funding.raised,
+          fundingGoal: project.funding.goal,
+        }),
+      },
+    );
+
+    // 2. Notify the contributor
+    await NotificationService.notifyProjectCreator(
+      project._id,
+      project.title,
+      contributor._id,
+      {
+        type: NotificationType.PROJECT_FUNDED,
+        title: "🎉 Funding successful!",
+        message: `Your $${amount} contribution to "${project.title}" was successful.`,
+        data: {
+          projectId: project._id,
+          projectTitle: project.title,
+          amount: amount,
+          totalRaised: project.funding.raised,
+          fundingGoal: project.funding.goal,
+        },
+        emailTemplate: EmailTemplatesService.getTemplate(
+          "contribution-successful",
+          {
+            projectTitle: project.title,
+            projectId: project._id,
+            amount: amount,
+            totalRaised: project.funding.raised,
+            fundingGoal: project.funding.goal,
+          },
+        ),
+      },
+    );
+
+    // 3. If project is fully funded, send special notification
+    if (project.funding.raised >= project.funding.goal) {
+      await NotificationService.notifyProjectCreator(
+        project._id,
+        project.title,
+        project.creator,
+        {
+          type: NotificationType.PROJECT_FUNDED,
+          title: "🎊 Project fully funded!",
+          message: `Congratulations! Your project "${project.title}" has reached its funding goal of $${project.funding.goal}!`,
+          data: {
+            projectId: project._id,
+            totalRaised: project.funding.raised,
+            fundingGoal: project.funding.goal,
+          },
+          emailTemplate: EmailTemplatesService.getTemplate(
+            "project-fully-funded",
+            {
+              projectTitle: project.title,
+              projectId: project._id,
+              totalRaised: project.funding.raised,
+              fundingGoal: project.funding.goal,
+            },
+          ),
+        },
+      );
+    }
+
+    console.log(
+      `✅ All funding notifications sent for project: ${project.title}`,
+    );
+  } catch (error) {
+    console.error("Error sending project funding notifications:", error);
     throw error;
   }
 }

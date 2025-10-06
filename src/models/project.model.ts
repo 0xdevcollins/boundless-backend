@@ -152,6 +152,51 @@ export interface IProject extends Document {
   whitepaperUrl?: string;
   pitchVideoUrl?: string;
   votes: number;
+  // Trustless Work integration fields for crowdfunding projects
+  stakeholders?: {
+    serviceProvider: string;
+    approver: string;
+    releaseSigner: string;
+    disputeResolver: string;
+    receiver: string;
+    platformAddress?: string;
+  };
+  trustlessWorkStatus?: "pending" | "deployed" | "funded" | "failed";
+  escrowAddress?: string;
+  escrowType?: "single" | "multi";
+  escrowDetails?: {
+    contractId?: string;
+    engagementId?: string;
+    title?: string;
+    description?: string;
+    roles?: {
+      approver?: string;
+      serviceProvider?: string;
+      disputeResolver?: string;
+      receiver?: string;
+      platformAddress?: string;
+      releaseSigner?: string;
+    };
+    platformFee?: number;
+    milestones?: Array<{
+      description?: string;
+      status?: string;
+      evidence?: string;
+      amount?: number;
+      flags?: {
+        disputed?: boolean;
+        released?: boolean;
+        resolved?: boolean;
+        approved?: boolean;
+      };
+    }>;
+    trustline?: {
+      address?: string;
+    };
+    receiverMemo?: number;
+    transactionStatus?: string;
+    transactionMessage?: string;
+  };
 }
 
 const ProjectSchema = new Schema<IProject>(
@@ -301,6 +346,61 @@ const ProjectSchema = new Schema<IProject>(
     whitepaperUrl: { type: String },
     pitchVideoUrl: { type: String },
     votes: { type: Number, default: 0 },
+    // Trustless Work integration fields for crowdfunding projects
+    stakeholders: {
+      serviceProvider: { type: String, required: true },
+      approver: { type: String, required: true },
+      releaseSigner: { type: String, required: true },
+      disputeResolver: { type: String, required: true },
+      receiver: { type: String, required: true },
+      platformAddress: { type: String },
+    },
+    trustlessWorkStatus: {
+      type: String,
+      enum: ["pending", "deployed", "funded", "failed"],
+      default: "pending",
+    },
+    escrowAddress: { type: String },
+    escrowType: {
+      type: String,
+      enum: ["single", "multi"],
+      default: "multi",
+    },
+    escrowDetails: {
+      contractId: { type: String },
+      engagementId: { type: String },
+      title: { type: String },
+      description: { type: String },
+      roles: {
+        approver: { type: String },
+        serviceProvider: { type: String },
+        disputeResolver: { type: String },
+        receiver: { type: String },
+        platformAddress: { type: String },
+        releaseSigner: { type: String },
+      },
+      platformFee: { type: Number },
+      milestones: [
+        {
+          description: { type: String },
+          status: { type: String },
+          evidence: { type: String },
+          amount: { type: Number },
+          flags: {
+            disputed: { type: Boolean },
+            released: { type: Boolean },
+            resolved: { type: Boolean },
+            approved: { type: Boolean },
+          },
+        },
+      ],
+      trustline: {
+        address: { type: String },
+      },
+      receiverMemo: { type: Number },
+      transactionStatus: { type: String },
+      transactionMessage: { type: String },
+    },
   },
   { timestamps: true },
 );

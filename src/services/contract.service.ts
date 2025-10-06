@@ -1,424 +1,508 @@
-// Trigger Soroban payout for a milestone (stub for integration)
-export async function triggerSorobanPayout(milestone: any) {
-  // TODO: Integrate with Soroban payout logic
-  // This should call releaseMilestone or similar logic as needed
-  // For now, just log and resolve
-  console.log(`Triggering Soroban payout for milestone ${milestone._id}`);
-  // Example: await contractService.releaseMilestone({ ... });
-  return Promise.resolve();
-}
-import {
-  Keypair,
-  TransactionBuilder,
-  Operation,
-  xdr,
-  nativeToScVal,
-  TimeoutInfinite,
-  Horizon,
-} from "@stellar/stellar-sdk";
-import Server from "@stellar/stellar-sdk";
+// import {
+//   Networks,
+//   Keypair,
+//   Transaction,
+//   TransactionBuilder,
+//   Operation,
+//   BASE_FEE,
+//   TimeoutInfinite,
+// } from "@stellar/stellar-sdk";
+// import {
+//   UnsignedTransaction,
+//   SignedTransaction,
+//   MergedTransaction,
+//   TransactionMergeRequest,
+//   ContractOperation,
+//   ContractCallResult,
+//   ContractDeployResult,
+//   ContractServiceConfig,
+//   NetworkInfo,
+//   AccountInfo,
+//   ContractInfo,
+//   TransactionSimulation,
+//   ContractMethodConfig,
+// } from "../types/contract";
+// import { TransactionUtils } from "../utils/transaction.utils";
 
-import {
-  sorobanConfig,
-  ADMIN_SECRET_KEY,
-  DEFAULT_FEE,
-  DEFAULT_GAS_BUDGET,
-  PROJECT_FUNDING_CONTRACT_WASM_HASH,
-  TX_TIMEOUT_SECONDS,
-  MAX_TX_RETRIES,
-} from "../config/soroban";
+// /**
+//  * Soroban Contract Service for handling smart contract interactions
+//  */
+// export class ContractService {
+//   private config: ContractServiceConfig;
+//   private servers: Map<Networks> = new Map();
 
-import TransactionModel, {
-  TransactionStatus as DbTransactionStatus,
-  TransactionType,
-} from "../models/transaction.model";
-import { Types } from "mongoose";
+//   constructor(config?: Partial<ContractServiceConfig>) {
+//     this.config = {
+//       defaultNetwork: Networks.TESTNET,
+//       networks: {
+//         [Networks.TESTNET]: {
+//           network: Networks.TESTNET,
+//           networkPassphrase: Networks.TESTNET,
+//           rpcUrl: "https://soroban-testnet.stellar.org",
+//           horizonUrl: "https://horizon-testnet.stellar.org",
+//           chainId: "testnet",
+//         },
+//         [Networks.PUBLIC]: {
+//           network: Networks.PUBLIC,
+//           networkPassphrase: Networks.PUBLIC,
+//           rpcUrl: "https://soroban-mainnet.stellar.org",
+//           horizonUrl: "https://horizon.stellar.org",
+//           chainId: "mainnet",
+//         },
+//         [Networks.FUTURENET]: {
+//           network: Networks.FUTURENET,
+//           networkPassphrase: Networks.FUTURENET,
+//           rpcUrl: "https://soroban-futurenet.stellar.org",
+//           horizonUrl: "https://horizon-futurenet.stellar.org",
+//           chainId: "futurenet",
+//         },
+//       },
+//       defaultFee: BASE_FEE,
+//       maxRetries: 3,
+//       retryDelay: 1000,
+//       ...config,
+//     };
 
-// Interface definitions
-export interface DeployParams {
-  projectId: string;
-  fundingGoal: number;
-  milestones: Array<{
-    title: string;
-    amount: number;
-    dueDate: string;
-  }>;
-}
+//     this.initializeServers();
+//   }
 
-export interface DeployResult {
-  contractId: string;
-  transactionHash: string;
-  status: string;
-}
+//   /**
+//    * Initialize Soroban servers for each network
+//    */
+//   private initializeServers(): void {
+//     Object.values(this.config.networks).forEach((networkInfo) => {
+//       const server = new SorobanServer(networkInfo.rpcUrl, {
+//         allowHttp: networkInfo.rpcUrl.startsWith("http://"),
+//       });
+//       this.servers.set(networkInfo.network, server);
+//     });
+//   }
 
-export interface FundParams {
-  projectId: string;
-  amount: number;
-  walletAddress: string;
-  transactionHash: string;
-}
+//   /**
+//    * Get Soroban server for a specific network
+//    */
+//   private getServer(network: Networks): SorobanServer {
+//     const server = this.servers.get(network);
+//     if (!server) {
+//       throw new Error(`Server not configured for network: ${network}`);
+//     }
+//     return server;
+//   }
 
-export interface FundResult {
-  transactionHash: string;
-  status: string;
-  amount: number;
-}
+//   /**
+//    * Get network information
+//    */
+//   getNetworkInfo(network: Networks = this.config.defaultNetwork): NetworkInfo {
+//     return this.config.networks[network];
+//   }
 
-export interface MilestoneParams {
-  projectId: string;
-  milestoneId: string;
-  amount: number;
-  transactionHash: string;
-}
+//   /**
+//    * Get account information
+//    */
+//   async getAccountInfo(
+//     accountId: string,
+//     network: Networks = this.config.defaultNetwork,
+//   ): Promise<AccountInfo> {
+//     try {
+//       const server = this.getServer(network);
+//       const account = await server.getAccount(accountId);
 
-export interface MilestoneResult {
-  transactionHash: string;
-  status: string;
-  milestoneId: string;
-}
+//       return {
+//         accountId: account.accountId(),
+//         sequence: account.sequenceNumber(),
+//         balance: account.balances[0]?.balance || "0",
+//         subentryCount: account.subentryCount,
+//         flags: {
+//           authRequired: account.flags.authRequired,
+//           authRevocable: account.flags.authRevocable,
+//           authImmutable: account.flags.authImmutable,
+//           authClawbackEnabled: account.flags.authClawbackEnabled,
+//         },
+//       };
+//     } catch (error) {
+//       throw new Error(
+//         `Failed to get account info: ${error instanceof Error ? error.message : "Unknown error"}`,
+//       );
+//     }
+//   }
 
-export interface ContractState {
-  address: string;
-  fundingGoal: number;
-  raised: number;
-  milestones: Array<{
-    id: string;
-    amount: number;
-    released: boolean;
-    releaseDate?: string;
-  }>;
-  status: string;
-  lastUpdated: string;
-}
+//   /**
+//    * Create an unsigned transaction for contract interaction
+//    */
+//   createUnsignedTransaction(
+//     sourceAccount: string,
+//     contractId: string,
+//     method: string,
+//     parameters: any[] = [],
+//     network: Networks = this.config.defaultNetwork,
+//     fee?: string,
+//     memo?: string,
+//   ): UnsignedTransaction {
+//     const networkInfo = this.getNetworkInfo(network);
+//     const transactionFee = fee || this.config.defaultFee;
 
-export interface MilestoneInfo {
-  id: string;
-  released: boolean;
-  amount: number;
-  dueDate: string;
-}
+//     return TransactionUtils.createUnsignedTransaction(
+//       sourceAccount,
+//       contractId,
+//       method,
+//       parameters,
+//       networkInfo.networkPassphrase,
+//       transactionFee,
+//       memo,
+//     );
+//   }
 
-export interface TxStatus {
-  hash: string;
-  status: string;
-  blockHeight?: number;
-  timestamp?: string;
-}
+//   /**
+//    * Create multiple unsigned transactions
+//    */
+//   createMultipleTransactions(
+//     sourceAccount: string,
+//     operations: ContractMethodConfig[],
+//     network: Networks = this.config.defaultNetwork,
+//     fee?: string,
+//   ): UnsignedTransaction[] {
+//     return operations.map((op) =>
+//       this.createUnsignedTransaction(
+//         sourceAccount,
+//         op.contractId || "",
+//         op.method,
+//         op.parameters,
+//         network,
+//         fee || op.estimatedFee,
+//       ),
+//     );
+//   }
 
-export interface TxInfo {
-  hash: string;
-  type: string;
-  amount: number;
-  timestamp: string;
-  status: string;
-}
+//   /**
+//    * Merge multiple transactions into one
+//    */
+//   mergeTransactions(
+//     transactions: UnsignedTransaction[],
+//     mergeStrategy: "sequential" | "parallel" = "sequential",
+//   ): MergedTransaction {
+//     const mergeRequest: TransactionMergeRequest = {
+//       transactions,
+//       mergeStrategy,
+//       metadata: {
+//         description: `Merged ${transactions.length} transactions`,
+//         estimatedTotalFee: transactions
+//           .reduce(
+//             (sum, tx) =>
+//               sum +
+//               parseInt(tx.metadata?.estimatedFee || this.config.defaultFee),
+//             0,
+//           )
+//           .toString(),
+//       },
+//     };
 
-class ContractService {
-  private server: typeof Server;
-  private adminKeypair: Keypair;
+//     return TransactionUtils.mergeTransactions(mergeRequest);
+//   }
 
-  constructor() {
-    // Initialize Soroban server connection
-    this.server = new Horizon.Server(sorobanConfig.networkUrl);
+//   /**
+//    * Simulate a transaction before execution
+//    */
+//   async simulateTransaction(
+//     transaction: UnsignedTransaction | MergedTransaction,
+//     network: Networks = this.config.defaultNetwork,
+//   ): Promise<TransactionSimulation> {
+//     try {
+//       const server = this.getServer(network);
+//       const simulation = await server.simulateTransaction(
+//         transaction.transaction,
+//       );
 
-    // Initialize admin keypair from secret key
-    if (!ADMIN_SECRET_KEY) {
-      throw new Error("Admin secret key is not configured");
-    }
+//       if (simulation.error) {
+//         return {
+//           success: false,
+//           error: simulation.error,
+//         };
+//       }
 
-    try {
-      this.adminKeypair = Keypair.fromSecret(ADMIN_SECRET_KEY);
-    } catch (error) {
-      console.warn(
-        "Invalid admin secret key format. Using development mode without blockchain features.",
-      );
-      // Create a dummy keypair for development
-      this.adminKeypair = Keypair.random();
-    }
-  }
+//       return {
+//         success: true,
+//         result: simulation.result,
+//         cost: {
+//           cpuInstructions: simulation.cost?.cpuInstructions || 0,
+//           memoryBytes: simulation.cost?.memoryBytes || 0,
+//           fee: simulation.cost?.fee || this.config.defaultFee,
+//         },
+//         events:
+//           simulation.events?.map((event) => ({
+//             type: event.type,
+//             data: event.data,
+//           })) || [],
+//       };
+//     } catch (error) {
+//       return {
+//         success: false,
+//         error:
+//           error instanceof Error ? error.message : "Unknown simulation error",
+//       };
+//     }
+//   }
 
-  /**
-   * Deploy a new project funding contract to the Soroban network
-   */
-  async deployProject(params: DeployParams): Promise<DeployResult> {
-    try {
-      if (!PROJECT_FUNDING_CONTRACT_WASM_HASH) {
-        throw new Error("Contract WASM hash is not configured");
-      }
+//   /**
+//    * Submit a signed transaction to the network
+//    */
+//   async submitTransaction(
+//     signedTransaction: SignedTransaction,
+//     network: Networks = this.config.defaultNetwork,
+//   ): Promise<ContractCallResult> {
+//     try {
+//       const server = this.getServer(network);
 
-      // Convert milestone data to Soroban-compatible format
-      const milestonesXdr = params.milestones.map((m) => {
-        return xdr.ScVal.scvMap([
-          new xdr.ScMapEntry({
-            key: nativeToScVal("title"),
-            val: nativeToScVal(m.title),
-          }),
-          new xdr.ScMapEntry({
-            key: nativeToScVal("amount"),
-            val: nativeToScVal(m.amount),
-          }),
-          new xdr.ScMapEntry({
-            key: nativeToScVal("due_date"),
-            val: nativeToScVal(new Date(m.dueDate).getTime() / 1000), // Convert to UNIX timestamp
-          }),
-          new xdr.ScMapEntry({
-            key: nativeToScVal("released"),
-            val: nativeToScVal(false),
-          }),
-        ]);
-      });
+//       // Submit the transaction
+//       const response = await server.sendTransaction(
+//         signedTransaction.transaction,
+//       );
 
-      // Get the admin account
-      const account = await this.server.getAccount(
-        this.adminKeypair.publicKey(),
-      );
+//       if (response.status === "SUCCESS") {
+//         return {
+//           success: true,
+//           result: response.result,
+//           transactionHash: response.hash,
+//           cost: {
+//             cpuInstructions: response.cost?.cpuInstructions || 0,
+//             memoryBytes: response.cost?.memoryBytes || 0,
+//             fee: response.cost?.fee || this.config.defaultFee,
+//           },
+//         };
+//       } else {
+//         return {
+//           success: false,
+//           error: response.error || "Transaction failed",
+//           transactionHash: response.hash,
+//         };
+//       }
+//     } catch (error) {
+//       return {
+//         success: false,
+//         error:
+//           error instanceof Error ? error.message : "Unknown submission error",
+//       };
+//     }
+//   }
 
-      // Create a contract deployment transaction
-      const transaction = new TransactionBuilder(account, {
-        fee: DEFAULT_FEE.toString(),
-        networkPassphrase: sorobanConfig.networkPassphrase,
-      })
-        .addOperation(
-          Operation.createStellarAssetContract({
-            asset: PROJECT_FUNDING_CONTRACT_WASM_HASH,
-            source: this.adminKeypair.publicKey(),
-          }),
-        )
-        .setTimeout(TimeoutInfinite)
-        .build();
+//   /**
+//    * Deploy a contract to the network
+//    */
+//   async deployContract(
+//     wasmBuffer: Buffer,
+//     sourceAccount: string,
+//     network: Networks = this.config.defaultNetwork,
+//     fee?: string,
+//   ): Promise<ContractDeployResult> {
+//     try {
+//       const server = this.getServer(network);
+//       const networkInfo = this.getNetworkInfo(network);
 
-      // Sign the transaction
-      transaction.sign(this.adminKeypair);
+//       // Create deploy transaction
+//       const transaction = new TransactionBuilder(
+//         { publicKey: sourceAccount },
+//         {
+//           fee: fee || this.config.defaultFee,
+//           networkPassphrase: networkInfo.networkPassphrase,
+//         },
+//       )
+//         .addOperation(
+//           Operation.createAccount({
+//             destination: sourceAccount,
+//             startingBalance: "0",
+//           }),
+//         )
+//         .addOperation(Operation.uploadContractWasm(wasmBuffer))
+//         .setTimeout(TimeoutInfinite)
+//         .build();
 
-      // Submit the transaction
-      const response = await this.server.sendTransaction(transaction);
+//       // Simulate first
+//       const simulation = await server.simulateTransaction(transaction);
+//       if (simulation.error) {
+//         return {
+//           success: false,
+//           error: simulation.error,
+//         };
+//       }
 
-      // Wait for confirmation
-      const result = await this.waitForTransaction(response.hash);
+//       // Submit transaction
+//       const response = await server.sendTransaction(transaction);
 
-      if (result.status !== "SUCCESS") {
-        throw new Error(`Transaction failed: ${result.status}`);
-      }
+//       if (response.status === "SUCCESS") {
+//         // Extract contract ID from response
+//         const contractId = this.extractContractIdFromResponse(response);
 
-      // Extract contract ID from transaction result
-      const contractId = this.extractContractIdFromResult(result);
+//         return {
+//           success: true,
+//           contractId,
+//           transactionHash: response.hash,
+//           cost: {
+//             cpuInstructions: response.cost?.cpuInstructions || 0,
+//             memoryBytes: response.cost?.memoryBytes || 0,
+//             fee: response.cost?.fee || this.config.defaultFee,
+//           },
+//         };
+//       } else {
+//         return {
+//           success: false,
+//           error: response.error || "Contract deployment failed",
+//           transactionHash: response.hash,
+//         };
+//       }
+//     } catch (error) {
+//       return {
+//         success: false,
+//         error:
+//           error instanceof Error ? error.message : "Unknown deployment error",
+//       };
+//     }
+//   }
 
-      // TODO: Create contract and milestone records when models are available
-      console.log("Contract deployed with ID:", contractId);
+//   /**
+//    * Extract contract ID from deployment response
+//    */
+//   private extractContractIdFromResponse(response: any): string | undefined {
+//     // This is a simplified implementation
+//     // In practice, you'd need to parse the response more carefully
+//     return response.result?.contractId || response.contractId;
+//   }
 
-      return {
-        contractId,
-        transactionHash: response.hash,
-        status: "SUCCESS",
-      };
-    } catch (error) {
-      console.error("Contract deployment error:", error);
-      throw error;
-    }
-  }
+//   /**
+//    * Get contract information
+//    */
+//   async getContractInfo(
+//     contractId: string,
+//     network: Networks = this.config.defaultNetwork,
+//   ): Promise<ContractInfo> {
+//     try {
+//       const server = this.getServer(network);
+//       const networkInfo = this.getNetworkInfo(network);
 
-  /**
-   * Fund a project through the smart contract
-   */
-  async fundProject(params: FundParams): Promise<FundResult> {
-    try {
-      // Create transaction record
-      const transactionRecord = new TransactionModel({
-        projectId: new Types.ObjectId(params.projectId),
-        type: TransactionType.FUNDING,
-        amount: params.amount,
-        fromAddress: params.walletAddress,
-        toAddress: "", // Will be set from contract
-        transactionHash: params.transactionHash,
-        status: DbTransactionStatus.PENDING,
-        timestamp: new Date(),
-      });
+//       // Get contract data
+//       const contractData = await server.getContractData(contractId);
 
-      await transactionRecord.save();
+//       return {
+//         contractId,
+//         address: contractId,
+//         network,
+//         metadata: {
+//           name: "Unknown Contract",
+//           description: "Smart contract deployed on Stellar",
+//         },
+//       };
+//     } catch (error) {
+//       throw new Error(
+//         `Failed to get contract info: ${error instanceof Error ? error.message : "Unknown error"}`,
+//       );
+//     }
+//   }
 
-      // Verify transaction on blockchain
-      const txStatus = await this.verifyTransaction(params.transactionHash);
+//   /**
+//    * Call a contract method (read-only)
+//    */
+//   async callContractMethod(
+//     contractId: string,
+//     method: string,
+//     parameters: any[] = [],
+//     network: Networks = this.config.defaultNetwork,
+//   ): Promise<ContractCallResult> {
+//     try {
+//       const server = this.getServer(network);
 
-      if (txStatus.status === "SUCCESS") {
-        transactionRecord.status = DbTransactionStatus.CONFIRMED;
-        transactionRecord.confirmedAt = new Date();
-        await transactionRecord.save();
+//       // Create a read-only transaction
+//       const transaction = new TransactionBuilder(
+//         {
+//           publicKey: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+//         }, // Dummy account for read-only
+//         {
+//           fee: this.config.defaultFee,
+//           networkPassphrase: this.getNetworkInfo(network).networkPassphrase,
+//         },
+//       )
+//         .addOperation(
+//           Operation.invokeContractFunction({
+//             contract: contractId,
+//             function: method,
+//             args: parameters,
+//           }),
+//         )
+//         .setTimeout(TimeoutInfinite)
+//         .build();
 
-        // Update contract state
-        await this.updateContractFunding(params.projectId, params.amount);
-      } else {
-        transactionRecord.status = DbTransactionStatus.FAILED;
-        await transactionRecord.save();
-        throw new Error("Transaction verification failed");
-      }
+//       // Simulate the transaction
+//       const simulation = await server.simulateTransaction(transaction);
 
-      return {
-        transactionHash: params.transactionHash,
-        status: "SUCCESS",
-        amount: params.amount,
-      };
-    } catch (error) {
-      console.error("Project funding error:", error);
-      throw error;
-    }
-  }
+//       if (simulation.error) {
+//         return {
+//           success: false,
+//           error: simulation.error,
+//         };
+//       }
 
-  /**
-   * Release funds for a completed milestone
-   */
-  async releaseMilestone(params: MilestoneParams): Promise<MilestoneResult> {
-    try {
-      // Create transaction record
-      const transactionRecord = new TransactionModel({
-        projectId: new Types.ObjectId(params.projectId),
-        type: TransactionType.MILESTONE_RELEASE,
-        amount: params.amount,
-        fromAddress: "", // Contract address
-        toAddress: "", // Project owner address
-        transactionHash: params.transactionHash,
-        status: DbTransactionStatus.PENDING,
-        timestamp: new Date(),
-      });
+//       return {
+//         success: true,
+//         result: simulation.result,
+//         cost: {
+//           cpuInstructions: simulation.cost?.cpuInstructions || 0,
+//           memoryBytes: simulation.cost?.memoryBytes || 0,
+//           fee: simulation.cost?.fee || this.config.defaultFee,
+//         },
+//       };
+//     } catch (error) {
+//       return {
+//         success: false,
+//         error:
+//           error instanceof Error
+//             ? error.message
+//             : "Unknown contract call error",
+//       };
+//     }
+//   }
 
-      await transactionRecord.save();
+//   /**
+//    * Validate transaction before sending to frontend
+//    */
+//   validateTransaction(
+//     transaction: UnsignedTransaction | MergedTransaction,
+//   ): boolean {
+//     return TransactionUtils.validateTransaction(
+//       transaction as UnsignedTransaction,
+//     );
+//   }
 
-      // Verify transaction on blockchain
-      const txStatus = await this.verifyTransaction(params.transactionHash);
+//   /**
+//    * Serialize transaction for frontend
+//    */
+//   serializeTransaction(
+//     transaction: UnsignedTransaction | MergedTransaction,
+//   ): string {
+//     return TransactionUtils.serializeTransaction(transaction);
+//   }
 
-      if (txStatus.status === "SUCCESS") {
-        transactionRecord.status = DbTransactionStatus.CONFIRMED;
-        transactionRecord.confirmedAt = new Date();
-        await transactionRecord.save();
+//   /**
+//    * Deserialize transaction from frontend
+//    */
+//   deserializeTransaction(
+//     serializedData: string,
+//   ): UnsignedTransaction | MergedTransaction {
+//     return TransactionUtils.deserializeTransaction(serializedData);
+//   }
 
-        // TODO: Update milestone status when model is available
-        console.log("Milestone released:", params.milestoneId);
-      } else {
-        transactionRecord.status = DbTransactionStatus.FAILED;
-        await transactionRecord.save();
-        throw new Error("Transaction verification failed");
-      }
+//   /**
+//    * Get current network status
+//    */
+//   async getNetworkStatus(
+//     network: Networks = this.config.defaultNetwork,
+//   ): Promise<any> {
+//     try {
+//       const server = this.getServer(network);
+//       return await server.getHealth();
+//     } catch (error) {
+//       throw new Error(
+//         `Failed to get network status: ${error instanceof Error ? error.message : "Unknown error"}`,
+//       );
+//     }
+//   }
+// }
 
-      return {
-        transactionHash: params.transactionHash,
-        status: "SUCCESS",
-        milestoneId: params.milestoneId,
-      };
-    } catch (error) {
-      console.error("Milestone release error:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get the current state of a project's contract
-   */
-  async getContractState(projectId: string): Promise<ContractState | null> {
-    // TODO: Implement when contract and milestone models are available
-    return null;
-  }
-
-  /**
-   * Get milestone status
-   */
-  async getMilestoneStatus(milestoneId: string): Promise<MilestoneInfo | null> {
-    // TODO: Implement when milestone model is available
-    return null;
-  }
-
-  /**
-   * Verify a transaction on the blockchain
-   */
-  async verifyTransaction(transactionHash: string): Promise<TxStatus> {
-    try {
-      const response = await this.server.getTransaction(transactionHash);
-
-      return {
-        hash: transactionHash,
-        status: response.successful ? "SUCCESS" : "FAILED",
-        blockHeight: response.ledger_attr,
-        timestamp: response.created_at,
-      };
-    } catch (error) {
-      console.error("Transaction verification error:", error);
-      return {
-        hash: transactionHash,
-        status: "FAILED",
-      };
-    }
-  }
-
-  /**
-   * Get transaction history for a project
-   */
-  async getTransactionHistory(projectId: string): Promise<TxInfo[]> {
-    try {
-      const transactions = await TransactionModel.find({
-        projectId: new Types.ObjectId(projectId),
-      }).sort({ timestamp: -1 });
-
-      return transactions.map((tx) => ({
-        hash: tx.transactionHash,
-        type: tx.type,
-        amount: tx.amount,
-        timestamp: tx.timestamp.toISOString(),
-        status: tx.status,
-      }));
-    } catch (error) {
-      console.error("Get transaction history error:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Wait for a transaction to be confirmed
-   */
-  private async waitForTransaction(hash: string): Promise<any> {
-    const maxRetries = parseInt(MAX_TX_RETRIES.toString());
-    const timeoutSeconds = parseInt(TX_TIMEOUT_SECONDS.toString());
-
-    for (let i = 0; i < maxRetries; i++) {
-      try {
-        const response = await this.server.getTransaction(hash);
-        if (response.successful !== undefined) {
-          return response;
-        }
-      } catch (error) {
-        // Transaction not found yet, continue waiting
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
-
-    throw new Error(
-      `Transaction ${hash} not confirmed within ${timeoutSeconds} seconds`,
-    );
-  }
-
-  /**
-   * Extract contract ID from transaction result
-   */
-  private extractContractIdFromResult(result: any): string {
-    // This is a placeholder implementation
-    // In a real implementation, you would extract the contract ID from the transaction result
-    return `contract_${Date.now()}`;
-  }
-
-  /**
-   * Update contract funding amount
-   */
-  private async updateContractFunding(
-    projectId: string,
-    amount: number,
-  ): Promise<void> {
-    // TODO: Implement when contract model is available
-    console.log(
-      "Updating contract funding for project:",
-      projectId,
-      "amount:",
-      amount,
-    );
-  }
-}
-
-const contractService = new ContractService();
-export default contractService;
+// // Export a singleton instance
+// export const contractService = new ContractService();
