@@ -20,6 +20,8 @@ const getNetworkPassphrase = (): string => {
       return Networks.TESTNET;
     case "futurenet":
       return Networks.FUTURENET;
+    case "sandbox":
+      return Networks.SANDBOX;
     default:
       return Networks.TESTNET;
   }

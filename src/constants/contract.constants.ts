@@ -59,16 +59,7 @@ export const NETWORKS = {
   SANDBOX: Networks.SANDBOX,
 } as const;
 
-export const NETWORK_CONFIGS: Record<
-  Networks,
-  {
-    name: string;
-    rpcUrl: string;
-    horizonUrl: string;
-    networkPassphrase: string;
-    chainId: string;
-  }
-> = {
+export const NETWORK_CONFIGS = {
   [Networks.TESTNET]: {
     name: "Testnet",
     rpcUrl: "https://soroban-testnet.stellar.org",
@@ -94,8 +85,15 @@ export const NETWORK_CONFIGS: Record<
     name: "Sandbox",
     rpcUrl: "https://soroban-sandbox.stellar.org",
     horizonUrl: "https://horizon-sandbox.stellar.org",
-    networkPassphrase: "Test SDF Sandbox Network ; October 2022",
+    networkPassphrase: "Local Sandbox Stellar Network ; September 2022",
     chainId: "sandbox",
+  },
+  ["Standalone Network ; February 2017" as any]: {
+    name: "Standalone",
+    rpcUrl: "http://localhost:8000",
+    horizonUrl: "http://localhost:8000",
+    networkPassphrase: "Standalone Network ; February 2017",
+    chainId: "standalone",
   },
 } as const;
 
