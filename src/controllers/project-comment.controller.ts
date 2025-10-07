@@ -309,6 +309,32 @@ export const getProjectComments = async (
 
     const totalPages = Math.ceil(totalCount / limitNum);
 
+    // Get reply counts for each comment
+    const commentIds = comments.map((comment) => comment._id);
+    const replyCounts = await ProjectComment.aggregate([
+      {
+        $match: {
+          parentCommentId: { $in: commentIds },
+          status: "active",
+        },
+      },
+      {
+        $group: {
+          _id: "$parentCommentId",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Create a map of comment ID to reply count
+    const replyCountMap = replyCounts.reduce(
+      (acc, item) => {
+        acc[item._id.toString()] = item.count;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
     // Process comments to add calculated fields
     const commentsWithReplies = comments.map((comment) => ({
       ...comment,
@@ -316,7 +342,7 @@ export const getProjectComments = async (
         (comment.reactionCounts?.LIKE || 0) +
         (comment.reactionCounts?.DISLIKE || 0) +
         (comment.reactionCounts?.HELPFUL || 0),
-      replyCount: 0, // We'll add this back later if needed
+      replyCount: replyCountMap[comment._id.toString()] || 0,
     }));
 
     const responseData = {
