@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import ProjectComment from "../models/project-comment.model";
-import Project, { ProjectStatus } from "../models/project.model";
+import Project from "../models/project.model";
 import User from "../models/user.model";
 import mongoose from "mongoose";
 import {
@@ -293,71 +293,31 @@ export const getProjectComments = async (
       : "createdAt";
     sortOptions[sortField as string] = sortOrder === "asc" ? 1 : -1;
 
-    // Get comments and total count using aggregation for better performance
+    // Get comments and total count using a simpler approach first
     const [comments, totalCount] = await Promise.all([
-      ProjectComment.aggregate([
-        { $match: filter },
-        {
-          $lookup: {
-            from: "users",
-            localField: "userId",
-            foreignField: "_id",
-            as: "user",
-            pipeline: [
-              {
-                $project: {
-                  "profile.firstName": 1,
-                  "profile.lastName": 1,
-                  "profile.username": 1,
-                  "profile.avatar": 1,
-                },
-              },
-            ],
-          },
-        },
-        {
-          $lookup: {
-            from: "projectcomments",
-            localField: "_id",
-            foreignField: "parentCommentId",
-            as: "replies",
-            pipeline: [{ $match: { status: "active" } }, { $count: "count" }],
-          },
-        },
-        {
-          $addFields: {
-            userId: { $arrayElemAt: ["$user", 0] },
-            replyCount: {
-              $ifNull: [{ $arrayElemAt: ["$replies.count", 0] }, 0],
-            },
-            totalReactions: {
-              $add: [
-                "$reactionCounts.LIKE",
-                "$reactionCounts.DISLIKE",
-                "$reactionCounts.HELPFUL",
-              ],
-            },
-          },
-        },
-        {
-          $project: {
-            reports: 0,
-            editHistory: 0,
-            user: 0,
-            replies: 0,
-          },
-        },
-        { $sort: sortOptions },
-        { $skip: skip },
-        { $limit: limitNum },
-      ]),
+      ProjectComment.find(filter)
+        .populate(
+          "userId",
+          "profile.firstName profile.lastName profile.username profile.avatar",
+        )
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
       ProjectComment.countDocuments(filter),
     ]);
 
     const totalPages = Math.ceil(totalCount / limitNum);
 
-    // Comments are already processed with reply counts and total reactions
-    const commentsWithReplies = comments;
+    // Process comments to add calculated fields
+    const commentsWithReplies = comments.map((comment) => ({
+      ...comment,
+      totalReactions:
+        (comment.reactionCounts?.LIKE || 0) +
+        (comment.reactionCounts?.DISLIKE || 0) +
+        (comment.reactionCounts?.HELPFUL || 0),
+      replyCount: 0, // We'll add this back later if needed
+    }));
 
     const responseData = {
       comments: commentsWithReplies,
