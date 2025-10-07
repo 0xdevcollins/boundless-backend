@@ -309,40 +309,48 @@ export const getProjectComments = async (
 
     const totalPages = Math.ceil(totalCount / limitNum);
 
-    // Get reply counts for each comment
+    // Get replies for each comment
     const commentIds = comments.map((comment) => comment._id);
-    const replyCounts = await ProjectComment.aggregate([
-      {
-        $match: {
-          parentCommentId: { $in: commentIds },
-          status: "active",
-        },
-      },
-      {
-        $group: {
-          _id: "$parentCommentId",
-          count: { $sum: 1 },
-        },
-      },
-    ]);
+    const replies = await ProjectComment.find({
+      parentCommentId: { $in: commentIds },
+      status: "active",
+    })
+      .populate(
+        "userId",
+        "profile.firstName profile.lastName profile.username profile.avatar",
+      )
+      .sort({ createdAt: 1 }) // Sort replies by creation time (oldest first)
+      .lean();
 
-    // Create a map of comment ID to reply count
-    const replyCountMap = replyCounts.reduce(
-      (acc, item) => {
-        acc[item._id.toString()] = item.count;
+    // Group replies by parent comment ID
+    const repliesByParent = replies.reduce(
+      (acc, reply) => {
+        if (reply.parentCommentId) {
+          const parentId = reply.parentCommentId.toString();
+          if (!acc[parentId]) {
+            acc[parentId] = [];
+          }
+          acc[parentId].push({
+            ...reply,
+            totalReactions:
+              (reply.reactionCounts?.LIKE || 0) +
+              (reply.reactionCounts?.DISLIKE || 0) +
+              (reply.reactionCounts?.HELPFUL || 0),
+          });
+        }
         return acc;
       },
-      {} as Record<string, number>,
+      {} as Record<string, any[]>,
     );
 
-    // Process comments to add calculated fields
     const commentsWithReplies = comments.map((comment) => ({
       ...comment,
       totalReactions:
         (comment.reactionCounts?.LIKE || 0) +
         (comment.reactionCounts?.DISLIKE || 0) +
         (comment.reactionCounts?.HELPFUL || 0),
-      replyCount: replyCountMap[comment._id.toString()] || 0,
+      replyCount: repliesByParent[comment._id.toString()]?.length || 0,
+      replies: repliesByParent[comment._id.toString()] || [],
     }));
 
     const responseData = {
