@@ -58,8 +58,18 @@ jobs:
             
             # Check if it's a git repository, if not, clone it
             if [ ! -d ".git" ]; then
-              echo "📥 Cloning repository..."
-              git clone https://github.com/0xdevcollins/boundless-backend.git .
+              echo "📥 Setting up git repository..."
+              # Initialize git if directory is not empty
+              if [ "$(ls -A .)" ]; then
+                echo "📁 Directory not empty, initializing git..."
+                git init
+                git remote add origin https://github.com/0xdevcollins/boundless-backend.git
+                git fetch origin
+                git reset --hard origin/main
+              else
+                echo "📥 Cloning repository..."
+                git clone https://github.com/0xdevcollins/boundless-backend.git .
+              fi
             else
               echo "📥 Pulling latest changes..."
               git pull origin main
