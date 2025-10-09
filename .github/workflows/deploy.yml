@@ -1,10 +1,10 @@
 name: 🚀 Deploy Boundless Backend API
 
 # Required GitHub Secrets:
-# DEPLOY_SERVER - Your server IP address (e.g., 46.202.195.31)
-# DEPLOY_USERNAME - SFTP username (e.g., atlaswealthltd-www-api)
-# DEPLOY_PASSWORD - SFTP password
-# DEPLOY_REMOTE_PATH - Remote deployment path (e.g., /home/atlaswealthltd-www-api/htdocs/www.api.atlaswealthltd.org)
+# SSH_PRIVATE_KEY - Your SSH private key for server access
+# SERVER_USER - SSH username (e.g., atlaswealthltd-www-api)
+# SERVER_IP - Server IP address (e.g., 46.202.195.31)
+# DEPLOY_PATH - Remote deployment path (e.g., /home/atlaswealthltd-www-api/htdocs/www.api.atlaswealthltd.org)
 
 on:
   push:
@@ -36,99 +36,54 @@ jobs:
       # - name: 🔍 Lint code
       #   run: npm run lint
 
-      - name: 📂 Prepare deployment files
+      - name: 🚀 Deploy to server via SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_IP: ${{ secrets.SERVER_IP }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
-          # Create deployment directory
-          mkdir -p deployment
+          # Setup SSH key
+          echo "$SSH_PRIVATE_KEY" > private_key
+          chmod 600 private_key
           
-          # Copy only essential compiled files
-          cp -r dist/ deployment/
-          
-          # Create minimal production package.json (only runtime dependencies)
-          node -e "
-            const pkg = require('./package.json');
-            const productionDeps = {};
+          # Deploy to server
+          ssh -i private_key -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP << 'EOF'
+            set -e
             
-            // Only include production dependencies
-            Object.keys(pkg.dependencies || {}).forEach(dep => {
-              productionDeps[dep] = pkg.dependencies[dep];
-            });
+            echo "🚀 Starting deployment..."
             
-            const prodPkg = {
-              name: pkg.name,
-              version: pkg.version,
-              description: pkg.description,
-              main: pkg.main,
-              scripts: {
-                start: pkg.scripts.start
-              },
-              dependencies: productionDeps,
-              engines: pkg.engines || {}
-            };
+            # Navigate to deployment directory
+            cd ${{ secrets.DEPLOY_PATH }}
             
-            require('fs').writeFileSync('./deployment/package.json', JSON.stringify(prodPkg, null, 2));
-          "
+            # Pull latest changes
+            echo "📥 Pulling latest changes..."
+            git pull origin main
+            
+            # Install production dependencies
+            echo "📦 Installing production dependencies..."
+            npm ci --production --no-optional --no-audit --no-fund
+            
+            # Build the application
+            echo "🔨 Building application..."
+            npm run build
+            
+            # Restart PM2 application
+            echo "🔄 Restarting application..."
+            pm2 reload ecosystem.config.js --env production || pm2 start ecosystem.config.js --env production
+            
+            # Show PM2 status
+            echo "📊 Application status:"
+            pm2 status
+            
+            echo "✅ Deployment completed successfully!"
+          EOF
           
-          # Copy environment template if exists
-          if [ -f .env.example ]; then
-            cp .env.example deployment/
-          fi
-          
-          # Copy PM2 config if exists
-          if [ -f ecosystem.config.js ]; then
-            cp ecosystem.config.js deployment/
-          fi
-          
-          # Install only production dependencies (no dev dependencies)
-          cd deployment
-          npm install --production --no-optional --no-audit --no-fund
-          cd ..
-          
-          # Remove unnecessary files to reduce upload size
-          cd deployment
-          rm -rf node_modules/.cache
-          rm -rf node_modules/*/test
-          rm -rf node_modules/*/tests
-          rm -rf node_modules/*/docs
-          rm -rf node_modules/*/doc
-          rm -rf node_modules/*/examples
-          rm -rf node_modules/*/example
-          cd ..
-          
-          # Show deployment size for monitoring
-          echo "📊 Deployment size:"
-          du -sh deployment/
-          echo "📁 Number of files:"
-          find deployment/ -type f | wc -l
+          # Clean up SSH key
+          rm private_key
 
-      - name: 🚀 Deploy to server
-        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
-        with:
-          server: ${{ secrets.DEPLOY_SERVER }}
-          username: ${{ secrets.DEPLOY_USERNAME }}
-          password: ${{ secrets.DEPLOY_PASSWORD }}
-          local_path: './deployment'
-          remote_path: ${{ secrets.DEPLOY_REMOTE_PATH }}
-          sftp_only: true
-          sftpArgs: '-o ConnectTimeout=5 -o Compression=yes'
-          exclude: |
-            **/.env
-            **/.git*
-            **/node_modules/.cache/**
-            **/node_modules/*/test/**
-            **/node_modules/*/tests/**
-            **/node_modules/*/docs/**
-            **/node_modules/*/doc/**
-            **/node_modules/*/examples/**
-            **/node_modules/*/example/**
-            **/coverage/**
-            **/tests/**
-            **/*.md
-            **/*.txt
-            **/*.log
-
-      - name: 🔄 Restart application
+      - name: ✅ Deployment completed
         run: |
-          echo "Deployment completed successfully!"
-          echo "Please restart your Node.js application on the server"
+          echo "🎉 Deployment completed successfully!"
+          echo "Your Node.js application has been deployed and restarted on the server."
           echo "Consider using PM2 or similar process manager for production"
