@@ -2,9 +2,9 @@ name: 🚀 Deploy Boundless Backend API
 
 # Required GitHub Secrets:
 # SSH_PRIVATE_KEY - Your SSH private key for server access
-# SERVER_USER - SSH username (e.g., atlaswealthltd-www-api)
-# SERVER_IP - Server IP address (e.g., 46.202.195.31)
-# DEPLOY_PATH - Remote deployment path (e.g., /home/atlaswealthltd-www-api/htdocs/www.api.atlaswealthltd.org)
+# DEPLOY_USERNAME - SSH username (e.g., atlaswealthltd-www-api)
+# DEPLOY_SERVER - Server IP address (e.g., 46.202.195.31)
+# DEPLOY_REMOTE_PATH - Remote deployment path (e.g., /home/atlaswealthltd-www-api/htdocs/www.api.atlaswealthltd.org)
 
 on:
   push:
@@ -39,22 +39,22 @@ jobs:
       - name: 🚀 Deploy to server via SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          SERVER_USER: ${{ secrets.SERVER_USER }}
-          SERVER_IP: ${{ secrets.SERVER_IP }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_USERNAME: ${{ secrets.DEPLOY_USERNAME }}
+          DEPLOY_SERVER: ${{ secrets.DEPLOY_SERVER }}
+          DEPLOY_REMOTE_PATH: ${{ secrets.DEPLOY_REMOTE_PATH }}
         run: |
           # Setup SSH key
           echo "$SSH_PRIVATE_KEY" > private_key
           chmod 600 private_key
           
           # Deploy to server
-          ssh -i private_key -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP << 'EOF'
+          ssh -i private_key -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$DEPLOY_SERVER << 'EOF'
             set -e
             
             echo "🚀 Starting deployment..."
             
             # Navigate to deployment directory
-            cd ${{ secrets.DEPLOY_PATH }}
+            cd ${{ secrets.DEPLOY_REMOTE_PATH }}
             
             # Pull latest changes
             echo "📥 Pulling latest changes..."
