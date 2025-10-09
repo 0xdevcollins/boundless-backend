@@ -41,36 +41,65 @@ jobs:
           # Create deployment directory
           mkdir -p deployment
           
-          # Copy essential files
+          # Copy only essential compiled files
           cp -r dist/ deployment/
+          
+          # Create minimal production package.json (only runtime dependencies)
+          node -e "
+            const pkg = require('./package.json');
+            const productionDeps = {};
+            
+            // Only include production dependencies
+            Object.keys(pkg.dependencies || {}).forEach(dep => {
+              productionDeps[dep] = pkg.dependencies[dep];
+            });
+            
+            const prodPkg = {
+              name: pkg.name,
+              version: pkg.version,
+              description: pkg.description,
+              main: pkg.main,
+              scripts: {
+                start: pkg.scripts.start
+              },
+              dependencies: productionDeps,
+              engines: pkg.engines || {}
+            };
+            
+            require('fs').writeFileSync('./deployment/package.json', JSON.stringify(prodPkg, null, 2));
+          "
           
           # Copy environment template if exists
           if [ -f .env.example ]; then
             cp .env.example deployment/
           fi
           
-          # Copy any additional config files
+          # Copy PM2 config if exists
           if [ -f ecosystem.config.js ]; then
             cp ecosystem.config.js deployment/
           fi
           
-          # Create production package.json (remove dev dependencies and prepare script)
-          node -e "
-            const pkg = require('./package.json');
-            delete pkg.devDependencies;
-            delete pkg.scripts.prepare;
-            delete pkg['lint-staged'];
-            delete pkg.husky;
-            require('fs').writeFileSync('./deployment/package.json', JSON.stringify(pkg, null, 2));
-          "
-          
-          # Copy package-lock.json for production
-          cp package-lock.json deployment/
-          
-          # Install production dependencies
+          # Install only production dependencies (no dev dependencies)
           cd deployment
-          npm ci --production
+          npm install --production --no-optional --no-audit --no-fund
           cd ..
+          
+          # Remove unnecessary files to reduce upload size
+          cd deployment
+          rm -rf node_modules/.cache
+          rm -rf node_modules/*/test
+          rm -rf node_modules/*/tests
+          rm -rf node_modules/*/docs
+          rm -rf node_modules/*/doc
+          rm -rf node_modules/*/examples
+          rm -rf node_modules/*/example
+          cd ..
+          
+          # Show deployment size for monitoring
+          echo "📊 Deployment size:"
+          du -sh deployment/
+          echo "📁 Number of files:"
+          find deployment/ -type f | wc -l
 
       - name: 🚀 Deploy to server
         uses: wlixcc/SFTP-Deploy-Action@v1.2.4
@@ -81,13 +110,22 @@ jobs:
           local_path: './deployment'
           remote_path: ${{ secrets.DEPLOY_REMOTE_PATH }}
           sftp_only: true
-          sftpArgs: '-o ConnectTimeout=5'
+          sftpArgs: '-o ConnectTimeout=5 -o Compression=yes'
           exclude: |
             **/.env
             **/.git*
             **/node_modules/.cache/**
+            **/node_modules/*/test/**
+            **/node_modules/*/tests/**
+            **/node_modules/*/docs/**
+            **/node_modules/*/doc/**
+            **/node_modules/*/examples/**
+            **/node_modules/*/example/**
             **/coverage/**
             **/tests/**
+            **/*.md
+            **/*.txt
+            **/*.log
 
       - name: 🔄 Restart application
         run: |
