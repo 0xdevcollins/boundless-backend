@@ -1,0 +1,87 @@
+name: 🚀 Deploy Boundless Backend API
+
+# Required GitHub Secrets:
+# DEPLOY_SERVER - Your server IP address (e.g., 46.202.195.31)
+# DEPLOY_USERNAME - SFTP username (e.g., atlaswealthltd-www-api)
+# DEPLOY_PASSWORD - SFTP password
+# DEPLOY_REMOTE_PATH - Remote deployment path (e.g., /home/atlaswealthltd-www-api/htdocs/www.api.atlaswealthltd.org)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: 🎉 Deploy Node.js API
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🚚 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: 📥 Install dependencies
+        run: npm ci
+
+      - name: 🔨 Build TypeScript
+        run: npm run build
+
+      - name: 🧪 Run tests
+        run: npm test
+
+      - name: 🔍 Lint code
+        run: npm run lint
+
+      - name: 📂 Prepare deployment files
+        run: |
+          # Create deployment directory
+          mkdir -p deployment
+          
+          # Copy essential files
+          cp -r dist/ deployment/
+          cp package.json deployment/
+          cp package-lock.json deployment/
+          
+          # Copy environment template if exists
+          if [ -f .env.example ]; then
+            cp .env.example deployment/
+          fi
+          
+          # Copy any additional config files
+          if [ -f ecosystem.config.js ]; then
+            cp ecosystem.config.js deployment/
+          fi
+          
+          # Create production package.json
+          cd deployment
+          npm ci --production
+          cd ..
+
+      - name: 🚀 Deploy to server
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+        with:
+          server: ${{ secrets.DEPLOY_SERVER }}
+          username: ${{ secrets.DEPLOY_USERNAME }}
+          password: ${{ secrets.DEPLOY_PASSWORD }}
+          local_path: './deployment'
+          remote_path: ${{ secrets.DEPLOY_REMOTE_PATH }}
+          sftp_only: true
+          sftpArgs: '-o ConnectTimeout=5'
+          exclude: |
+            **/.env
+            **/.git*
+            **/node_modules/.cache/**
+            **/coverage/**
+            **/tests/**
+
+      - name: 🔄 Restart application
+        run: |
+          echo "Deployment completed successfully!"
+          echo "Please restart your Node.js application on the server"
+          echo "Consider using PM2 or similar process manager for production"
