@@ -43,8 +43,6 @@ jobs:
           
           # Copy essential files
           cp -r dist/ deployment/
-          cp package.json deployment/
-          cp package-lock.json deployment/
           
           # Copy environment template if exists
           if [ -f .env.example ]; then
@@ -56,7 +54,20 @@ jobs:
             cp ecosystem.config.js deployment/
           fi
           
-          # Create production package.json
+          # Create production package.json (remove dev dependencies and prepare script)
+          node -e "
+            const pkg = require('./package.json');
+            delete pkg.devDependencies;
+            delete pkg.scripts.prepare;
+            delete pkg['lint-staged'];
+            delete pkg.husky;
+            require('fs').writeFileSync('./deployment/package.json', JSON.stringify(pkg, null, 2));
+          "
+          
+          # Copy package-lock.json for production
+          cp package-lock.json deployment/
+          
+          # Install production dependencies
           cd deployment
           npm ci --production
           cd ..
