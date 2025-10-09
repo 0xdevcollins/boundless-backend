@@ -75,13 +75,20 @@ jobs:
               git pull origin main
             fi
             
-            # Install production dependencies
+            # Install production dependencies (skip prepare scripts to avoid husky issues)
             echo "📦 Installing production dependencies..."
-            npm ci --production --no-optional --no-audit --no-fund
+            npm ci --production --no-optional --no-audit --no-fund --ignore-scripts
             
             # Build the application
             echo "🔨 Building application..."
             npm run build
+            
+            # Verify build was successful
+            if [ ! -d "dist" ]; then
+              echo "❌ Build failed - dist directory not found"
+              exit 1
+            fi
+            echo "✅ Build completed successfully"
             
             # Restart PM2 application
             echo "🔄 Restarting application..."
