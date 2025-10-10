@@ -58,14 +58,15 @@ export const voteOnProject = async (
       return;
     }
 
-    // Check if project status allows voting
+    // Check if project status allows voting (only IDEA status after admin approval)
     const voteableStatuses = [
-      ProjectStatus.IDEA,
-      ProjectStatus.REVIEWING,
-      ProjectStatus.VALIDATED,
+      ProjectStatus.IDEA, // Only allow voting after admin approval
     ];
     if (!voteableStatuses.includes(project!.status)) {
-      sendBadRequest(res, "Project is not available for voting");
+      sendBadRequest(
+        res,
+        "Project is not available for voting. It must be approved by admin first.",
+      );
       await session.abortTransaction();
       return;
     }
@@ -521,15 +522,15 @@ async function checkAndUpdateProjectStatus(projectId: string): Promise<void> {
       const positiveRatio = voteData.upvotes / voteData.totalVotes;
 
       if (positiveRatio >= 0.6) {
-        // Move to reviewing status
-        project.status = ProjectStatus.REVIEWING;
+        // Move to validated status (automatic approval after community voting)
+        project.status = ProjectStatus.VALIDATED;
         await project.save({ session });
 
-        crowdfund.status = CrowdfundStatus.UNDER_REVIEW;
+        crowdfund.status = CrowdfundStatus.VALIDATED;
         await crowdfund.save({ session });
 
         console.log(
-          `Project ${projectId} moved to reviewing status due to vote threshold`,
+          `Project ${projectId} moved to validated status due to vote threshold`,
         );
       } else if (positiveRatio < 0.4) {
         // Reject if too many negative votes

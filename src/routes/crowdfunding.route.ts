@@ -8,6 +8,7 @@ import {
   getCrowdfundingProject,
   updateCrowdfundingProject,
   deleteCrowdfundingProject,
+  adminReviewCrowdfundingProject,
 } from "../controllers/crowdfunding.controller";
 import {
   validateCrowdfundingProject,
@@ -736,6 +737,76 @@ router.post(
   "/projects/:id/fund/confirm",
   protect,
   confirmCrowdfundingProjectFunding,
+);
+
+/**
+ * @swagger
+ * /api/crowdfunding/projects/{id}/admin-review:
+ *   patch:
+ *     summary: Admin review crowdfunding project
+ *     description: Admin can approve or reject a crowdfunding project for community voting
+ *     tags: [Crowdfunding]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - action
+ *             properties:
+ *               action:
+ *                 type: string
+ *                 enum: [approve, reject]
+ *                 description: Admin action - approve or reject
+ *               adminNote:
+ *                 type: string
+ *                 description: Optional admin note explaining the decision
+ *     responses:
+ *       200:
+ *         description: Project review completed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     project:
+ *                       type: object
+ *                     crowdfund:
+ *                       type: object
+ *                     action:
+ *                       type: string
+ *       400:
+ *         description: Validation error or project not in reviewing status
+ *       401:
+ *         description: Unauthorized - Authentication required
+ *       403:
+ *         description: Forbidden - Admin privileges required
+ *       404:
+ *         description: Project not found
+ *       500:
+ *         description: Internal server error
+ */
+router.patch(
+  "/projects/:id/admin-review",
+  protect,
+  adminReviewCrowdfundingProject,
 );
 
 export default router;

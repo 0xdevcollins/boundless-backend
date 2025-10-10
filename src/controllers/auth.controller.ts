@@ -23,10 +23,12 @@ import {
 import { sendEmail } from "../utils/email.utils";
 import EmailTemplatesService from "../services/email-templates.service";
 import { mongooseWithRetry } from "../utils/db.utils";
+import { TeamInvitationService } from "../services/team-invitation.service";
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password, firstName, lastName, username } = req.body;
+    const { email, password, firstName, lastName, username, invitation } =
+      req.body;
 
     const existingUser = await User.findOne({
       $or: [{ email }, { "profile.username": username }],
@@ -82,10 +84,42 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       html: emailTemplate.html,
     });
 
+    // Handle team invitation if provided
+    let invitationResult = null;
+    if (invitation) {
+      try {
+        // Check if invitation token is valid
+        const invitationData =
+          await TeamInvitationService.getInvitationByToken(invitation);
+        if (invitationData && (invitationData as any).isValid()) {
+          // Store invitation token for later processing after email verification
+          user.invitationToken = invitation;
+          await user.save();
+          invitationResult = {
+            hasInvitation: true,
+            projectTitle:
+              (invitationData.projectId as any)?.title || "Unknown Project",
+            role: invitationData.role,
+          };
+        }
+      } catch (invitationError) {
+        console.error(
+          "Error processing invitation during registration:",
+          invitationError,
+        );
+        // Don't fail registration if invitation processing fails
+      }
+    }
+
     sendCreated(
       res,
-      { message: "User registered successfully. Please verify your email." },
-      "User registered successfully. Please verify your email.",
+      {
+        message: "User registered successfully. Please verify your email.",
+        ...(invitationResult && { invitation: invitationResult }),
+      },
+      invitationResult
+        ? "User registered successfully. Please verify your email to join the team."
+        : "User registered successfully. Please verify your email.",
     );
   } catch (error) {
     console.error("Registration error:", error);
@@ -172,7 +206,7 @@ export const githubAuth = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { code } = req.body;
+    const { code, invitation } = req.body;
 
     const { data: tokenData } = await axios.post(
       "https://github.com/login/oauth/access_token",
@@ -197,6 +231,8 @@ export const githubAuth = async (
     const { email, id, name, avatar_url } = userData;
 
     let user = await User.findOne({ email });
+    let invitationResult = null;
+
     if (!user) {
       user = new User({
         email,
@@ -220,8 +256,34 @@ export const githubAuth = async (
           preferences: { language: "en", timezone: "UTC", theme: "SYSTEM" },
         },
         isVerified: true,
+        ...(invitation && { invitationToken: invitation }),
       });
       await user.save();
+
+      // Handle team invitation for new users
+      if (invitation) {
+        try {
+          const result = await TeamInvitationService.acceptInvitation(
+            invitation,
+            user._id.toString(),
+          );
+          invitationResult = {
+            projectTitle: result.project.title,
+            role: result.invitation.role,
+            projectId: result.project._id,
+          };
+
+          // Clear the invitation token after successful acceptance
+          user.invitationToken = undefined;
+          await user.save();
+        } catch (invitationError) {
+          console.error(
+            "Error accepting invitation during GitHub auth:",
+            invitationError,
+          );
+          // Don't fail auth if invitation acceptance fails
+        }
+      }
     }
 
     await Account.findOneAndUpdate(
@@ -243,7 +305,16 @@ export const githubAuth = async (
 
     setAuthCookies(res, tokens);
 
-    sendSuccess(res, tokens, "GitHub authentication successful");
+    sendSuccess(
+      res,
+      {
+        ...tokens,
+        ...(invitationResult && { invitation: invitationResult }),
+      },
+      invitationResult
+        ? "GitHub authentication successful. You have been added to the project team!"
+        : "GitHub authentication successful",
+    );
   } catch (error) {
     console.error("GitHub auth error:", error);
     sendInternalServerError(res, "Error with GitHub authentication");
@@ -255,7 +326,7 @@ export const googleAuth = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { token } = req.body;
+    const { token, invitation } = req.body;
     const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
     const ticket = await client.verifyIdToken({
@@ -272,6 +343,8 @@ export const googleAuth = async (
     const { email, sub, name, picture } = payload;
 
     let user = await User.findOne({ email });
+    let invitationResult = null;
+
     if (!user) {
       user = new User({
         email,
@@ -295,8 +368,34 @@ export const googleAuth = async (
           preferences: { language: "en", timezone: "UTC", theme: "SYSTEM" },
         },
         isVerified: true,
+        ...(invitation && { invitationToken: invitation }),
       });
       await user.save();
+
+      // Handle team invitation for new users
+      if (invitation) {
+        try {
+          const result = await TeamInvitationService.acceptInvitation(
+            invitation,
+            user._id.toString(),
+          );
+          invitationResult = {
+            projectTitle: result.project.title,
+            role: result.invitation.role,
+            projectId: result.project._id,
+          };
+
+          // Clear the invitation token after successful acceptance
+          user.invitationToken = undefined;
+          await user.save();
+        } catch (invitationError) {
+          console.error(
+            "Error accepting invitation during Google auth:",
+            invitationError,
+          );
+          // Don't fail auth if invitation acceptance fails
+        }
+      }
     }
 
     await Account.findOneAndUpdate(
@@ -318,7 +417,16 @@ export const googleAuth = async (
 
     setAuthCookies(res, tokens);
 
-    sendSuccess(res, tokens, "Google authentication successful");
+    sendSuccess(
+      res,
+      {
+        ...tokens,
+        ...(invitationResult && { invitation: invitationResult }),
+      },
+      invitationResult
+        ? "Google authentication successful. You have been added to the project team!"
+        : "Google authentication successful",
+    );
   } catch (error) {
     console.error("Google auth error:", error);
     sendInternalServerError(res, "Error with Google authentication");
@@ -458,6 +566,32 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
 
     user.isVerified = true;
     user.otp = undefined;
+
+    // Handle team invitation if user has one
+    let invitationResult = null;
+    if (user.invitationToken) {
+      try {
+        const result = await TeamInvitationService.acceptInvitation(
+          user.invitationToken,
+          user._id.toString(),
+        );
+        invitationResult = {
+          projectTitle: result.project.title,
+          role: result.invitation.role,
+          projectId: result.project._id,
+        };
+
+        // Clear the invitation token after successful acceptance
+        user.invitationToken = undefined;
+      } catch (invitationError) {
+        console.error(
+          "Error accepting invitation during verification:",
+          invitationError,
+        );
+        // Don't fail verification if invitation acceptance fails
+      }
+    }
+
     await user.save();
 
     // Send welcome email after successful verification
@@ -480,8 +614,15 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
 
     sendSuccess(
       res,
-      { message: "Email verified successfully" },
-      "Email verified successfully",
+      {
+        message: invitationResult
+          ? "Email verified successfully. You have been added to the project team!"
+          : "Email verified successfully",
+        ...(invitationResult && { invitation: invitationResult }),
+      },
+      invitationResult
+        ? "Email verified successfully. You have been added to the project team!"
+        : "Email verified successfully",
     );
   } catch (error) {
     console.error("Verify OTP error:", error);

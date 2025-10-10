@@ -23,6 +23,7 @@ import {
   TrustlessWorkEscrowRequest,
 } from "../services/trustless-work.service";
 import { CROWDFUNDING_STAKEHOLDERS } from "../constants/stakeholders.constants";
+import { TeamInvitationService } from "../services/team-invitation.service";
 
 /**
  * @desc    Step 1: Prepare crowdfunding project and create escrow (returns unsigned XDR)
@@ -139,8 +140,18 @@ export const prepareCrowdfundingProject = async (
     }
 
     for (const member of team) {
-      if (!member.name?.trim() || !member.role?.trim()) {
-        sendBadRequest(res, "Each team member must have a name and role");
+      if (!member.email?.trim()) {
+        sendBadRequest(res, "Each team member must have an email");
+        return;
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(member.email.trim())) {
+        sendBadRequest(
+          res,
+          `Invalid email format for team member: ${member.email}`,
+        );
         return;
       }
     }
@@ -192,10 +203,9 @@ export const prepareCrowdfundingProject = async (
       status: "pending",
     }));
 
-    const mappedTeam = team.map((member: any) => ({
-      userId: member.userId || new mongoose.Types.ObjectId(),
-      role: member.role.trim(),
-      joinedAt: new Date(),
+    // Store team invitations data for later processing
+    const teamInvitations = team.map((member: any) => ({
+      email: member.email.trim(),
     }));
 
     const projectData: Partial<IProject> = {
@@ -203,7 +213,7 @@ export const prepareCrowdfundingProject = async (
       description: details.trim(),
       type: ProjectType.CROWDFUND,
       category: category.trim(),
-      status: ProjectStatus.IDEA,
+      status: ProjectStatus.REVIEWING, // Changed to REVIEWING for admin review first
       creator: req.user._id,
       vision: vision.trim(),
       githubUrl: githubUrl?.trim(),
@@ -241,7 +251,7 @@ export const prepareCrowdfundingProject = async (
         voters: [],
       },
       milestones: mappedMilestones,
-      team: mappedTeam,
+      team: [], // Will be populated after invitations are accepted
       media: {
         banner: "",
         logo: logo.trim(),
@@ -291,7 +301,7 @@ export const prepareCrowdfundingProject = async (
           projectData, // Send back the prepared project data
           milestoneAmount,
           mappedMilestones,
-          mappedTeam,
+          teamInvitations, // Send back team invitations data
         },
         "Project prepared successfully. Please sign the transaction to complete creation.",
       );
@@ -307,7 +317,6 @@ export const prepareCrowdfundingProject = async (
     sendInternalServerError(res, "Failed to prepare crowdfunding project");
   }
 };
-
 /**
  * @desc    Step 2: Submit signed transaction and create the project
  * @route   POST /api/crowdfunding/projects/confirm
@@ -325,6 +334,7 @@ export const confirmCrowdfundingProject = async (
       signedXdr,
       escrowAddress = "GCRU2PL3AI4WW64E7U5SA6BXRP7ULDSLRQVNGSNW4LVSZWQD345NK57F",
       projectData,
+      teamInvitations = [],
     } = req.body;
 
     if (!signedXdr?.trim()) {
@@ -405,8 +415,8 @@ export const confirmCrowdfundingProject = async (
       projectId: project._id,
       thresholdVotes: 100,
       totalVotes: 0,
-      status: CrowdfundStatus.PENDING,
-      // Set vote deadline to 30 days from now
+      status: CrowdfundStatus.UNDER_REVIEW, // Changed to UNDER_REVIEW for admin review first
+      // Set vote deadline to 30 days from now (will be set after admin approval)
       voteDeadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     };
 
@@ -428,6 +438,34 @@ export const confirmCrowdfundingProject = async (
       "profile.firstName profile.lastName profile.username",
     );
 
+    // Send team invitations after successful creation
+    const invitationResults = [];
+    try {
+      for (const member of teamInvitations) {
+        try {
+          const result = await TeamInvitationService.createInvitation({
+            projectId: project._id.toString(),
+            invitedBy: req.user._id.toString(),
+            email: member.email,
+            metadata: {
+              ipAddress: req.ip,
+              userAgent: req.get("User-Agent"),
+            },
+          });
+          invitationResults.push(result);
+        } catch (invitationError) {
+          console.error(
+            `Error sending invitation to ${member.email}:`,
+            invitationError,
+          );
+          // Continue with other invitations even if one fails
+        }
+      }
+    } catch (error) {
+      console.error("Error processing team invitations:", error);
+      // Don't fail the main request if invitations fail
+    }
+
     // Send notifications after successful creation
     try {
       await sendProjectCreatedNotifications(project, creator);
@@ -445,8 +483,13 @@ export const confirmCrowdfundingProject = async (
         tx,
         project,
         crowdfund,
+        invitations: {
+          sent: invitationResults.length,
+          total: teamInvitations.length,
+          results: invitationResults,
+        },
       },
-      "Crowdfunding project created successfully",
+      "Crowdfunding project created successfully. Team invitations sent.",
     );
   } catch (error) {
     await session.abortTransaction();
@@ -470,7 +513,20 @@ export const getCrowdfundingProjects = async (
     const { page = 1, limit = 10, category, status } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
 
-    const filter: any = { type: ProjectType.CROWDFUND };
+    const filter: any = {
+      type: ProjectType.CROWDFUND,
+      // Only show projects that are approved by admin (IDEA status and beyond)
+      status: {
+        $in: [
+          ProjectStatus.IDEA,
+          ProjectStatus.VALIDATED,
+          ProjectStatus.CAMPAIGNING,
+          ProjectStatus.LIVE,
+          ProjectStatus.FUNDED,
+          ProjectStatus.COMPLETED,
+        ],
+      },
+    };
 
     if (category) {
       filter.category = category;
@@ -1184,6 +1240,147 @@ async function sendProjectDeletedNotifications(project: any): Promise<void> {
 }
 
 /**
+ * @desc    Admin approve/reject crowdfunding project
+ * @route   PATCH /api/crowdfunding/projects/:id/admin-review
+ * @access  Private/Admin
+ */
+export const adminReviewCrowdfundingProject = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { id } = req.params;
+    const { action, adminNote } = req.body; // action: 'approve' | 'reject'
+    const adminId = req.user?._id;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      sendBadRequest(res, "Invalid project ID");
+      return;
+    }
+
+    if (!adminId) {
+      sendUnauthorized(res, "Authentication required");
+      return;
+    }
+
+    if (!action || !["approve", "reject"].includes(action)) {
+      sendBadRequest(res, "Action must be 'approve' or 'reject'");
+      return;
+    }
+
+    // Find the project
+    const project = await Project.findOne({
+      _id: id,
+      type: ProjectType.CROWDFUND,
+    }).session(session);
+
+    if (!project) {
+      sendBadRequest(res, "Crowdfunding project not found");
+      await session.abortTransaction();
+      return;
+    }
+
+    // Check if project is in reviewing status
+    if (project.status !== ProjectStatus.REVIEWING) {
+      sendBadRequest(res, "Project is not in reviewing status");
+      await session.abortTransaction();
+      return;
+    }
+
+    // Find associated crowdfund
+    const crowdfund = await Crowdfund.findOne({ projectId: id }).session(
+      session,
+    );
+    if (!crowdfund) {
+      sendBadRequest(res, "Associated crowdfund not found");
+      await session.abortTransaction();
+      return;
+    }
+
+    if (action === "approve") {
+      // Approve the project - move to IDEA status for community voting
+      project.status = ProjectStatus.IDEA;
+      project.approvedBy = adminId as any;
+      project.approvedAt = new Date();
+      if (adminNote) {
+        (project as any).adminNote = adminNote;
+      }
+
+      crowdfund.status = CrowdfundStatus.PENDING;
+      crowdfund.voteDeadline = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days from approval
+
+      await project.save({ session });
+      await crowdfund.save({ session });
+
+      // Send approval notifications
+      try {
+        await sendProjectApprovedNotifications(project);
+      } catch (notificationError) {
+        console.error(
+          "Error sending approval notifications:",
+          notificationError,
+        );
+      }
+
+      sendSuccess(
+        res,
+        {
+          project,
+          crowdfund,
+          action: "approved",
+        },
+        "Project approved successfully. It is now available for community voting.",
+      );
+    } else {
+      // Reject the project
+      project.status = ProjectStatus.REJECTED;
+      project.approvedBy = adminId as any;
+      project.approvedAt = new Date();
+      if (adminNote) {
+        (project as any).adminNote = adminNote;
+      }
+
+      crowdfund.status = CrowdfundStatus.REJECTED;
+      crowdfund.rejectedReason = adminNote || "Rejected by admin review";
+
+      await project.save({ session });
+      await crowdfund.save({ session });
+
+      // Send rejection notifications
+      try {
+        await sendProjectRejectedNotifications(project, adminNote);
+      } catch (notificationError) {
+        console.error(
+          "Error sending rejection notifications:",
+          notificationError,
+        );
+      }
+
+      sendSuccess(
+        res,
+        {
+          project,
+          crowdfund,
+          action: "rejected",
+        },
+        "Project rejected successfully.",
+      );
+    }
+
+    await session.commitTransaction();
+  } catch (error) {
+    await session.abortTransaction();
+    console.error("Error in admin review:", error);
+    sendInternalServerError(res, "Failed to process admin review");
+  } finally {
+    session.endSession();
+  }
+};
+
+/**
  * Send notifications when a project receives funding
  */
 async function sendProjectFundingNotifications(
@@ -1285,6 +1482,77 @@ async function sendProjectFundingNotifications(
     );
   } catch (error) {
     console.error("Error sending project funding notifications:", error);
+    throw error;
+  }
+}
+
+/**
+ * Send notifications when a project is approved by admin
+ */
+async function sendProjectApprovedNotifications(project: any): Promise<void> {
+  try {
+    // 1. Notify the project creator
+    await NotificationService.notifyProjectCreator(
+      project._id,
+      project.title,
+      project.creator,
+      {
+        type: NotificationType.PROJECT_VERIFIED,
+        title: "✅ Your project has been approved!",
+        message: `Your project "${project.title}" has been approved by admin and is now available for community voting.`,
+        data: {
+          projectId: project._id,
+          projectTitle: project.title,
+        },
+        emailTemplate: EmailTemplatesService.getTemplate("project-approved", {
+          projectTitle: project.title,
+          projectId: project._id,
+        }),
+      },
+    );
+
+    console.log(`✅ Approval notifications sent for project: ${project.title}`);
+  } catch (error) {
+    console.error("Error sending project approval notifications:", error);
+    throw error;
+  }
+}
+
+/**
+ * Send notifications when a project is rejected by admin
+ */
+async function sendProjectRejectedNotifications(
+  project: any,
+  adminNote?: string,
+): Promise<void> {
+  try {
+    // 1. Notify the project creator
+    await NotificationService.notifyProjectCreator(
+      project._id,
+      project.title,
+      project.creator,
+      {
+        type: NotificationType.PROJECT_REJECTED,
+        title: "❌ Your project has been rejected",
+        message: `Your project "${project.title}" has been rejected by admin review.${adminNote ? ` Reason: ${adminNote}` : ""}`,
+        data: {
+          projectId: project._id,
+          projectTitle: project.title,
+          adminNote: adminNote,
+        },
+        emailTemplate: EmailTemplatesService.getTemplate("project-rejected", {
+          projectTitle: project.title,
+          projectId: project._id,
+          adminNote: adminNote,
+        }),
+      },
+    );
+
+    console.log(
+      `✅ Rejection notifications sent for project: ${project.title}`,
+    );
+  } catch (error) {
+    console.error("Error sending project rejection notifications:", error);
     throw error;
   }
 }

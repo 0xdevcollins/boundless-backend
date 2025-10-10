@@ -337,6 +337,9 @@ const ProjectSchema = new Schema<IProject>(
     approvedAt: {
       type: Date,
     },
+    // adminNote: {
+    //   type: String,
+    // },
     summary: { type: String },
     type: {
       type: String,

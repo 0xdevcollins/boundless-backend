@@ -41,6 +41,7 @@ export interface IUser extends Document {
   otp?: string;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
+  invitationToken?: string;
   profile: {
     firstName: string;
     lastName: string;
@@ -108,6 +109,7 @@ const userSchema = new Schema<IUser>(
     otp: { type: String },
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Date },
+    invitationToken: { type: String },
     profile: {
       firstName: { type: String, required: true },
       lastName: { type: String, required: true },

@@ -22,6 +22,10 @@ export class EmailTemplatesService {
       "password-reset": () => this.getPasswordResetTemplate(data),
       "email-verification": () => this.getEmailVerificationTemplate(data),
       "otp-verification": () => this.getOtpVerificationTemplate(data),
+      "team-invitation-existing-user": () =>
+        this.getTeamInvitationExistingUserTemplate(data),
+      "team-invitation-new-user": () =>
+        this.getTeamInvitationNewUserTemplate(data),
     };
 
     const templateFunction = templates[templateType];
@@ -543,6 +547,157 @@ export class EmailTemplatesService {
       subject: `🔐 Your verification code for Boundless`,
       priority: "high",
       html: EmailTemplateUtils.generateOtpEmail(otpCode, recipientName),
+    };
+  }
+
+  /**
+   * Team Invitation - Existing User Template
+   */
+  private static getTeamInvitationExistingUserTemplate(
+    data: any,
+  ): EmailTemplate {
+    const {
+      recipientName,
+      projectTitle,
+      projectId,
+      role,
+      inviterName,
+      invitationUrl,
+      projectUrl,
+      expiresAt,
+    } = data;
+
+    if (
+      !recipientName ||
+      !projectTitle ||
+      !role ||
+      !inviterName ||
+      !invitationUrl
+    ) {
+      throw new Error("Required data missing for team invitation email");
+    }
+
+    return {
+      subject: `🤝 You've been invited to join "${projectTitle}" team`,
+      priority: "high",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #2c3e50; margin-bottom: 10px;">🤝 Team Invitation</h1>
+            <p style="color: #7f8c8d; font-size: 16px;">You've been invited to join a project team on Boundless</p>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h2 style="color: #2c3e50; margin-bottom: 15px;">Project Details</h2>
+            <p style="margin: 10px 0;"><strong>Project:</strong> ${projectTitle}</p>
+            <p style="margin: 10px 0;"><strong>Role:</strong> ${role}</p>
+            <p style="margin: 10px 0;"><strong>Invited by:</strong> ${inviterName}</p>
+            <p style="margin: 10px 0;"><strong>Expires:</strong> ${new Date(expiresAt).toLocaleDateString()}</p>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${invitationUrl}" 
+               style="background: #3498db; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+              Accept Invitation
+            </a>
+          </div>
+
+          <div style="text-align: center; margin: 20px 0;">
+            <a href="${projectUrl}" 
+               style="color: #3498db; text-decoration: none;">
+              View Project Details
+            </a>
+          </div>
+
+          <div style="background: #e8f4f8; padding: 15px; border-radius: 5px; margin-top: 20px;">
+            <p style="margin: 0; color: #2c3e50; font-size: 14px;">
+              <strong>Note:</strong> This invitation will expire on ${new Date(expiresAt).toLocaleDateString()}. 
+              If you don't want to join this project, you can simply ignore this email.
+            </p>
+          </div>
+        </div>
+      `,
+    };
+  }
+
+  /**
+   * Team Invitation - New User Template
+   */
+  private static getTeamInvitationNewUserTemplate(data: any): EmailTemplate {
+    const {
+      recipientName,
+      projectTitle,
+      projectId,
+      role,
+      inviterName,
+      registrationUrl,
+      invitationUrl,
+      projectUrl,
+      expiresAt,
+    } = data;
+
+    if (
+      !recipientName ||
+      !projectTitle ||
+      !role ||
+      !inviterName ||
+      !registrationUrl
+    ) {
+      throw new Error("Required data missing for team invitation email");
+    }
+
+    return {
+      subject: `🤝 You've been invited to join "${projectTitle}" team - Create your account`,
+      priority: "high",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #2c3e50; margin-bottom: 10px;">🤝 Team Invitation</h1>
+            <p style="color: #7f8c8d; font-size: 16px;">You've been invited to join a project team on Boundless</p>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h2 style="color: #2c3e50; margin-bottom: 15px;">Project Details</h2>
+            <p style="margin: 10px 0;"><strong>Project:</strong> ${projectTitle}</p>
+            <p style="margin: 10px 0;"><strong>Role:</strong> ${role}</p>
+            <p style="margin: 10px 0;"><strong>Invited by:</strong> ${inviterName}</p>
+            <p style="margin: 10px 0;"><strong>Expires:</strong> ${new Date(expiresAt).toLocaleDateString()}</p>
+          </div>
+
+          <div style="background: #e8f5e8; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="color: #27ae60; margin-bottom: 10px;">🚀 Get Started</h3>
+            <p style="margin: 10px 0; color: #2c3e50;">
+              To join this project team, you'll need to create a Boundless account first. 
+              It's quick and free!
+            </p>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${registrationUrl}" 
+               style="background: #27ae60; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block; margin-right: 10px;">
+              Create Account & Join
+            </a>
+            <a href="${invitationUrl}" 
+               style="background: #3498db; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+              View Invitation
+            </a>
+          </div>
+
+          <div style="text-align: center; margin: 20px 0;">
+            <a href="${projectUrl}" 
+               style="color: #3498db; text-decoration: none;">
+              View Project Details
+            </a>
+          </div>
+
+          <div style="background: #e8f4f8; padding: 15px; border-radius: 5px; margin-top: 20px;">
+            <p style="margin: 0; color: #2c3e50; font-size: 14px;">
+              <strong>Note:</strong> This invitation will expire on ${new Date(expiresAt).toLocaleDateString()}. 
+              If you don't want to join this project, you can simply ignore this email.
+            </p>
+          </div>
+        </div>
+      `,
     };
   }
 }
