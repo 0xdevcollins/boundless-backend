@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node --no-deprecation ./node_modules/.bin/ts-node src/server.ts",
     "dev": "nodemon --exec \"node --no-deprecation ./node_modules/.bin/ts-node\" src/server.ts",
-    "build": "tsc",
+    "build": "tsc && mkdir -p dist/templates && cp src/templates/*.html dist/templates/",
     "test": "jest",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
@@ -16,6 +16,8 @@
     "test:trustless-work": "ts-node scripts/run-trustless-tests.ts",
     "test:email": "ts-node test-email.ts",
     "seed:blog": "ts-node src/seed-blog.ts",
+    "seed:waitlist": "ts-node src/seed-waitlist.ts",
+    "test:waitlist": "ts-node src/test-waitlist-seed.ts",
     "migrate:comments-posted": "ts-node src/migrations/add-comments-posted-field.ts"
   },
   "keywords": [],
