@@ -25,6 +25,27 @@ import {
 import { CROWDFUNDING_STAKEHOLDERS } from "../constants/stakeholders.constants";
 import { TeamInvitationService } from "../services/team-invitation.service";
 
+// Helper function to populate user data for projects
+const populateProjectUserData = (query: any) => {
+  return query
+    .populate(
+      "creator",
+      "profile.firstName profile.lastName profile.username profile.avatar email",
+    )
+    .populate(
+      "team.userId",
+      "profile.firstName profile.lastName profile.username profile.avatar email",
+    )
+    .populate(
+      "funding.contributors.user",
+      "profile.firstName profile.lastName profile.username profile.avatar email",
+    )
+    .populate(
+      "voting.voters.userId",
+      "profile.firstName profile.lastName profile.username profile.avatar email",
+    );
+};
+
 /**
  * @desc    Step 1: Prepare crowdfunding project and create escrow (returns unsigned XDR)
  * @route   POST /api/crowdfunding/projects/prepare
@@ -431,11 +452,8 @@ export const confirmCrowdfundingProject = async (
 
     await session.commitTransaction();
 
-    // Populate the project with creator info
-    await project.populate(
-      "creator",
-      "profile.firstName profile.lastName profile.username",
-    );
+    // Populate the project with all user data
+    await populateProjectUserData(project);
 
     // Send team invitations after successful creation
     const invitationResults = [];
@@ -535,15 +553,7 @@ export const getCrowdfundingProjects = async (
       filter.status = status;
     }
 
-    const projects = await Project.find(filter)
-      .populate(
-        "creator",
-        "profile.firstName profile.lastName profile.username",
-      )
-      .populate(
-        "team.userId",
-        "profile.firstName profile.lastName profile.username",
-      )
+    const projects = await populateProjectUserData(Project.find(filter))
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(Number(limit));
@@ -585,18 +595,12 @@ export const getCrowdfundingProject = async (
       return;
     }
 
-    const project = await Project.findOne({
-      _id: id,
-      type: ProjectType.CROWDFUND,
-    })
-      .populate(
-        "creator",
-        "profile.firstName profile.lastName profile.username",
-      )
-      .populate(
-        "team.userId",
-        "profile.firstName profile.lastName profile.username",
-      );
+    const project = await populateProjectUserData(
+      Project.findOne({
+        _id: id,
+        type: ProjectType.CROWDFUND,
+      }),
+    );
 
     if (!project) {
       sendBadRequest(res, "Crowdfunding project not found");
@@ -666,13 +670,12 @@ export const updateCrowdfundingProject = async (
     }
 
     // Update the project
-    const updatedProject = await Project.findByIdAndUpdate(
-      id,
-      { ...updateData, updatedAt: new Date() },
-      { new: true, runValidators: true },
-    ).populate(
-      "creator",
-      "profile.firstName profile.lastName profile.username",
+    const updatedProject = await populateProjectUserData(
+      Project.findByIdAndUpdate(
+        id,
+        { ...updateData, updatedAt: new Date() },
+        { new: true, runValidators: true },
+      ),
     );
 
     // Send notifications after successful update
@@ -1038,15 +1041,7 @@ export const confirmCrowdfundingProjectFunding = async (
     await session.commitTransaction();
 
     // Get updated project
-    const updatedProject = await Project.findById(id)
-      .populate(
-        "creator",
-        "profile.firstName profile.lastName profile.username",
-      )
-      .populate(
-        "funding.contributors.user",
-        "profile.firstName profile.lastName",
-      );
+    const updatedProject = await populateProjectUserData(Project.findById(id));
 
     // Send notifications
     try {
@@ -1314,6 +1309,9 @@ export const adminReviewCrowdfundingProject = async (
       await project.save({ session });
       await crowdfund.save({ session });
 
+      // Populate project data before sending response
+      await populateProjectUserData(project);
+
       // Send approval notifications
       try {
         await sendProjectApprovedNotifications(project);
@@ -1347,6 +1345,9 @@ export const adminReviewCrowdfundingProject = async (
 
       await project.save({ session });
       await crowdfund.save({ session });
+
+      // Populate project data before sending response
+      await populateProjectUserData(project);
 
       // Send rejection notifications
       try {
