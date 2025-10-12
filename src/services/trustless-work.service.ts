@@ -98,7 +98,7 @@ export interface TrustlessWorkEscrowRequest {
   platformFee: number;
   trustline: {
     address: string;
-    decimals: number;
+    decimals?: number;
   };
   receiverMemo?: number;
   milestones?: TrustlessWorkMilestone[];

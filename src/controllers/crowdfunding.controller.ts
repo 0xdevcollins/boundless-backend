@@ -278,7 +278,6 @@ export const prepareCrowdfundingProject = async (
           address:
             process.env.USDC_TOKEN_ADDRESS ||
             "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
-          decimals: 10000000,
         },
         milestones: mappedMilestones.map((milestone) => ({
           description: milestone.description,
