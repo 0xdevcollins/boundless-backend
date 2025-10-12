@@ -132,19 +132,51 @@ export const voteOnProject = async (
       netVotes: upvotes - downvotes,
     };
 
-    // Update project votes field
-    await Project.findByIdAndUpdate(
-      projectId,
-      {
-        votes: voteData.netVotes,
-        $set: {
-          "voting.totalVotes": voteData.totalVotes,
-          "voting.positiveVotes": voteData.upvotes,
-          "voting.negativeVotes": voteData.downvotes,
+    // Prepare voter data for the voters array
+    const voterData = {
+      userId: userId,
+      vote: value === 1 ? "positive" : "negative",
+      votedAt: new Date(),
+    };
+
+    // Update project votes field and voters array
+    if (existingVote) {
+      // Update existing vote in voters array
+      await Project.findByIdAndUpdate(
+        projectId,
+        {
+          votes: voteData.netVotes,
+          $set: {
+            "voting.totalVotes": voteData.totalVotes,
+            "voting.positiveVotes": voteData.upvotes,
+            "voting.negativeVotes": voteData.downvotes,
+            "voting.voters.$[elem].vote": voterData.vote,
+            "voting.voters.$[elem].votedAt": voterData.votedAt,
+          },
         },
-      },
-      { session },
-    );
+        {
+          session,
+          arrayFilters: [{ "elem.userId": userId }],
+        },
+      );
+    } else {
+      // Add new voter to voters array
+      await Project.findByIdAndUpdate(
+        projectId,
+        {
+          votes: voteData.netVotes,
+          $set: {
+            "voting.totalVotes": voteData.totalVotes,
+            "voting.positiveVotes": voteData.upvotes,
+            "voting.negativeVotes": voteData.downvotes,
+          },
+          $push: {
+            "voting.voters": voterData,
+          },
+        },
+        { session },
+      );
+    }
 
     // Update crowdfund total votes if it's a crowdfund project
     const crowdfund = await Crowdfund.findOne({ projectId }).session(session);
@@ -425,7 +457,7 @@ export const removeVote = async (
       netVotes: 0,
     };
 
-    // Update project votes field
+    // Update project votes field and remove voter from voters array
     await Project.findByIdAndUpdate(
       projectId,
       {
@@ -434,6 +466,9 @@ export const removeVote = async (
           "voting.totalVotes": voteData.totalVotes,
           "voting.positiveVotes": voteData.upvotes,
           "voting.negativeVotes": voteData.downvotes,
+        },
+        $pull: {
+          "voting.voters": { userId: userId },
         },
       },
       { session },
