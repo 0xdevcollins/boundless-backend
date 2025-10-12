@@ -520,8 +520,8 @@ async function checkAndUpdateProjectStatus(projectId: string): Promise<void> {
       return;
     }
 
-    // Only check projects in idea status
-    if (project.status !== ProjectStatus.IDEA) {
+    // Only check projects in validated status (ready for voting)
+    if (project.status !== ProjectStatus.VALIDATED) {
       await session.abortTransaction();
       return;
     }
@@ -557,15 +557,13 @@ async function checkAndUpdateProjectStatus(projectId: string): Promise<void> {
       const positiveRatio = voteData.upvotes / voteData.totalVotes;
 
       if (positiveRatio >= 0.6) {
-        // Move to validated status (automatic approval after community voting)
-        project.status = ProjectStatus.VALIDATED;
+        // Move to campaigning status (ready for campaign setup)
+        project.status = ProjectStatus.CAMPAIGNING;
         await project.save({ session });
 
-        crowdfund.status = CrowdfundStatus.VALIDATED;
-        await crowdfund.save({ session });
-
+        // No need to update crowdfund status as campaign takes over
         console.log(
-          `Project ${projectId} moved to validated status due to vote threshold`,
+          `Project ${projectId} moved to campaigning status due to vote threshold`,
         );
       } else if (positiveRatio < 0.4) {
         // Reject if too many negative votes

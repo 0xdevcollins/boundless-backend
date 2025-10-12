@@ -3,21 +3,13 @@ import mongoose, { Schema, Types, type Document } from "mongoose";
 export enum ProjectStatus {
   IDEA = "idea",
   REVIEWING = "reviewing",
-  REJECTED = "rejected",
   VALIDATED = "validated",
+  REJECTED = "rejected",
   CAMPAIGNING = "campaigning",
   LIVE = "live",
   COMPLETED = "completed",
-  // Keep existing statuses for backward compatibility
-  DRAFT = "DRAFT",
-  AWAITING_BOUNDLESS_VERIFICATION = "AWAITING_BOUNDLESS_VERIFICATION",
-  PENDING_DEPLOYMENT = "PENDING_DEPLOYMENT",
-  VOTING = "VOTING",
-  FUNDING = "FUNDING",
-  FUNDED = "FUNDED",
-  CANCELLED = "CANCELLED",
-  PAUSED = "PAUSED",
-  REFUND_PENDING = "REFUND_PENDING",
+  FAILED = "failed",
+  CANCELLED = "cancelled",
 }
 
 export enum ProjectType {
@@ -208,7 +200,7 @@ const ProjectSchema = new Schema<IProject>(
     status: {
       type: String,
       enum: Object.values(ProjectStatus),
-      default: ProjectStatus.DRAFT,
+      default: ProjectStatus.IDEA,
     },
     creator: { type: Schema.Types.ObjectId, ref: "User", required: true }, // ✅ Added creator field
     owner: {

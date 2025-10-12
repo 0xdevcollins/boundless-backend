@@ -324,13 +324,10 @@ export class ProjectIdeaService {
         try {
           // Check if threshold was met
           if (crowdfund.totalVotes >= crowdfund.thresholdVotes) {
-            // Move to under review
-            crowdfund.status = CrowdfundStatus.UNDER_REVIEW;
-            await crowdfund.save({ session });
-
+            // Move to campaigning (ready for campaign setup)
             await Project.findByIdAndUpdate(
               crowdfund.projectId,
-              { status: ProjectStatus.REVIEWING },
+              { status: ProjectStatus.CAMPAIGNING },
               { session },
             );
           } else {

@@ -44,7 +44,7 @@ export class ProjectStatusService {
 
     try {
       const projectsToCheck = await Project.find({
-        status: ProjectStatus.IDEA,
+        status: ProjectStatus.VALIDATED,
         type: ProjectType.CROWDFUND,
       }).lean();
 
@@ -107,7 +107,7 @@ export class ProjectStatusService {
         voteData.totalVotes > 0 ? voteData.upvotes / voteData.totalVotes : 0;
 
       const project = await Project.findById(projectId).session(session);
-      if (!project || project.status !== ProjectStatus.IDEA) {
+      if (!project || project.status !== ProjectStatus.VALIDATED) {
         return null;
       }
 
@@ -121,8 +121,8 @@ export class ProjectStatusService {
       let reason: string;
 
       if (positiveRatio >= config.positiveVoteRatio) {
-        newStatus = ProjectStatus.REVIEWING;
-        newCrowdfundStatus = CrowdfundStatus.UNDER_REVIEW;
+        newStatus = ProjectStatus.CAMPAIGNING;
+        newCrowdfundStatus = CrowdfundStatus.VALIDATED; // Keep crowdfund as validated
         reason = `Reached vote threshold with ${(positiveRatio * 100).toFixed(1)}% positive votes`;
       } else if (positiveRatio <= config.negativeVoteRatio) {
         newStatus = ProjectStatus.REJECTED;
@@ -139,7 +139,6 @@ export class ProjectStatusService {
       crowdfund.status = newCrowdfundStatus;
       if (newStatus === ProjectStatus.REJECTED) {
         crowdfund.rejectedReason = reason;
-      } else if (newStatus === ProjectStatus.REVIEWING) {
       }
       await crowdfund.save({ session });
 
@@ -186,7 +185,7 @@ export class ProjectStatusService {
 
         try {
           const project = crowdfund.projectId as any;
-          if (!project || project.status !== ProjectStatus.IDEA) {
+          if (!project || project.status !== ProjectStatus.VALIDATED) {
             await session.abortTransaction();
             continue;
           }
@@ -207,8 +206,8 @@ export class ProjectStatusService {
             const positiveRatio = voteData.upvotes / voteData.totalVotes;
 
             if (positiveRatio >= config.positiveVoteRatio) {
-              newStatus = ProjectStatus.REVIEWING;
-              newCrowdfundStatus = CrowdfundStatus.UNDER_REVIEW;
+              newStatus = ProjectStatus.CAMPAIGNING;
+              newCrowdfundStatus = CrowdfundStatus.VALIDATED; // Keep as validated
               reason = `Voting deadline expired with sufficient positive votes (${(positiveRatio * 100).toFixed(1)}%)`;
             } else {
               newStatus = ProjectStatus.REJECTED;
@@ -300,9 +299,6 @@ export class ProjectStatusService {
 
       if (crowdfund) {
         switch (newStatus) {
-          case ProjectStatus.REVIEWING:
-            crowdfund.status = CrowdfundStatus.UNDER_REVIEW;
-            break;
           case ProjectStatus.VALIDATED:
             crowdfund.status = CrowdfundStatus.VALIDATED;
             crowdfund.validatedAt = new Date();
@@ -312,6 +308,9 @@ export class ProjectStatusService {
             if (reason) {
               crowdfund.rejectedReason = reason;
             }
+            break;
+          case ProjectStatus.CAMPAIGNING:
+            // Campaign takes over, no crowdfund status change needed
             break;
         }
         await crowdfund.save({ session });
@@ -491,43 +490,13 @@ export class ProjectStatusService {
           subject: "Your project has been completed",
           message: "Congratulations! Your project has been completed.",
         },
-        [ProjectStatus.PAUSED]: {
-          subject: "Your project has been paused",
-          message: "Your project is currently paused.",
+        [ProjectStatus.FAILED]: {
+          subject: "Your project has failed",
+          message: "Unfortunately, your project has failed to reach its goals.",
         },
         [ProjectStatus.CANCELLED]: {
           subject: "Your project has been cancelled",
           message: "Your project has been cancelled.",
-        },
-        [ProjectStatus.DRAFT]: {
-          subject: "Your project is in draft",
-          message: "Your project is currently in draft status.",
-        },
-        [ProjectStatus.AWAITING_BOUNDLESS_VERIFICATION]: {
-          subject: "Awaiting Boundless Verification",
-          message:
-            "Your project is awaiting verification by the Boundless team.",
-        },
-        [ProjectStatus.PENDING_DEPLOYMENT]: {
-          subject: "Pending Deployment",
-          message: "Your project is pending deployment.",
-        },
-        [ProjectStatus.VOTING]: {
-          subject: "Voting in Progress",
-          message: "Your project is currently in the voting phase.",
-        },
-        [ProjectStatus.FUNDING]: {
-          subject: "Funding in Progress",
-          message: "Your project is currently in the funding phase.",
-        },
-        [ProjectStatus.FUNDED]: {
-          subject: "Project Funded",
-          message:
-            "Congratulations! Your project has been successfully funded.",
-        },
-        [ProjectStatus.REFUND_PENDING]: {
-          subject: "Refund Pending",
-          message: "Your project is pending refunds to contributors.",
         },
       };
 

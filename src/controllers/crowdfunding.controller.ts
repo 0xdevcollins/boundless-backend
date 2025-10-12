@@ -522,7 +522,7 @@ export const getCrowdfundingProjects = async (
           ProjectStatus.VALIDATED,
           ProjectStatus.CAMPAIGNING,
           ProjectStatus.LIVE,
-          ProjectStatus.FUNDED,
+          ProjectStatus.COMPLETED,
           ProjectStatus.COMPLETED,
         ],
       },
@@ -661,7 +661,7 @@ export const updateCrowdfundingProject = async (
     }
 
     // Only allow updates if project is in draft or idea status
-    if (![ProjectStatus.DRAFT, ProjectStatus.IDEA].includes(project.status)) {
+    if (project.status !== ProjectStatus.IDEA) {
       sendBadRequest(res, "Project cannot be updated in current status");
       return;
     }
@@ -745,7 +745,7 @@ export const deleteCrowdfundingProject = async (
     }
 
     // Only allow deletion if project is in draft or idea status
-    if (![ProjectStatus.DRAFT, ProjectStatus.IDEA].includes(project.status)) {
+    if (project.status !== ProjectStatus.IDEA) {
       sendBadRequest(res, "Project cannot be deleted in current status");
       return;
     }
@@ -1017,7 +1017,7 @@ export const confirmCrowdfundingProjectFunding = async (
       {
         $inc: { "funding.raised": amount },
         $push: { "funding.contributors": contributor },
-        ...(isFullyFunded && { status: ProjectStatus.FUNDED }),
+        ...(isFullyFunded && { status: ProjectStatus.COMPLETED }),
       },
       { session },
     );
@@ -1301,15 +1301,15 @@ export const adminReviewCrowdfundingProject = async (
     }
 
     if (action === "approve") {
-      // Approve the project - move to IDEA status for community voting
-      project.status = ProjectStatus.IDEA;
+      // Approve the project - move to VALIDATED status for community voting
+      project.status = ProjectStatus.VALIDATED;
       project.approvedBy = adminId as any;
       project.approvedAt = new Date();
       if (adminNote) {
         (project as any).adminNote = adminNote;
       }
 
-      crowdfund.status = CrowdfundStatus.PENDING;
+      crowdfund.status = CrowdfundStatus.VALIDATED;
       crowdfund.voteDeadline = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days from approval
 
       await project.save({ session });

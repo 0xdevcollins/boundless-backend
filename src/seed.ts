@@ -169,7 +169,7 @@ const seedDatabase = async () => {
       description:
         "A blockchain-based social network that gives users control over their data",
       category: "Social Media",
-      status: ProjectStatus.FUNDING,
+      status: ProjectStatus.LIVE,
       owner: {
         type: creatorUser._id,
         ref: "User",
@@ -247,7 +247,7 @@ const seedDatabase = async () => {
       description:
         "A decentralized marketplace for digital art and collectibles",
       category: "NFT",
-      status: ProjectStatus.DRAFT,
+      status: ProjectStatus.IDEA,
       owner: {
         type: creatorUser._id,
         ref: "User",
@@ -444,7 +444,7 @@ const seedDatabase = async () => {
       title: "Open Source Grant Program",
       description: "Funding open source blockchain projects.",
       category: "Grant",
-      status: ProjectStatus.FUNDING,
+      status: ProjectStatus.LIVE,
       owner: {
         type: grantCreatorUser._id,
         ref: "User",

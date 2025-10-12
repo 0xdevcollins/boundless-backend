@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import mongoose from "mongoose";
 import Campaign from "../models/campaign.model";
 import Milestone from "../models/milestone.model";
-import Project from "../models/project.model";
+import Project, { ProjectStatus } from "../models/project.model";
 import { UserRole } from "../models/user.model";
 import Funding from "../models/funding.model";
 import {
@@ -99,9 +99,9 @@ export const createCampaign = async (req: Request, res: Response) => {
       res.status(404).json({ message: "Project not found." });
       return;
     }
-    if (project.status !== "validated") {
+    if (project.status !== ProjectStatus.CAMPAIGNING) {
       res.status(400).json({
-        message: "Project must be validated before launching a campaign.",
+        message: "Project must be in campaigning status to create a campaign.",
       });
       return;
     }
