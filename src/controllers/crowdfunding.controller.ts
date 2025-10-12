@@ -964,8 +964,13 @@ export const fundCrowdfundingProject = async (
     let fundingTx: any;
     try {
       const trustlessWorkService = createTrustlessWorkService();
+
+      // Get milestone information from project
+      const projectMilestones =
+        project.escrowDetails?.milestones || project.milestones || [];
+
       const fundRequest = {
-        contractId: contractId,
+        contractId: "CAZDHI27FJYDBCCO73JV4PW2HARRCQ2K3EP2IYV7NXF7N3B2X6DS6MNM",
         signer: signer.trim(),
         amount: amount,
       };
