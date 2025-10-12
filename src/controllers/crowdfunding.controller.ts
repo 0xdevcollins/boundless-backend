@@ -24,6 +24,7 @@ import {
 } from "../services/trustless-work.service";
 import { CROWDFUNDING_STAKEHOLDERS } from "../constants/stakeholders.constants";
 import { TeamInvitationService } from "../services/team-invitation.service";
+import Vote from "../models/vote.model";
 
 // Helper function to populate user data for projects
 const populateProjectUserData = (query: any) => {
@@ -44,6 +45,37 @@ const populateProjectUserData = (query: any) => {
       "voting.voters.userId",
       "profile.firstName profile.lastName profile.username profile.avatar email",
     );
+};
+
+// Helper function to populate voting data with actual votes from Vote collection
+const populateVotingData = async (project: any): Promise<any> => {
+  if (!project || !project._id) return project;
+
+  try {
+    // Get all votes for this project from the Vote collection
+    const votes = await Vote.find({ projectId: project._id })
+      .populate(
+        "userId",
+        "profile.firstName profile.lastName profile.username profile.avatar email",
+      )
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Transform votes to match the expected voters array format
+    const voters = votes.map((vote: any) => ({
+      userId: vote.userId,
+      vote: vote.value === 1 ? "positive" : "negative",
+      votedAt: vote.createdAt,
+    }));
+
+    // Update the project's voting.voters array with actual vote data
+    project.voting.voters = voters;
+
+    return project;
+  } catch (error) {
+    console.error("Error populating voting data:", error);
+    return project;
+  }
 };
 
 /**
@@ -348,6 +380,7 @@ export const confirmCrowdfundingProject = async (
 ): Promise<void> => {
   const session = await mongoose.startSession();
   session.startTransaction();
+  let transactionCommitted = false;
 
   try {
     const {
@@ -451,9 +484,32 @@ export const confirmCrowdfundingProject = async (
     );
 
     await session.commitTransaction();
+    transactionCommitted = true;
 
     // Populate the project with all user data
-    await populateProjectUserData(project);
+    await project.populate([
+      {
+        path: "creator",
+        select:
+          "profile.firstName profile.lastName profile.username profile.avatar email",
+      },
+      {
+        path: "team.userId",
+        select:
+          "profile.firstName profile.lastName profile.username profile.avatar email",
+      },
+      {
+        path: "funding.contributors.user",
+        select:
+          "profile.firstName profile.lastName profile.username profile.avatar email",
+      },
+      {
+        path: "voting.voters.userId",
+        select:
+          "profile.firstName profile.lastName profile.username profile.avatar email",
+      },
+    ]);
+    await populateVotingData(project);
 
     // Send team invitations after successful creation
     const invitationResults = [];
@@ -509,7 +565,9 @@ export const confirmCrowdfundingProject = async (
       "Crowdfunding project created successfully. Team invitations sent.",
     );
   } catch (error) {
-    await session.abortTransaction();
+    if (!transactionCommitted) {
+      await session.abortTransaction();
+    }
     console.error("Error confirming crowdfunding project:", error);
     sendInternalServerError(res, "Failed to confirm crowdfunding project");
   } finally {
@@ -558,12 +616,19 @@ export const getCrowdfundingProjects = async (
       .skip(skip)
       .limit(Number(limit));
 
+    // Populate voting data for each project
+    const projectsWithVotingData = [];
+    for (const project of projects) {
+      const projectWithVotingData = await populateVotingData(project);
+      projectsWithVotingData.push(projectWithVotingData);
+    }
+
     const total = await Project.countDocuments(filter);
 
     sendSuccess(
       res,
       {
-        projects,
+        projects: projectsWithVotingData,
         pagination: {
           current: Number(page),
           pages: Math.ceil(total / Number(limit)),
@@ -607,13 +672,16 @@ export const getCrowdfundingProject = async (
       return;
     }
 
+    // Populate voting data with actual votes
+    const projectWithVotingData = await populateVotingData(project);
+
     // Get associated crowdfund data
     const crowdfund = await Crowdfund.findOne({ projectId: id });
 
     sendSuccess(
       res,
       {
-        project,
+        project: projectWithVotingData,
         crowdfund,
       },
       "Crowdfunding project retrieved successfully",
@@ -678,6 +746,9 @@ export const updateCrowdfundingProject = async (
       ),
     );
 
+    // Populate voting data with actual votes
+    const projectWithVotingData = await populateVotingData(updatedProject);
+
     // Send notifications after successful update
     try {
       const changes = Object.keys(updateData).filter(
@@ -695,7 +766,7 @@ export const updateCrowdfundingProject = async (
     sendSuccess(
       res,
       {
-        project: updatedProject,
+        project: projectWithVotingData,
       },
       "Crowdfunding project updated successfully",
     );
@@ -716,6 +787,7 @@ export const deleteCrowdfundingProject = async (
 ): Promise<void> => {
   const session = await mongoose.startSession();
   session.startTransaction();
+  let transactionCommitted = false;
 
   try {
     const { id } = req.params;
@@ -766,6 +838,7 @@ export const deleteCrowdfundingProject = async (
     );
 
     await session.commitTransaction();
+    transactionCommitted = true;
 
     // Send notifications after successful deletion
     try {
@@ -780,7 +853,9 @@ export const deleteCrowdfundingProject = async (
 
     sendSuccess(res, null, "Crowdfunding project deleted successfully");
   } catch (error) {
-    await session.abortTransaction();
+    if (!transactionCommitted) {
+      await session.abortTransaction();
+    }
     console.error("Error deleting crowdfunding project:", error);
     sendInternalServerError(res, "Failed to delete crowdfunding project");
   } finally {
@@ -939,6 +1014,7 @@ export const confirmCrowdfundingProjectFunding = async (
 ): Promise<void> => {
   const session = await mongoose.startSession();
   session.startTransaction();
+  let transactionCommitted = false;
 
   try {
     const { id } = req.params;
@@ -1039,9 +1115,13 @@ export const confirmCrowdfundingProjectFunding = async (
     );
 
     await session.commitTransaction();
+    transactionCommitted = true;
 
     // Get updated project
     const updatedProject = await populateProjectUserData(Project.findById(id));
+
+    // Populate voting data with actual votes
+    const projectWithVotingData = await populateVotingData(updatedProject);
 
     // Send notifications
     try {
@@ -1055,7 +1135,7 @@ export const confirmCrowdfundingProjectFunding = async (
       res,
       {
         tx,
-        project: updatedProject,
+        project: projectWithVotingData,
         funding: {
           amount: amount,
           transactionHash: transactionHash,
@@ -1067,7 +1147,9 @@ export const confirmCrowdfundingProjectFunding = async (
       `Successfully funded project with $${amount}. ${isFullyFunded ? "Project is now fully funded!" : ""}`,
     );
   } catch (error) {
-    await session.abortTransaction();
+    if (!transactionCommitted) {
+      await session.abortTransaction();
+    }
     console.error("Error confirming crowdfunding project funding:", error);
     sendInternalServerError(res, "Failed to confirm project funding");
   } finally {
@@ -1244,6 +1326,7 @@ export const adminReviewCrowdfundingProject = async (
 ): Promise<void> => {
   const session = await mongoose.startSession();
   session.startTransaction();
+  let transactionCommitted = false;
 
   try {
     const { id } = req.params;
@@ -1310,7 +1393,29 @@ export const adminReviewCrowdfundingProject = async (
       await crowdfund.save({ session });
 
       // Populate project data before sending response
-      await populateProjectUserData(project);
+      await project.populate([
+        {
+          path: "creator",
+          select:
+            "profile.firstName profile.lastName profile.username profile.avatar email",
+        },
+        {
+          path: "team.userId",
+          select:
+            "profile.firstName profile.lastName profile.username profile.avatar email",
+        },
+        {
+          path: "funding.contributors.user",
+          select:
+            "profile.firstName profile.lastName profile.username profile.avatar email",
+        },
+        {
+          path: "voting.voters.userId",
+          select:
+            "profile.firstName profile.lastName profile.username profile.avatar email",
+        },
+      ]);
+      await populateVotingData(project);
 
       // Send approval notifications
       try {
@@ -1347,7 +1452,29 @@ export const adminReviewCrowdfundingProject = async (
       await crowdfund.save({ session });
 
       // Populate project data before sending response
-      await populateProjectUserData(project);
+      await project.populate([
+        {
+          path: "creator",
+          select:
+            "profile.firstName profile.lastName profile.username profile.avatar email",
+        },
+        {
+          path: "team.userId",
+          select:
+            "profile.firstName profile.lastName profile.username profile.avatar email",
+        },
+        {
+          path: "funding.contributors.user",
+          select:
+            "profile.firstName profile.lastName profile.username profile.avatar email",
+        },
+        {
+          path: "voting.voters.userId",
+          select:
+            "profile.firstName profile.lastName profile.username profile.avatar email",
+        },
+      ]);
+      await populateVotingData(project);
 
       // Send rejection notifications
       try {
@@ -1371,8 +1498,11 @@ export const adminReviewCrowdfundingProject = async (
     }
 
     await session.commitTransaction();
+    transactionCommitted = true;
   } catch (error) {
-    await session.abortTransaction();
+    if (!transactionCommitted) {
+      await session.abortTransaction();
+    }
     console.error("Error in admin review:", error);
     sendInternalServerError(res, "Failed to process admin review");
   } finally {
