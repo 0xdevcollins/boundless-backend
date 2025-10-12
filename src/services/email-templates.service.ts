@@ -55,7 +55,7 @@ export class EmailTemplatesService {
             <h2 style="color: #2c3e50; margin-top: 0;">Project Details</h2>
             <p><strong>Project Name:</strong> {{projectTitle}}</p>
             <p><strong>Status:</strong> Idea Stage</p>
-            <p><strong>Funding Goal:</strong> $${fundingAmountVar}</p>
+            <p><strong>Funding Goal:</strong> ${fundingAmountVar}</p>
           </div>
           
           <div style="background: #e8f5e8; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
