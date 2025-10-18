@@ -291,7 +291,7 @@ export class ProjectIdeaService {
       const totalPages = Math.ceil(totalCount / limit);
 
       return {
-        projects,
+        projects: projects as unknown as IProject[],
         pagination: {
           currentPage: page,
           totalPages,
@@ -388,7 +388,7 @@ export class ProjectIdeaService {
         .limit(limit)
         .lean();
 
-      return trendingProjects;
+      return trendingProjects as unknown as IProject[];
     } catch (error) {
       console.error("Error getting trending projects:", error);
       throw error;
@@ -495,7 +495,7 @@ export class ProjectIdeaService {
       const searchTime = Date.now() - startTime;
 
       return {
-        projects,
+        projects: projects as unknown as IProject[],
         pagination: {
           currentPage: page,
           totalPages,
