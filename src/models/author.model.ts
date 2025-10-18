@@ -71,7 +71,6 @@ const AuthorSchema = new Schema<IAuthor>(
 );
 
 // Indexes
-AuthorSchema.index({ email: 1 });
 AuthorSchema.index({ isActive: 1 });
 
 export default mongoose.model<IAuthor>("Author", AuthorSchema);

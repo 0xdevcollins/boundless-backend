@@ -54,7 +54,6 @@ const TagSchema = new Schema<ITag>(
 );
 
 // Indexes
-TagSchema.index({ slug: 1 });
 TagSchema.index({ isActive: 1 });
 TagSchema.index({ postCount: -1 });
 

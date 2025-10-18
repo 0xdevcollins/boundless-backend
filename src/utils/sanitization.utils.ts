@@ -1,14 +1,19 @@
-import DOMPurify from "isomorphic-dompurify";
-
 /**
  * Sanitize HTML content to prevent XSS attacks
+ * Removes all HTML tags and attributes, keeping only text content
  */
 export const sanitizeHtml = (content: string): string => {
-  return DOMPurify.sanitize(content, {
-    ALLOWED_TAGS: [], // No HTML tags allowed
-    ALLOWED_ATTR: [],
-    KEEP_CONTENT: true,
-  });
+  return content
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "") // Remove script tags
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "") // Remove iframe tags
+    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, "") // Remove object tags
+    .replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, "") // Remove embed tags
+    .replace(/<[^>]*>/g, "") // Remove all remaining HTML tags
+    .replace(/javascript:/gi, "") // Remove javascript: protocols
+    .replace(/on\w+\s*=/gi, "") // Remove event handlers
+    .replace(/data:/gi, "") // Remove data: protocols
+    .replace(/vbscript:/gi, "") // Remove vbscript: protocols
+    .trim();
 };
 
 /**
