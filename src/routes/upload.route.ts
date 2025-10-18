@@ -22,8 +22,8 @@ router.post("/single", protect, upload.single("file"), uploadSingle);
 router.post("/multiple", protect, upload.array("files", 10), uploadMultiple);
 
 // File management routes (require authentication)
-router.delete("/:publicId/:resourceType", protect, deleteFile);
-router.get("/info/:publicId/:resourceType", protect, getFileInfo);
+router.delete("/:publicId/:resourceType?", protect, deleteFile);
+router.get("/info/:publicId/:resourceType?", protect, getFileInfo);
 router.get("/search", protect, searchFiles);
 
 // URL generation routes (public access for optimization)
