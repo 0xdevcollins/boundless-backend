@@ -212,7 +212,7 @@ const router = Router();
  * @swagger
  * /api/crowdfunding/projects/prepare:
  *   post:
- *     summary: Step 1: Prepare crowdfunding project and create escrow
+ *     summary: "Step 1: Prepare crowdfunding project and create escrow"
  *     description: Validates project data and creates escrow, returns unsigned XDR for frontend to sign
  *     tags: [Crowdfunding]
  *     security:
@@ -268,7 +268,7 @@ router.post(
  * @swagger
  * /api/crowdfunding/projects/confirm:
  *   post:
- *     summary: Step 2: Submit signed transaction and create project
+ *     summary: "Step 2: Submit signed transaction and create project"
  *     description: Submits the signed transaction and creates the project in the database
  *     tags: [Crowdfunding]
  *     security:
@@ -572,7 +572,7 @@ router.delete("/projects/:id", protect, deleteCrowdfundingProject);
  * @swagger
  * /api/crowdfunding/projects/{id}/fund:
  *   post:
- *     summary: Fund a crowdfunding project (Step 1: Prepare funding transaction)
+ *     summary: "Fund a crowdfunding project (Step 1: Prepare funding transaction)"
  *     description: Prepares a funding transaction for a crowdfunding project and returns unsigned XDR
  *     tags: [Crowdfunding]
  *     security:
@@ -656,7 +656,7 @@ router.post("/projects/:id/fund", protect, fundCrowdfundingProject);
  * @swagger
  * /api/crowdfunding/projects/{id}/fund/confirm:
  *   post:
- *     summary: Confirm crowdfunding project funding (Step 2: Submit signed transaction)
+ *     summary: "Confirm crowdfunding project funding (Step 2: Submit signed transaction)"
  *     description: Submits the signed funding transaction and updates the project
  *     tags: [Crowdfunding]
  *     security:
