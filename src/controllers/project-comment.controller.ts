@@ -14,6 +14,7 @@ import {
 import { checkSpam } from "../utils/moderation.utils";
 import { retryTransaction } from "../utils/retry.utils";
 import { validateCommentContent } from "../utils/sanitization.utils";
+import { createCommentPostedActivity } from "../utils/activity.utils";
 
 /**
  * @desc    Add a comment to a project
@@ -157,6 +158,15 @@ export const addProjectComment = async (
         );
 
         await session.commitTransaction();
+
+        // Create activity for comment posting (outside transaction)
+        await createCommentPostedActivity(
+          userId,
+          new mongoose.Types.ObjectId(projectId),
+          comment._id,
+          req.ip,
+          req.get("User-Agent"),
+        );
 
         // Populate comment data for response
         await comment.populate([

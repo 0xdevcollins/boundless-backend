@@ -25,6 +25,10 @@ import {
 import { CROWDFUNDING_STAKEHOLDERS } from "../constants/stakeholders.constants";
 import { TeamInvitationService } from "../services/team-invitation.service";
 import Vote from "../models/vote.model";
+import {
+  createProjectFundedActivity,
+  createProjectCreatedActivity,
+} from "../utils/activity.utils";
 
 // Helper function to populate user data for projects
 const populateProjectUserData = (query: any) => {
@@ -485,6 +489,14 @@ export const confirmCrowdfundingProject = async (
 
     await session.commitTransaction();
     transactionCommitted = true;
+
+    // Create activity for project creation (outside transaction)
+    await createProjectCreatedActivity(
+      req.user._id,
+      project._id,
+      req.ip,
+      req.get("User-Agent"),
+    );
 
     // Populate the project with all user data
     await project.populate([
@@ -1121,6 +1133,16 @@ export const confirmCrowdfundingProjectFunding = async (
 
     await session.commitTransaction();
     transactionCommitted = true;
+
+    // Create activity for project funding (outside transaction)
+    await createProjectFundedActivity(
+      req.user._id,
+      new mongoose.Types.ObjectId(id),
+      amount,
+      transactionHash.trim(),
+      req.ip,
+      req.get("User-Agent"),
+    );
 
     // Get updated project
     const updatedProject = await populateProjectUserData(Project.findById(id));

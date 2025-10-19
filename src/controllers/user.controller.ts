@@ -19,6 +19,10 @@ import Badge from "../models/badge.model";
 import Follow from "../models/follow.model";
 import Organization from "../models/organization.model";
 import Comment from "../models/comment.model";
+import {
+  createProfileUpdatedActivity,
+  createLoginActivity,
+} from "../utils/activity.utils";
 
 // Extend the Express Request type to include our custom properties
 interface AuthenticatedRequest extends Request {
@@ -79,7 +83,7 @@ export const getUserProfile = async (
       .lean();
 
     // Get user's activities
-    const activities = await Activity.find({ "userId.type": userId })
+    const activities = await Activity.find({ userId: userId })
       .sort({ createdAt: -1 })
       .limit(10)
       .populate({
@@ -338,6 +342,13 @@ const getActivityEmoji = (activityType: string): string => {
     MILESTONE_CREATED: "🎯",
     MILESTONE_COMPLETED: "✅",
     MILESTONE_FUNDS_RELEASED: "💳",
+    COMMENT_POSTED: "💬",
+    COMMENT_LIKED: "👍",
+    COMMENT_DISLIKED: "👎",
+    USER_FOLLOWED: "👤",
+    USER_UNFOLLOWED: "👤",
+    ORGANIZATION_JOINED: "🏢",
+    ORGANIZATION_LEFT: "🏢",
   };
   return emojiMap[activityType] || "📝";
 };
@@ -404,6 +415,13 @@ export const updateUserProfile = async (
       },
       { new: true },
     ).select("-password");
+
+    // Create activity for profile update
+    await createProfileUpdatedActivity(
+      req.user._id,
+      req.ip,
+      req.get("User-Agent"),
+    );
 
     sendSuccess(res, updatedUser, "Profile updated successfully");
   } catch (error) {
