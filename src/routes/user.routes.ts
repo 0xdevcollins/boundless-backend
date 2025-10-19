@@ -2,6 +2,7 @@ import express from "express";
 import multer from "multer";
 import {
   getUserProfile,
+  getMe,
   updateUserProfile,
   updateUserAvatar,
   getUserActivity,
@@ -34,6 +35,10 @@ router
   .get(asyncHandler(protect), asyncHandler(getUserProfile))
   // @ts-ignore
   .put(asyncHandler(protect), asyncHandler(updateUserProfile));
+
+// Me route (same as profile)
+// @ts-ignore
+router.get("/me", asyncHandler(protect), asyncHandler(getMe));
 
 // Avatar upload route
 // @ts-ignore

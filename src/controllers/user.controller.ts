@@ -13,9 +13,12 @@ import {
   sendConflict,
   checkResource,
 } from "../utils/apiResponse";
-// import Project from "../models/project.model";
+import Project from "../models/project.model";
 import Notification from "../models/notification.model";
 import Badge from "../models/badge.model";
+import Follow from "../models/follow.model";
+import Organization from "../models/organization.model";
+import Comment from "../models/comment.model";
 
 // Extend the Express Request type to include our custom properties
 interface AuthenticatedRequest extends Request {
@@ -57,19 +60,296 @@ export const getUserProfile = async (
       return;
     }
 
-    const user = await User.findById(req.user._id).select(
-      "-password -settings -badges -roles -status",
-    );
+    const userId = req.user._id;
+
+    // Get user with all necessary data
+    const user = await User.findById(userId).select("-password");
 
     if (checkResource(res, !user, "User not found", 404)) {
       return;
     }
 
-    sendSuccess(res, user, "User profile retrieved successfully");
+    // Get user's projects
+    const projects = await Project.find({ "owner.type": userId })
+      .select(
+        "title description media tags category type funding voting milestones createdAt updatedAt",
+      )
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
+    // Get user's activities
+    const activities = await Activity.find({ "userId.type": userId })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .populate({
+        path: "details.projectId",
+        select: "title media",
+      })
+      .lean();
+
+    // Get user's organizations
+    const userOrganizations = await Organization.find({
+      "members.user": userId,
+      "members.status": "ACTIVE",
+    })
+      .select("name avatar description")
+      .lean();
+
+    // Get following users
+    const following = await Follow.find({ follower: userId, status: "ACTIVE" })
+      .populate({
+        path: "following",
+        select: "profile firstName lastName username avatar bio",
+      })
+      .sort({ followedAt: -1 })
+      .limit(10)
+      .lean();
+
+    // Get followers
+    const followers = await Follow.find({ following: userId, status: "ACTIVE" })
+      .populate({
+        path: "follower",
+        select: "profile firstName lastName username avatar bio",
+      })
+      .sort({ followedAt: -1 })
+      .limit(10)
+      .lean();
+
+    // Get user's contributed projects
+    const contributedProjects = await Project.find({
+      "funding.contributors.user": userId,
+    })
+      .select(
+        "title description media tags category type funding voting milestones createdAt updatedAt",
+      )
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
+    // Calculate additional stats
+    const [
+      totalProjectsCreated,
+      totalProjectsFunded,
+      totalComments,
+      totalVotes,
+      totalGrants,
+      totalHackathons,
+      totalDonations,
+    ] = await Promise.all([
+      Project.countDocuments({ "owner.type": userId }),
+      Project.countDocuments({ "funding.contributors.user": userId }),
+      Comment.countDocuments({ author: userId }),
+      Project.aggregate([
+        { $match: { "voting.voters.userId": userId } },
+        { $count: "total" },
+      ]).then((result) => result[0]?.total || 0),
+      Project.countDocuments({ "owner.type": userId, "grant.isGrant": true }),
+      Project.countDocuments({ "owner.type": userId, category: "hackathon" }),
+      Project.aggregate([
+        { $match: { "funding.contributors.user": userId } },
+        { $unwind: "$funding.contributors" },
+        { $match: { "funding.contributors.user": userId } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$funding.contributors.amount" },
+          },
+        },
+      ]).then((result) => result[0]?.total || 0),
+    ]);
+
+    // Check if profile is complete
+    const isProfileComplete = !!(
+      user?.profile.firstName &&
+      user?.profile.lastName &&
+      user?.profile.username &&
+      user?.profile.bio &&
+      user?.profile.avatar
+    );
+
+    // Format projects data
+    const formattedProjects = projects.map((project) => {
+      const progress =
+        project.funding.goal > 0
+          ? Math.round((project.funding.raised / project.funding.goal) * 100)
+          : 0;
+
+      const daysLeft = project.funding.endDate
+        ? Math.max(
+            0,
+            Math.ceil(
+              (new Date(project.funding.endDate).getTime() - Date.now()) /
+                (1000 * 60 * 60 * 24),
+            ),
+          )
+        : 0;
+
+      return {
+        id: project._id.toString(),
+        name: project.title,
+        description: project.description,
+        image: project.media?.banner || project.media?.logo,
+        link: project.projectWebsite || `#`,
+        tags: project.tags || [],
+        category: project.category,
+        type: project.type,
+        amount: project.funding.goal,
+        status: project.status,
+        createdAt: project.createdAt,
+        updatedAt: project.updatedAt,
+        owner: user?.profile.username,
+        ownerName: `${user?.profile.firstName} ${user?.profile.lastName}`,
+        ownerUsername: user?.profile.username,
+        ownerAvatar: user?.profile.avatar,
+        votes: {
+          current: project.voting?.positiveVotes || 0,
+          total: project.voting?.totalVotes || 0,
+        },
+        daysLeft,
+        progress,
+      };
+    });
+
+    // Format activities data
+    const formattedActivities = activities.map((activity) => {
+      const project = activity.details.projectId as any;
+      return {
+        id: activity._id.toString(),
+        type: activity.type.toLowerCase(),
+        description: `${activity.type.replace(/_/g, " ").toLowerCase()} ${project?.title || "project"}`,
+        projectName: project?.title || "Unknown Project",
+        projectId: project?._id?.toString(),
+        amount: activity.details.amount || null,
+        timestamp: activity.createdAt,
+        image: project?.media?.banner || project?.media?.logo,
+        emoji: getActivityEmoji(activity.type),
+      };
+    });
+
+    // Format organizations data
+    const formattedOrganizations = userOrganizations.map((org) => ({
+      id: org._id.toString(),
+      name: org.name,
+      avatar: org.avatar,
+      role: "member", // This would need to be determined from the membership
+      joinedAt: new Date().toISOString(), // This would need to be from the membership
+      description: org.description,
+    }));
+
+    // Format following data
+    const formattedFollowing = following.map((follow) => {
+      const user = follow.following as any;
+      return {
+        id: user._id.toString(),
+        profile: {
+          firstName: user.profile.firstName,
+          lastName: user.profile.lastName,
+          username: user.profile.username,
+          avatar: user.profile.avatar,
+          bio: user.profile.bio,
+        },
+        followedAt: follow.followedAt,
+      };
+    });
+
+    // Format followers data
+    const formattedFollowers = followers.map((follow) => {
+      const user = follow.follower as any;
+      return {
+        id: user._id.toString(),
+        profile: {
+          firstName: user.profile.firstName,
+          lastName: user.profile.lastName,
+          username: user.profile.username,
+          avatar: user.profile.avatar,
+          bio: user.profile.bio,
+        },
+        followedAt: follow.followedAt,
+      };
+    });
+
+    // Build comprehensive response
+    const response = {
+      profile: {
+        firstName: user?.profile.firstName,
+        lastName: user?.profile.lastName,
+        username: user?.profile.username,
+        avatar: user?.profile.avatar,
+        bio: user?.profile.bio,
+        location: user?.profile.location,
+        website: user?.profile.website,
+        socialLinks: user?.profile.socialLinks,
+      },
+      stats: {
+        projectsCreated: totalProjectsCreated,
+        projectsFunded: totalProjectsFunded,
+        totalContributed: user?.stats.totalContributed || 0,
+        reputation: user?.stats.reputation || 0,
+        communityScore: user?.stats.communityScore || 0,
+        commentsPosted: totalComments,
+        organizations: userOrganizations.length,
+        following: following.length,
+        followers: followers.length,
+        votes: totalVotes,
+        grants: totalGrants,
+        hackathons: totalHackathons,
+        donations: totalDonations,
+      },
+      organizations: formattedOrganizations,
+      following: formattedFollowing,
+      followers: formattedFollowers,
+      projects: formattedProjects,
+      activities: formattedActivities,
+      _id: user?._id,
+      email: user?.email,
+      isVerified: user?.isVerified,
+      contributedProjects: [], // This would need to be populated with actual contributed projects
+      createdAt: (user as any)?.createdAt,
+      updatedAt: (user as any)?.updatedAt,
+      __v: user?.__v,
+      lastLogin: user?.lastLogin,
+      isProfileComplete,
+    };
+
+    sendSuccess(res, response, "User profile retrieved successfully");
   } catch (error) {
-    console.error(error);
+    console.error("Error fetching user profile:", error);
     sendInternalServerError(res, "Server Error");
   }
+};
+
+// Helper function to get emoji for activity type
+const getActivityEmoji = (activityType: string): string => {
+  const emojiMap: { [key: string]: string } = {
+    LOGIN: "🔐",
+    LOGOUT: "🚪",
+    PASSWORD_CHANGED: "🔑",
+    PROJECT_CREATED: "🚀",
+    PROJECT_UPDATED: "📝",
+    PROJECT_FUNDED: "💰",
+    PROJECT_VOTED: "🗳️",
+    CONTRIBUTION_MADE: "💸",
+    REFUND_RECEIVED: "↩️",
+    PROFILE_UPDATED: "👤",
+    AVATAR_CHANGED: "🖼️",
+    TEAM_JOINED: "👥",
+    TEAM_LEFT: "👋",
+    MILESTONE_CREATED: "🎯",
+    MILESTONE_COMPLETED: "✅",
+    MILESTONE_FUNDS_RELEASED: "💳",
+  };
+  return emojiMap[activityType] || "📝";
+};
+
+/**
+ * @desc    Get current user profile (same as /profile)
+ * @route   GET /api/users/me
+ * @access  Private
+ */
+export const getMe = async (req: Request, res: Response): Promise<void> => {
+  // Reuse the same logic as getUserProfile
+  return getUserProfile(req, res);
 };
 
 /**
