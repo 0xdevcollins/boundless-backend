@@ -82,7 +82,10 @@ const deleteOrganizationSchema = [
 
 const inviteSchema = [
   param("id").isMongoId().withMessage("Invalid organization ID"),
-  body("email").isEmail().withMessage("Valid email is required"),
+  body("emails")
+    .isArray({ min: 1 })
+    .withMessage("'emails' must be a non-empty array"),
+  body("emails.*").isEmail().withMessage("All items must be valid emails"),
 ];
 
 const acceptInviteSchema = [
