@@ -2,37 +2,24 @@ import mongoose, { Schema, Document } from "mongoose";
 
 export interface IOrganization extends Document {
   _id: mongoose.Types.ObjectId;
-  name: string;
-  description: string;
-  avatar: string;
-  website?: string;
-  location?: string;
-  socialLinks?: {
-    twitter?: string;
-    linkedin?: string;
-    github?: string;
-    discord?: string;
+  name: string; // Editable
+  logo: string; // URL or file path
+  tagline: string;
+  about: string;
+  links: {
+    website: string;
+    x: string; // Twitter/X handle
+    github: string;
+    others: string;
   };
-  members: Array<{
-    user: {
-      type: mongoose.Types.ObjectId;
-      ref: "User";
-    };
-    role: "ADMIN" | "MEMBER" | "MODERATOR";
-    joinedAt: Date;
-    status: "ACTIVE" | "INACTIVE" | "PENDING";
-  }>;
-  createdBy: {
-    type: mongoose.Types.ObjectId;
-    ref: "User";
-  };
-  isPublic: boolean;
-  tags?: string[];
-  stats: {
-    totalMembers: number;
-    totalProjects: number;
-    totalFunding: number;
-  };
+  members: string[]; // Array of user emails
+  owner: string; // Owner email or userId
+  hackathons: mongoose.Types.ObjectId[]; // references Hackathon collection
+  grants: mongoose.Types.ObjectId[]; // references Grant collection
+  isProfileComplete: boolean; // true when all required profile fields are filled
+  pendingInvites: string[]; // array of emails invited but not yet accepted
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const OrganizationSchema = new Schema<IOrganization>(
@@ -40,82 +27,94 @@ const OrganizationSchema = new Schema<IOrganization>(
     name: {
       type: String,
       required: true,
-      unique: true,
+      trim: true,
     },
-    description: {
+    logo: {
       type: String,
-      required: true,
+      default: "",
     },
-    avatar: {
+    tagline: {
       type: String,
+      default: "",
     },
-    website: {
+    about: {
       type: String,
+      default: "",
     },
-    location: {
-      type: String,
-    },
-    socialLinks: {
-      twitter: { type: String },
-      linkedin: { type: String },
-      github: { type: String },
-      discord: { type: String },
+    links: {
+      website: {
+        type: String,
+        default: "",
+      },
+      x: {
+        type: String,
+        default: "",
+      },
+      github: {
+        type: String,
+        default: "",
+      },
+      others: {
+        type: String,
+        default: "",
+      },
     },
     members: [
       {
-        user: {
-          type: Schema.Types.ObjectId,
-          ref: "User",
-          required: true,
-        },
-        role: {
-          type: String,
-          enum: ["ADMIN", "MEMBER", "MODERATOR"],
-          default: "MEMBER",
-        },
-        joinedAt: {
-          type: Date,
-          default: Date.now,
-        },
-        status: {
-          type: String,
-          enum: ["ACTIVE", "INACTIVE", "PENDING"],
-          default: "ACTIVE",
+        type: String,
+        validate: {
+          validator: function (email: string) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+          },
+          message: "Invalid email format",
         },
       },
     ],
-    createdBy: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
+    owner: {
+      type: String,
       required: true,
+      validate: {
+        validator: function (email: string) {
+          return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        },
+        message: "Invalid email format",
+      },
     },
-    isPublic: {
+    hackathons: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Hackathon",
+      },
+    ],
+    grants: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Grant",
+      },
+    ],
+    isProfileComplete: {
       type: Boolean,
-      default: true,
+      default: false,
     },
-    tags: [{ type: String }],
-    stats: {
-      totalMembers: {
-        type: Number,
-        default: 0,
+    pendingInvites: [
+      {
+        type: String,
+        validate: {
+          validator: function (email: string) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+          },
+          message: "Invalid email format",
+        },
       },
-      totalProjects: {
-        type: Number,
-        default: 0,
-      },
-      totalFunding: {
-        type: Number,
-        default: 0,
-      },
-    },
+    ],
   },
   { timestamps: true },
 );
 
 // Indexes for better query performance
 OrganizationSchema.index({ name: 1 });
-OrganizationSchema.index({ "members.user": 1 });
-OrganizationSchema.index({ createdBy: 1 });
+OrganizationSchema.index({ members: 1 });
+OrganizationSchema.index({ owner: 1 });
 
 export default mongoose.model<IOrganization>(
   "Organization",
