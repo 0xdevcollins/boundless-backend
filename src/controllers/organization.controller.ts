@@ -13,6 +13,8 @@ import {
   sendInternalServerError,
 } from "../utils/apiResponse";
 import mongoose from "mongoose";
+import sendMail from "../utils/sendMail.utils";
+import { config } from "../config/main.config";
 
 // Helper function to check profile completion
 const checkProfileCompletion = (org: IOrganization): boolean => {
@@ -791,7 +793,7 @@ export const sendInvite = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const { email } = req.body;
+    const { emails } = req.body as { emails: string[] };
     const user = (req as AuthenticatedRequest).user;
 
     if (!user) {
@@ -804,8 +806,8 @@ export const sendInvite = async (
       return;
     }
 
-    if (!email) {
-      sendBadRequest(res, "Email is required");
+    if (!Array.isArray(emails) || emails.length === 0) {
+      sendBadRequest(res, "'emails' must be a non-empty array of emails");
       return;
     }
 
@@ -829,24 +831,123 @@ export const sendInvite = async (
       return;
     }
 
-    // Check if email is already a member or pending invite
-    if (organization.members.includes(email)) {
-      sendBadRequest(res, "User is already a member");
-      return;
-    }
-
-    if (organization.pendingInvites.includes(email)) {
-      sendBadRequest(res, "User has already been invited");
-      return;
-    }
-
-    const updatedOrganization = await Organization.findByIdAndUpdate(
-      id,
-      { $push: { pendingInvites: email } },
-      { new: true, runValidators: true },
+    // Normalize and dedupe emails
+    const normalizedEmails = Array.from(
+      new Set(
+        emails
+          .filter((e) => typeof e === "string")
+          .map((e) => e.trim().toLowerCase())
+          .filter((e) => e.length > 0),
+      ),
     );
 
-    sendSuccess(res, updatedOrganization, "Invite sent successfully");
+    // Filter out already members or already invited
+    const alreadyMembers: string[] = [];
+    const alreadyInvited: string[] = [];
+    const toInvite: string[] = [];
+
+    for (const e of normalizedEmails) {
+      if (organization.members.includes(e)) {
+        alreadyMembers.push(e);
+        continue;
+      }
+      if (organization.pendingInvites.includes(e)) {
+        alreadyInvited.push(e);
+        continue;
+      }
+      toInvite.push(e);
+    }
+
+    // Split by registration status
+    const existingUsers = await User.find({ email: { $in: toInvite } }).select(
+      "email profile.firstName profile.lastName",
+    );
+    const registeredSet = new Set(
+      existingUsers.map((u) => u.email.toLowerCase()),
+    );
+    const registeredEmails = toInvite.filter((e) => registeredSet.has(e));
+    const unregisteredEmails = toInvite.filter((e) => !registeredSet.has(e));
+
+    // Update pendingInvites with all toInvite (both registered and unregistered)
+    let updatedOrganization = organization;
+    if (toInvite.length > 0) {
+      updatedOrganization = (await Organization.findByIdAndUpdate(
+        id,
+        { $addToSet: { pendingInvites: { $each: toInvite } } },
+        { new: true, runValidators: true },
+      ))!;
+    }
+
+    // Prepare base URL for links (use first CORS origin if array)
+    const originCfg = config.cors.origin;
+    const baseUrl = Array.isArray(originCfg) ? originCfg[0] : originCfg;
+
+    // Generate and send emails (best effort; failures won't rollback DB)
+    const sentToRegistered: string[] = [];
+    const sentToUnregistered: string[] = [];
+    const failed: Array<{ email: string; error: string }> = [];
+
+    // Direct invite link for registered users (frontend route)
+    for (const e of registeredEmails) {
+      const acceptUrl = `${baseUrl}/organizations/${id}/invite/accept?email=${encodeURIComponent(
+        e,
+      )}`;
+      try {
+        await sendMail({
+          to: e,
+          subject: `You've been invited to join an organization`,
+          html: `
+            <p>Hello,</p>
+            <p>You have been invited to join <strong>${organization.name}</strong>.</p>
+            <p><a href="${acceptUrl}">Click here to accept the invite</a></p>
+            <p>If you did not expect this, you can ignore this email.</p>
+          `.trim(),
+        });
+        sentToRegistered.push(e);
+      } catch (err: any) {
+        failed.push({ email: e, error: err?.message || "send failed" });
+      }
+    }
+
+    // Signup link with invite code for unregistered users
+    for (const e of unregisteredEmails) {
+      const inviteCode = Math.random().toString(36).slice(2, 10);
+      const signupUrl = `${baseUrl}/signup?orgId=${encodeURIComponent(
+        id,
+      )}&invite=${encodeURIComponent(inviteCode)}&email=${encodeURIComponent(e)}`;
+      try {
+        await sendMail({
+          to: e,
+          subject: `Join ${organization.name} on Boundless`,
+          html: `
+            <p>Hello,</p>
+            <p>You have been invited to join <strong>${organization.name}</strong> on Boundless.</p>
+            <p><a href="${signupUrl}">Create your account and join</a></p>
+            <p>Invite code: <strong>${inviteCode}</strong></p>
+            <p>If you did not expect this, you can ignore this email.</p>
+          `.trim(),
+        });
+        sentToUnregistered.push(e);
+      } catch (err: any) {
+        failed.push({ email: e, error: err?.message || "send failed" });
+      }
+    }
+
+    sendSuccess(
+      res,
+      {
+        organization: updatedOrganization,
+        summary: {
+          invitedCount: toInvite.length,
+          alreadyMembers,
+          alreadyInvited,
+          sentToRegistered,
+          sentToUnregistered,
+          failed,
+        },
+      },
+      "Invites processed",
+    );
   } catch (error) {
     console.error("Send invite error:", error);
     sendInternalServerError(
