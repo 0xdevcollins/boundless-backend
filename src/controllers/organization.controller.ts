@@ -16,7 +16,6 @@ import mongoose from "mongoose";
 import sendMail from "../utils/sendMail.utils";
 import { config } from "../config/main.config";
 
-// Helper function to check profile completion
 const checkProfileCompletion = (org: IOrganization): boolean => {
   // Check if all required profile fields are filled
   const hasRequiredFields = !!(
@@ -45,7 +44,6 @@ const checkProfileCompletion = (org: IOrganization): boolean => {
   return hasRequiredFields && hasLinks && hasMembers;
 };
 
-// Extend the Express Request type to include our custom properties
 interface AuthenticatedRequest extends Request {
   user: any;
 }
