@@ -235,10 +235,10 @@ export const getUserProfile = async (
     const formattedOrganizations = userOrganizations.map((org) => ({
       id: org._id.toString(),
       name: org.name,
-      avatar: org.avatar,
+      avatar: org.logo,
       role: "member", // This would need to be determined from the membership
       joinedAt: new Date().toISOString(), // This would need to be from the membership
-      description: org.description,
+      description: org.about,
     }));
 
     // Format following data
