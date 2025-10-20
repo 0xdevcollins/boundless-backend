@@ -94,10 +94,9 @@ export const getUserProfile = async (
 
     // Get user's organizations
     const userOrganizations = await Organization.find({
-      "members.user": userId,
-      "members.status": "ACTIVE",
+      $or: [{ members: user?.email }, { owner: user?.email }],
     })
-      .select("name avatar description")
+      .select("name logo about")
       .lean();
 
     // Get following users
@@ -236,7 +235,7 @@ export const getUserProfile = async (
       id: org._id.toString(),
       name: org.name,
       avatar: org.logo,
-      role: "member", // This would need to be determined from the membership
+      role: org.owner === (user?.email || "") ? "owner" : "member",
       joinedAt: new Date().toISOString(), // This would need to be from the membership
       description: org.about,
     }));
