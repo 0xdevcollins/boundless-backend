@@ -43,7 +43,9 @@ describe("Organization API", () => {
         .expect(201);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data.name).toBe("Untitled Organization");
+      expect(response.body.data.name).toMatch(
+        /^Untitled Organization \d+-[a-z0-9]+$/,
+      );
       expect(response.body.data.owner).toBe("test@example.com");
       expect(response.body.data.members).toContain("test@example.com");
 

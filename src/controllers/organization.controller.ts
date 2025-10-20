@@ -90,9 +90,13 @@ export const createOrganization = async (
       return;
     }
 
-    // Create organization with dummy name
+    // Create organization with unique dummy name
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 8);
+    const uniqueName = `Untitled Organization ${timestamp}-${randomSuffix}`;
+
     const organization = await Organization.create({
-      name: "Untitled Organization",
+      name: uniqueName,
       logo: "",
       tagline: "",
       about: "",
