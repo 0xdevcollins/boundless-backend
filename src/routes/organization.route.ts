@@ -12,6 +12,9 @@ import {
   acceptInvite,
   updateOrganizationHackathons,
   updateOrganizationGrants,
+  assignRole,
+  getUserRoleInOrganization,
+  getMembersWithRoles,
 } from "../controllers/organization.controller";
 import { protect } from "../middleware/auth";
 import { validateRequest } from "../middleware/validateRequest";
@@ -182,5 +185,28 @@ router.patch(
   validateRequest(grantsSchema),
   updateOrganizationGrants,
 );
+
+// ===== Role Management =====
+
+/**
+ * PATCH /api/organizations/:id/roles
+ * Assign or revoke admin role (owner only)
+ * Body: { action: "promote" | "demote", email: string }
+ */
+router.patch("/:id/roles", protect, assignRole);
+
+/**
+ * GET /api/organizations/:id/role
+ * Get authenticated user's role in organization
+ * Returns: { role: "owner" | "admin" | "member", permissions: {...} }
+ */
+router.get("/:id/role", protect, getUserRoleInOrganization);
+
+/**
+ * GET /api/organizations/:id/members-with-roles
+ * Get all organization members grouped by role
+ * Returns: { owner, admins[], members[], totalCount }
+ */
+router.get("/:id/members-with-roles", protect, getMembersWithRoles);
 
 export default router;

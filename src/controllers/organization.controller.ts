@@ -15,6 +15,7 @@ import {
 import mongoose from "mongoose";
 import sendMail from "../utils/sendMail.utils";
 import { config } from "../config/main.config";
+import getUserRole, { checkPermission } from "../utils/getUserRole";
 
 const checkProfileCompletion = (org: IOrganization): boolean => {
   // Check if all required profile fields are filled
@@ -78,6 +79,7 @@ interface AuthenticatedRequest extends Request {
  *       500:
  *         description: Internal server error
  */
+
 export const createOrganization = async (
   req: Request,
   res: Response,
@@ -90,24 +92,30 @@ export const createOrganization = async (
       return;
     }
 
-    // Create organization with unique dummy name
-    const timestamp = Date.now();
-    const randomSuffix = Math.random().toString(36).substring(2, 8);
-    const uniqueName = `Untitled Organization ${timestamp}-${randomSuffix}`;
+    const { name, logo, tagline, about } = await req.body;
+
+    if (!name || !logo || !tagline || !about) {
+      sendError(
+        res,
+        "All fields (name, logo, timeline, about) are required",
+        400,
+      );
+      return;
+    }
 
     const organization = await Organization.create({
-      name: uniqueName,
-      logo: "",
-      tagline: "",
-      about: "",
+      name,
+      logo,
+      tagline,
+      about,
       links: {
         website: "",
         x: "",
         github: "",
         others: "",
       },
-      members: [user.email],
       owner: user.email,
+      members: [user.email],
     });
 
     sendCreated(res, organization, "Organization created successfully");
@@ -393,16 +401,20 @@ export const updateOrganizationLinks = async (
       return;
     }
 
-    // Update links
+    // Update links - only include fields that are not empty strings
     const updateData: any = {};
-    if (website !== undefined) updateData["links.website"] = website;
-    if (x !== undefined) updateData["links.x"] = x;
-    if (github !== undefined) updateData["links.github"] = github;
-    if (others !== undefined) updateData["links.others"] = others;
+    if (website !== undefined && website.trim() !== "")
+      updateData["links.website"] = website.trim();
+    if (x !== undefined && x.trim() !== "") updateData["links.x"] = x.trim();
+    if (github !== undefined && github.trim() !== "")
+      updateData["links.github"] = github.trim();
+    if (others !== undefined && others.trim() !== "")
+      updateData["links.others"] = others.trim();
 
+    // If all fields are empty, we still want to update to clear the links
     const updatedOrganization = await Organization.findByIdAndUpdate(
       id,
-      updateData,
+      { $set: updateData },
       { new: true, runValidators: true },
     );
 
@@ -425,7 +437,6 @@ export const updateOrganizationLinks = async (
     );
   }
 };
-
 /**
  * @swagger
  * /api/organizations/{id}/members:
@@ -1303,6 +1314,627 @@ export const updateOrganizationGrants = async (
     sendInternalServerError(
       res,
       "Failed to update grants",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};
+
+//Organization role and permission
+/**
+ * @swagger
+ * /api/organizations/{id}/roles:
+ *   patch:
+ *     summary: Assign or revoke admin role
+ *     description: Owner can promote members to admin or demote admins to members
+ *     tags: [Organizations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Organization ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - action
+ *               - email
+ *             properties:
+ *               action:
+ *                 type: string
+ *                 enum: [promote, demote]
+ *                 description: promote to admin or demote to member
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email of the user
+ *     responses:
+ *       200:
+ *         description: Role updated successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Only owner can assign roles
+ *       404:
+ *         description: Organization not found
+ */
+export const assignRole = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { action, email } = req.body;
+    const user = (req as AuthenticatedRequest).user;
+
+    if (!user) {
+      sendError(res, "Authentication required", 401);
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      sendBadRequest(res, "Invalid organization ID");
+      return;
+    }
+
+    if (!action || !email) {
+      sendBadRequest(res, "Action and email are required");
+      return;
+    }
+
+    if (!["promote", "demote"].includes(action)) {
+      sendBadRequest(res, "Action must be 'promote' or 'demote'");
+      return;
+    }
+
+    const organization = await Organization.findById(id);
+
+    if (!organization) {
+      sendNotFound(res, "Organization not found");
+      return;
+    }
+
+    // Only owner can assign roles
+    if (organization.owner !== user.email) {
+      sendForbidden(res, "Only the owner can assign roles");
+      return;
+    }
+
+    // Cannot change owner's role
+    if (email === organization.owner) {
+      sendBadRequest(res, "Cannot change owner's role");
+      return;
+    }
+
+    // Check if user is a member
+    if (!organization.members.includes(email)) {
+      sendBadRequest(res, "User must be a member of the organization");
+      return;
+    }
+
+    let updatedOrganization;
+
+    if (action === "promote") {
+      // Check if already an admin
+      if (organization.admins?.includes(email)) {
+        sendBadRequest(res, "User is already an admin");
+        return;
+      }
+
+      updatedOrganization = await Organization.findByIdAndUpdate(
+        id,
+        { $addToSet: { admins: email } },
+        { new: true, runValidators: true },
+      );
+    } else {
+      // demote
+      // Check if user is an admin
+      if (!organization.admins?.includes(email)) {
+        sendBadRequest(res, "User is not an admin");
+        return;
+      }
+
+      updatedOrganization = await Organization.findByIdAndUpdate(
+        id,
+        { $pull: { admins: email } },
+        { new: true, runValidators: true },
+      );
+    }
+
+    sendSuccess(
+      res,
+      {
+        organization: updatedOrganization,
+        role: action === "promote" ? "admin" : "member",
+      },
+      `User ${action}d successfully`,
+    );
+  } catch (error) {
+    console.error("Assign role error:", error);
+    sendInternalServerError(
+      res,
+      "Failed to assign role",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};
+
+/**
+ * @swagger
+ * /api/organizations/{id}/profile:
+ *   patch:
+ *     summary: Update organization profile
+ *     description: Owner can update all fields, Admin can only edit (not create)
+ *     tags: [Organizations]
+ */
+export const updateOrganizationProfileWithRoles = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { name, logo, tagline, about } = req.body;
+    const user = (req as AuthenticatedRequest).user;
+
+    if (!user) {
+      sendError(res, "Authentication required", 401);
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      sendBadRequest(res, "Invalid organization ID");
+      return;
+    }
+
+    const organization = await Organization.findById(id);
+
+    if (!organization) {
+      sendNotFound(res, "Organization not found");
+      return;
+    }
+
+    const userRole = getUserRole(organization, user.email);
+
+    if (!userRole) {
+      sendForbidden(
+        res,
+        "Access denied. You must be a member to update this organization.",
+      );
+      return;
+    }
+
+    // Check permissions: Owner and Admin can edit (but admin can only edit existing)
+    if (!checkPermission(organization, user.email, ["owner", "admin"])) {
+      sendForbidden(res, "You don't have permission to edit the profile");
+      return;
+    }
+
+    // Update profile fields
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (logo !== undefined) updateData.logo = logo;
+    if (tagline !== undefined) updateData.tagline = tagline;
+    if (about !== undefined) updateData.about = about;
+
+    const updatedOrganization = await Organization.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true },
+    );
+
+    sendSuccess(res, updatedOrganization, "Profile updated successfully");
+  } catch (error) {
+    console.error("Update organization profile error:", error);
+    sendInternalServerError(
+      res,
+      "Failed to update profile",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};
+
+/**
+ * @swagger
+ * /api/organizations/{id}/hackathons:
+ *   patch:
+ *     summary: Manage hackathons
+ *     description: Owner and Admin can add/remove hackathons
+ */
+export const updateOrganizationHackathonsWithRoles = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { action, hackathonId } = req.body;
+    const user = (req as AuthenticatedRequest).user;
+
+    if (!user) {
+      sendError(res, "Authentication required", 401);
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      sendBadRequest(res, "Invalid organization ID");
+      return;
+    }
+
+    if (!action || !hackathonId) {
+      sendBadRequest(res, "Action and hackathonId are required");
+      return;
+    }
+
+    if (!["add", "remove"].includes(action)) {
+      sendBadRequest(res, "Action must be 'add' or 'remove'");
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(hackathonId)) {
+      sendBadRequest(res, "Invalid hackathon ID");
+      return;
+    }
+
+    const organization = await Organization.findById(id);
+
+    if (!organization) {
+      sendNotFound(res, "Organization not found");
+      return;
+    }
+
+    // Check permissions: Owner and Admin can manage hackathons
+    if (!checkPermission(organization, user.email, ["owner", "admin"])) {
+      sendForbidden(res, "Only owners and admins can manage hackathons");
+      return;
+    }
+
+    let updateOperation: any;
+    if (action === "add") {
+      if (
+        organization.hackathons.includes(
+          new mongoose.Types.ObjectId(hackathonId),
+        )
+      ) {
+        sendBadRequest(
+          res,
+          "Hackathon is already associated with this organization",
+        );
+        return;
+      }
+      updateOperation = { $push: { hackathons: hackathonId } };
+    } else {
+      if (
+        !organization.hackathons.includes(
+          new mongoose.Types.ObjectId(hackathonId),
+        )
+      ) {
+        sendBadRequest(
+          res,
+          "Hackathon is not associated with this organization",
+        );
+        return;
+      }
+      updateOperation = { $pull: { hackathons: hackathonId } };
+    }
+
+    const updatedOrganization = await Organization.findByIdAndUpdate(
+      id,
+      updateOperation,
+      { new: true, runValidators: true },
+    );
+
+    sendSuccess(res, updatedOrganization, `Hackathon ${action}ed successfully`);
+  } catch (error) {
+    console.error("Update organization hackathons error:", error);
+    sendInternalServerError(
+      res,
+      "Failed to update hackathons",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};
+
+/**
+ * @swagger
+ * /api/organizations/{id}/members:
+ *   patch:
+ *     summary: Add or remove members
+ *     description: Owner and Admin can invite/remove members
+ */
+export const updateOrganizationMembersWithRoles = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { action, email } = req.body;
+    const user = (req as AuthenticatedRequest).user;
+
+    if (!user) {
+      sendError(res, "Authentication required", 401);
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      sendBadRequest(res, "Invalid organization ID");
+      return;
+    }
+
+    if (!action || !email) {
+      sendBadRequest(res, "Action and email are required");
+      return;
+    }
+
+    if (!["add", "remove"].includes(action)) {
+      sendBadRequest(res, "Action must be 'add' or 'remove'");
+      return;
+    }
+
+    const organization = await Organization.findById(id);
+
+    if (!organization) {
+      sendNotFound(res, "Organization not found");
+      return;
+    }
+
+    // Check permissions: Owner and Admin can manage members
+    if (!checkPermission(organization, user.email, ["owner", "admin"])) {
+      sendForbidden(res, "Only owners and admins can manage members");
+      return;
+    }
+
+    let updatedMembers = [...organization.members];
+
+    if (action === "add") {
+      if (updatedMembers.includes(email)) {
+        sendBadRequest(res, "User is already a member");
+        return;
+      }
+      updatedMembers.push(email);
+    } else if (action === "remove") {
+      if (email === organization.owner) {
+        sendBadRequest(res, "Cannot remove the owner");
+        return;
+      }
+      // If removing an admin, also remove from admins array
+      if (organization.admins?.includes(email)) {
+        await Organization.findByIdAndUpdate(id, {
+          $pull: { admins: email },
+        });
+      }
+      updatedMembers = updatedMembers.filter((member) => member !== email);
+    }
+
+    const updatedOrganization = await Organization.findByIdAndUpdate(
+      id,
+      { members: updatedMembers },
+      { new: true, runValidators: true },
+    );
+
+    sendSuccess(res, updatedOrganization, `Member ${action}ed successfully`);
+  } catch (error) {
+    console.error("Update organization members error:", error);
+    sendInternalServerError(
+      res,
+      "Failed to update members",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};
+
+/**
+ * @swagger
+ * /api/organizations/{id}/role:
+ *   get:
+ *     summary: Get user's role in organization
+ *     description: Returns the role of the authenticated user
+ */
+export const getUserRoleInOrganization = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const user = (req as AuthenticatedRequest).user;
+
+    if (!user) {
+      sendError(res, "Authentication required", 401);
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      sendBadRequest(res, "Invalid organization ID");
+      return;
+    }
+
+    const organization = await Organization.findById(id);
+
+    if (!organization) {
+      sendNotFound(res, "Organization not found");
+      return;
+    }
+
+    const role = getUserRole(organization, user.email);
+
+    if (!role) {
+      sendForbidden(res, "You are not a member of this organization");
+      return;
+    }
+
+    // Get detailed permissions based on role
+    const permissions = {
+      owner: {
+        canEditProfile: true,
+        canCreateProfile: true,
+        canManageHackathons: true,
+        canPublishHackathons: true,
+        canViewAnalytics: true,
+        canInviteMembers: true,
+        canRemoveMembers: true,
+        canAssignRoles: true,
+        canPostAnnouncements: true,
+        canComment: true,
+        canAccessSubmissions: true,
+        canDeleteOrganization: true,
+      },
+      admin: {
+        canEditProfile: true,
+        canCreateProfile: false,
+        canManageHackathons: true,
+        canPublishHackathons: false,
+        canViewAnalytics: true,
+        canInviteMembers: true,
+        canRemoveMembers: true,
+        canAssignRoles: false,
+        canPostAnnouncements: false,
+        canComment: true,
+        canAccessSubmissions: true,
+        canDeleteOrganization: false,
+      },
+      member: {
+        canEditProfile: false,
+        canCreateProfile: false,
+        canManageHackathons: false,
+        canPublishHackathons: false,
+        canViewAnalytics: true,
+        canInviteMembers: false,
+        canRemoveMembers: false,
+        canAssignRoles: false,
+        canPostAnnouncements: false,
+        canComment: true,
+        canAccessSubmissions: true, // view only
+        canDeleteOrganization: false,
+      },
+    };
+
+    sendSuccess(
+      res,
+      {
+        role,
+        permissions: permissions[role],
+      },
+      "User role retrieved successfully",
+    );
+  } catch (error) {
+    console.error("Get user role error:", error);
+    sendInternalServerError(
+      res,
+      "Failed to get user role",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};
+
+/**
+ * @swagger
+ * /api/organizations/{id}/members-with-roles:
+ *   get:
+ *     summary: Get all members with their roles
+ *     description: Returns all organization members grouped by role
+ */
+export const getMembersWithRoles = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const user = (req as AuthenticatedRequest).user;
+
+    if (!user) {
+      sendError(res, "Authentication required", 401);
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      sendBadRequest(res, "Invalid organization ID");
+      return;
+    }
+
+    const organization = await Organization.findById(id);
+
+    if (!organization) {
+      sendNotFound(res, "Organization not found");
+      return;
+    }
+
+    // Check if user is a member
+    const userRole = getUserRole(organization, user.email);
+    if (!userRole) {
+      sendForbidden(
+        res,
+        "Access denied. You must be a member to view this organization.",
+      );
+      return;
+    }
+
+    // Get user details for all members
+    const allEmails = [
+      organization.owner,
+      ...(organization.admins || []),
+      ...organization.members,
+    ];
+    const uniqueEmails = [...new Set(allEmails)];
+
+    const users = await User.find({ email: { $in: uniqueEmails } }).select(
+      "email profile.firstName profile.lastName profile.username profile.avatar",
+    );
+
+    const userMap = new Map(
+      users.map((u) => [
+        u.email,
+        {
+          email: u.email,
+          firstName: u.profile.firstName,
+          lastName: u.profile.lastName,
+          username: u.profile.username,
+          avatar: u.profile.avatar,
+        },
+      ]),
+    );
+
+    const owner = userMap.get(organization.owner) || {
+      email: organization.owner,
+    };
+
+    const admins = (organization.admins || [])
+      .map((email) => userMap.get(email) || { email })
+      .filter((admin) => admin.email !== organization.owner);
+
+    const members = organization.members
+      .map((email) => userMap.get(email) || { email })
+      .filter(
+        (member) =>
+          member.email !== organization.owner &&
+          !(organization.admins || []).includes(member.email),
+      );
+
+    sendSuccess(
+      res,
+      {
+        owner,
+        admins,
+        members,
+        totalCount: {
+          owner: 1,
+          admins: admins.length,
+          members: members.length,
+          total: 1 + admins.length + members.length,
+        },
+      },
+      "Members with roles retrieved successfully",
+    );
+  } catch (error) {
+    console.error("Get members with roles error:", error);
+    sendInternalServerError(
+      res,
+      "Failed to get members with roles",
       error instanceof Error ? error.message : "Unknown error",
     );
   }
