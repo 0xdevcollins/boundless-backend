@@ -78,6 +78,7 @@ interface AuthenticatedRequest extends Request {
  *       500:
  *         description: Internal server error
  */
+
 export const createOrganization = async (
   req: Request,
   res: Response,
@@ -90,24 +91,30 @@ export const createOrganization = async (
       return;
     }
 
-    // Create organization with unique dummy name
-    const timestamp = Date.now();
-    const randomSuffix = Math.random().toString(36).substring(2, 8);
-    const uniqueName = `Untitled Organization ${timestamp}-${randomSuffix}`;
+    const { name, logo, tagline, about } = await req.body;
+
+    if (!name || !logo || !tagline || !about) {
+      sendError(
+        res,
+        "All fields (name, logo, timeline, about) are required",
+        400,
+      );
+      return;
+    }
 
     const organization = await Organization.create({
-      name: uniqueName,
-      logo: "",
-      tagline: "",
-      about: "",
+      name,
+      logo,
+      tagline,
+      about,
       links: {
         website: "",
         x: "",
         github: "",
         others: "",
       },
-      members: [user.email],
       owner: user.email,
+      members: [user.email],
     });
 
     sendCreated(res, organization, "Organization created successfully");
@@ -393,16 +400,20 @@ export const updateOrganizationLinks = async (
       return;
     }
 
-    // Update links
+    // Update links - only include fields that are not empty strings
     const updateData: any = {};
-    if (website !== undefined) updateData["links.website"] = website;
-    if (x !== undefined) updateData["links.x"] = x;
-    if (github !== undefined) updateData["links.github"] = github;
-    if (others !== undefined) updateData["links.others"] = others;
+    if (website !== undefined && website.trim() !== "")
+      updateData["links.website"] = website.trim();
+    if (x !== undefined && x.trim() !== "") updateData["links.x"] = x.trim();
+    if (github !== undefined && github.trim() !== "")
+      updateData["links.github"] = github.trim();
+    if (others !== undefined && others.trim() !== "")
+      updateData["links.others"] = others.trim();
 
+    // If all fields are empty, we still want to update to clear the links
     const updatedOrganization = await Organization.findByIdAndUpdate(
       id,
-      updateData,
+      { $set: updateData },
       { new: true, runValidators: true },
     );
 
@@ -425,7 +436,6 @@ export const updateOrganizationLinks = async (
     );
   }
 };
-
 /**
  * @swagger
  * /api/organizations/{id}/members:
