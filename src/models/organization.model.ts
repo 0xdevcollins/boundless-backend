@@ -2,22 +2,23 @@ import mongoose, { Schema, Document } from "mongoose";
 
 export interface IOrganization extends Document {
   _id: mongoose.Types.ObjectId;
-  name: string; // Editable
-  logo: string; // URL or file path
+  name: string;
+  logo: string;
   tagline: string;
   about: string;
   links: {
     website: string;
-    x: string; // Twitter/X handle
+    x: string;
     github: string;
     others: string;
   };
-  members: string[]; // Array of user emails
-  owner: string; // Owner email or userId
-  hackathons: mongoose.Types.ObjectId[]; // references Hackathon collection
-  grants: mongoose.Types.ObjectId[]; // references Grant collection
-  isProfileComplete: boolean; // true when all required profile fields are filled
-  pendingInvites: string[]; // array of emails invited but not yet accepted
+  members: string[];
+  admins: string[];
+  owner: string;
+  hackathons: mongoose.Types.ObjectId[];
+  grants: mongoose.Types.ObjectId[];
+  isProfileComplete: boolean;
+  pendingInvites: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -60,6 +61,17 @@ const OrganizationSchema = new Schema<IOrganization>(
       },
     },
     members: [
+      {
+        type: String,
+        validate: {
+          validator: function (email: string) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+          },
+          message: "Invalid email format",
+        },
+      },
+    ],
+    admins: [
       {
         type: String,
         validate: {
@@ -115,6 +127,26 @@ const OrganizationSchema = new Schema<IOrganization>(
 OrganizationSchema.index({ name: 1 });
 OrganizationSchema.index({ members: 1 });
 OrganizationSchema.index({ owner: 1 });
+OrganizationSchema.index({ admins: 1 });
+
+// Pre-save middleware to ensure admins are also in members array
+OrganizationSchema.pre("save", function (next) {
+  // Ensure owner is in members
+  if (!this.members.includes(this.owner)) {
+    this.members.push(this.owner);
+  }
+
+  // Ensure all admins are in members
+  if (this.admins) {
+    this.admins.forEach((admin) => {
+      if (!this.members.includes(admin)) {
+        this.members.push(admin);
+      }
+    });
+  }
+
+  next();
+});
 
 export default mongoose.model<IOrganization>(
   "Organization",
