@@ -15,6 +15,9 @@ import {
   assignRole,
   getUserRoleInOrganization,
   getMembersWithRoles,
+  getOrganizationPermissions,
+  updateOrganizationPermissions,
+  resetOrganizationPermissions,
 } from "../controllers/organization.controller";
 import { protect } from "../middleware/auth";
 import { validateRequest } from "../middleware/validateRequest";
@@ -208,5 +211,26 @@ router.get("/:id/role", protect, getUserRoleInOrganization);
  * Returns: { owner, admins[], members[], totalCount }
  */
 router.get("/:id/members-with-roles", protect, getMembersWithRoles);
+
+// ===== Permissions Management =====
+
+/**
+ * GET /api/organizations/:id/permissions
+ * Get organization permissions (custom or default)
+ */
+router.get("/:id/permissions", protect, getOrganizationPermissions);
+
+/**
+ * PATCH /api/organizations/:id/permissions
+ * Update custom permissions (owner only)
+ * Body: { permissions: {...} }
+ */
+router.patch("/:id/permissions", protect, updateOrganizationPermissions);
+
+/**
+ * POST /api/organizations/:id/permissions/reset
+ * Reset permissions to defaults (owner only)
+ */
+router.post("/:id/permissions/reset", protect, resetOrganizationPermissions);
 
 export default router;

@@ -1,6 +1,10 @@
 import { Request, Response } from "express";
 import { body, validationResult } from "express-validator";
-import Organization, { IOrganization } from "../models/organization.model";
+import Organization, {
+  CustomPermissions,
+  IOrganization,
+  PermissionValue,
+} from "../models/organization.model";
 import User from "../models/user.model";
 import {
   sendSuccess,
@@ -16,6 +20,7 @@ import mongoose from "mongoose";
 import sendMail from "../utils/sendMail.utils";
 import { config } from "../config/main.config";
 import getUserRole, { checkPermission } from "../utils/getUserRole";
+import { DEFAULT_PERMISSIONS } from "../types/permission";
 
 const checkProfileCompletion = (org: IOrganization): boolean => {
   // Check if all required profile fields are filled
@@ -45,6 +50,53 @@ const checkProfileCompletion = (org: IOrganization): boolean => {
   return hasRequiredFields && hasLinks && hasMembers;
 };
 
+// **
+//  * Helper function to check if a user has a specific permission
+//  */
+export const checkUserPermission = async (
+  organizationId: string,
+  userEmail: string,
+  permissionKey: keyof CustomPermissions,
+): Promise<boolean> => {
+  try {
+    const organization = await Organization.findById(organizationId);
+    if (!organization) return false;
+
+    // Determine user role
+    let userRole: "owner" | "admin" | "member" | null = null;
+    if (organization.owner === userEmail) userRole = "owner";
+    else if (organization.admins?.includes(userEmail)) userRole = "admin";
+    else if (organization.members.includes(userEmail)) userRole = "member";
+
+    if (!userRole) return false;
+
+    // Get permissions
+    const permissions = organization.customPermissions || DEFAULT_PERMISSIONS;
+    const permission = permissions[permissionKey];
+
+    if (!permission) return false;
+
+    // Get role-specific permission
+    const rolePermission = permission[userRole];
+
+    // Handle both boolean and object with value
+    return typeof rolePermission === "object"
+      ? rolePermission.value
+      : rolePermission;
+  } catch (error) {
+    console.error("Check user permission error:", error);
+    return false;
+  }
+};
+
+/**
+ * Type guard to check if permission value is an object with note
+ */
+export const isPermissionWithNote = (
+  value: PermissionValue,
+): value is { value: boolean; note: string } => {
+  return typeof value === "object" && "value" in value && "note" in value;
+};
 interface AuthenticatedRequest extends Request {
   user: any;
 }
@@ -1935,6 +1987,310 @@ export const getMembersWithRoles = async (
     sendInternalServerError(
       res,
       "Failed to get members with roles",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};
+//Permission Management
+// **
+//  * @swagger
+//  * /api/organizations/{id}/permissions:
+//  *   get:
+//  *     summary: Get organization permissions
+//  *     description: Get custom permissions or default if not set
+//  *     tags: [Organizations]
+//  *     security:
+//  *       - bearerAuth: []
+//  *     parameters:
+//  *       - in: path
+//  *         name: id
+//  *         required: true
+//  *         schema:
+//  *           type: string
+//  *         description: Organization ID
+//  *     responses:
+//  *       200:
+//  *         description: Permissions retrieved successfully
+//  *       401:
+//  *         description: Unauthorized
+//  *       403:
+//  *         description: Forbidden - Not a member
+//  *       404:
+//  *         description: Organization not found
+//  */
+export const getOrganizationPermissions = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const user = (req as AuthenticatedRequest).user;
+
+    if (!user) {
+      sendError(res, "Authentication required", 401);
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      sendBadRequest(res, "Invalid organization ID");
+      return;
+    }
+
+    const organization = await Organization.findById(id);
+
+    if (!organization) {
+      sendNotFound(res, "Organization not found");
+      return;
+    }
+
+    // Check if user is a member
+    const isMember =
+      organization.members.includes(user.email) ||
+      organization.owner === user.email ||
+      organization.admins?.includes(user.email);
+
+    if (!isMember) {
+      sendForbidden(
+        res,
+        "Access denied. You must be a member to view permissions.",
+      );
+      return;
+    }
+
+    // Return custom permissions or defaults
+    const permissions = organization.customPermissions || DEFAULT_PERMISSIONS;
+
+    sendSuccess(
+      res,
+      {
+        permissions,
+        isCustom: !!organization.customPermissions,
+        canEdit: organization.owner === user.email,
+      },
+      "Permissions retrieved successfully",
+    );
+  } catch (error) {
+    console.error("Get organization permissions error:", error);
+    sendInternalServerError(
+      res,
+      "Failed to retrieve permissions",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};
+
+/**
+ * @swagger
+ * /api/organizations/{id}/permissions:
+ *   patch:
+ *     summary: Update organization permissions
+ *     description: Update custom permissions (owner only)
+ *     tags: [Organizations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Organization ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               permissions:
+ *                 type: object
+ *                 description: Custom permissions object
+ *     responses:
+ *       200:
+ *         description: Permissions updated successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Only owner can update
+ *       404:
+ *         description: Organization not found
+ */
+export const updateOrganizationPermissions = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { permissions } = req.body as { permissions: CustomPermissions };
+    const user = (req as AuthenticatedRequest).user;
+
+    if (!user) {
+      sendError(res, "Authentication required", 401);
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      sendBadRequest(res, "Invalid organization ID");
+      return;
+    }
+
+    if (!permissions || typeof permissions !== "object") {
+      sendBadRequest(res, "Valid permissions object is required");
+      return;
+    }
+
+    const organization = await Organization.findById(id);
+
+    if (!organization) {
+      sendNotFound(res, "Organization not found");
+      return;
+    }
+
+    // Only owner can update permissions
+    if (organization.owner !== user.email) {
+      sendForbidden(res, "Only the owner can update permissions");
+      return;
+    }
+
+    // Validate permissions structure
+    const validPermissionKeys = Object.keys(DEFAULT_PERMISSIONS) as Array<
+      keyof CustomPermissions
+    >;
+    const providedKeys = Object.keys(permissions) as Array<
+      keyof CustomPermissions
+    >;
+
+    // Check if all required keys are present
+    const missingKeys = validPermissionKeys.filter(
+      (key) => !providedKeys.includes(key),
+    );
+    if (missingKeys.length > 0) {
+      sendBadRequest(res, `Missing permission keys: ${missingKeys.join(", ")}`);
+      return;
+    }
+
+    // Validate each permission has owner, admin, member
+    for (const key of providedKeys) {
+      const perm = permissions[key];
+      if (
+        !perm.hasOwnProperty("owner") ||
+        !perm.hasOwnProperty("admin") ||
+        !perm.hasOwnProperty("member")
+      ) {
+        sendBadRequest(
+          res,
+          `Permission '${key}' must have owner, admin, and member properties`,
+        );
+        return;
+      }
+
+      // Owner permissions must always be true (cannot be disabled)
+      if (!perm.owner) {
+        sendBadRequest(
+          res,
+          `Owner permissions cannot be disabled for '${key}'`,
+        );
+        return;
+      }
+    }
+
+    // Update organization with custom permissions
+    const updatedOrganization = await Organization.findByIdAndUpdate(
+      id,
+      { customPermissions: permissions },
+      { new: true, runValidators: true },
+    );
+
+    sendSuccess(res, updatedOrganization, "Permissions updated successfully");
+  } catch (error) {
+    console.error("Update organization permissions error:", error);
+    sendInternalServerError(
+      res,
+      "Failed to update permissions",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};
+
+/**
+ * @swagger
+ * /api/organizations/{id}/permissions/reset:
+ *   post:
+ *     summary: Reset permissions to defaults
+ *     description: Reset custom permissions to default values (owner only)
+ *     tags: [Organizations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Organization ID
+ *     responses:
+ *       200:
+ *         description: Permissions reset successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Only owner can reset
+ *       404:
+ *         description: Organization not found
+ */
+export const resetOrganizationPermissions = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const user = (req as AuthenticatedRequest).user;
+
+    if (!user) {
+      sendError(res, "Authentication required", 401);
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      sendBadRequest(res, "Invalid organization ID");
+      return;
+    }
+
+    const organization = await Organization.findById(id);
+
+    if (!organization) {
+      sendNotFound(res, "Organization not found");
+      return;
+    }
+
+    // Only owner can reset permissions
+    if (organization.owner !== user.email) {
+      sendForbidden(res, "Only the owner can reset permissions");
+      return;
+    }
+
+    // Remove custom permissions (will fall back to defaults)
+    const updatedOrganization = await Organization.findByIdAndUpdate(
+      id,
+      { $unset: { customPermissions: "" } },
+      { new: true, runValidators: true },
+    );
+
+    sendSuccess(
+      res,
+      {
+        organization: updatedOrganization,
+        permissions: DEFAULT_PERMISSIONS,
+      },
+      "Permissions reset to defaults successfully",
+    );
+  } catch (error) {
+    console.error("Reset organization permissions error:", error);
+    sendInternalServerError(
+      res,
+      "Failed to reset permissions",
       error instanceof Error ? error.message : "Unknown error",
     );
   }
