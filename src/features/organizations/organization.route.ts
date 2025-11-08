@@ -12,6 +12,12 @@ import {
   acceptInvite,
   updateOrganizationHackathons,
   updateOrganizationGrants,
+  assignRole,
+  getUserRoleInOrganization,
+  getMembersWithRoles,
+  getOrganizationPermissions,
+  updateOrganizationPermissions,
+  resetOrganizationPermissions,
 } from "./organization.controller";
 import { protect } from "../../middleware/auth";
 import { validateRequest } from "../../middleware/validateRequest";
@@ -182,5 +188,49 @@ router.patch(
   validateRequest(grantsSchema),
   updateOrganizationGrants,
 );
+
+// ===== Role Management =====
+
+/**
+ * PATCH /api/organizations/:id/roles
+ * Assign or revoke admin role (owner only)
+ * Body: { action: "promote" | "demote", email: string }
+ */
+router.patch("/:id/roles", protect, assignRole);
+
+/**
+ * GET /api/organizations/:id/role
+ * Get authenticated user's role in organization
+ * Returns: { role: "owner" | "admin" | "member", permissions: {...} }
+ */
+router.get("/:id/role", protect, getUserRoleInOrganization);
+
+/**
+ * GET /api/organizations/:id/members-with-roles
+ * Get all organization members grouped by role
+ * Returns: { owner, admins[], members[], totalCount }
+ */
+router.get("/:id/members-with-roles", protect, getMembersWithRoles);
+
+// ===== Permissions Management =====
+
+/**
+ * GET /api/organizations/:id/permissions
+ * Get organization permissions (custom or default)
+ */
+router.get("/:id/permissions", protect, getOrganizationPermissions);
+
+/**
+ * PATCH /api/organizations/:id/permissions
+ * Update custom permissions (owner only)
+ * Body: { permissions: {...} }
+ */
+router.patch("/:id/permissions", protect, updateOrganizationPermissions);
+
+/**
+ * POST /api/organizations/:id/permissions/reset
+ * Reset permissions to defaults (owner only)
+ */
+router.post("/:id/permissions/reset", protect, resetOrganizationPermissions);
 
 export default router;
