@@ -63,7 +63,12 @@ export function loadEmailTemplate(
  * Get the path to the waitlist email template
  */
 export function getWaitlistTemplatePath(): string {
-  return path.join(process.cwd(), "waitlist-email-template.html");
+  return path.join(
+    __dirname,
+    "..",
+    "templates",
+    "waitlist-email-template.html",
+  );
 }
 
 /**

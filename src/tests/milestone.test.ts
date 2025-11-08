@@ -6,14 +6,7 @@ import Campaign, { ICampaign } from "../models/campaign.model";
 import User, { IUser } from "../models/user.model";
 import jwt from "jsonwebtoken";
 
-// Mock Trustless Work service
-jest.mock("../services/trustless-work.service", () => ({
-  releaseFundsToMilestone: jest
-    .fn()
-    .mockResolvedValue({ success: true, txHash: "0xMOCKTX" }),
-  markMilestoneApproved: jest.fn().mockResolvedValue({ success: true }),
-  disputeMilestone: jest.fn().mockResolvedValue({ success: true }),
-}));
+// Blockchain operations removed - frontend handles all transactions
 
 type RoleAssignment = {
   role: string;
@@ -205,19 +198,5 @@ describe("Milestone Status Update API", () => {
     expect(res.status).toBe(401); // Not authenticated
   });
 
-  it("should return 502 if Trustless Work API fails", async () => {
-    const {
-      markMilestoneApproved,
-    } = require("../services/trustless-work.service");
-    markMilestoneApproved.mockRejectedValueOnce(new Error("fail"));
-    milestone.status = "pending";
-    await milestone.save();
-    const res = await request(app)
-      .patch(
-        `/api/campaigns/${campaign._id}/milestones/${milestone._id}/status`,
-      )
-      .set("Authorization", `Bearer ${markerToken}`)
-      .send({ status: "approved" });
-    expect(res.status).toBe(502);
-  });
+  // Removed Trustless Work API failure test - frontend handles transactions
 });

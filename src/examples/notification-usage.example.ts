@@ -5,8 +5,8 @@
  * across different parts of the application.
  */
 
-import NotificationService from "../services/notification.service";
-import EmailTemplatesService from "../services/email-templates.service";
+import NotificationService from "../features/notifications/notification.service";
+import EmailTemplatesService from "../services/email/email-templates.service";
 import { NotificationType } from "../models/notification.model";
 import mongoose from "mongoose";
 

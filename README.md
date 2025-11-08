@@ -118,7 +118,7 @@ npm run dev
     - goalAmount must be a positive number
     - Must have a whitepaper or pitch deck attached
   - **On success:**
-    - Sets status to `live`, records `approvedBy` and `approvedAt`, and triggers Soroban deployment (placeholder)
+    - Sets status to `live`, records `approvedBy` and `approvedAt`
   - **Response:**
     - 200 OK, updated campaign returned
 

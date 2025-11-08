@@ -21,31 +21,8 @@ import { checkDatabaseHealth, getDatabaseStatus } from "./utils/db.utils";
 
 import { config } from "./config/main.config";
 
-// Routes
-import authRoutes from "./routes/auth.route";
-import userRoutes from "./routes/user.routes";
-// import projectRoutes from "./routes/project.route"; // <- use the current, not archive
-import projectIdeaRoutes from "./routes/project-idea.route";
-import projectVotingRoutes from "./routes/project-voting.route";
-import projectCommentRoutes from "./routes/project-comment.route";
-import blogRoutes from "./routes/blog.route";
-import publicBlogRoutes from "./routes/public-blog.route";
-import commentRoutes from "./routes/comment.route";
-// import adminRoutes from "./routes/admin.route";
-// import adminFundingRoutes from "./routes/admin.funding.route";
-// import analyticsRoutes from "./routes/analytics.route";
-// import reportRoutes from "./routes/report.route";
-import notificationRoutes from "./routes/notification.route";
-import campaignRoutes from "./routes/campaign.route";
-import grantRoutes from "./routes/grant.route";
-import grantApplicationRoutes from "./routes/grant-application.route";
-import milestoneRoutes from "./routes/milestone.route";
-import waitlistRoutes from "./routes/waitlist.route";
-import newsletterRoutes from "./routes/newsletter.route";
-import crowdfundingRoutes from "./routes/crowdfunding.route";
-import uploadRoutes from "./routes/upload.route";
-import organizationRoutes from "./routes/organization.route";
-// import contractRoutes from "./routes/contract.route";
+// Centralized route registry
+import routes from "./routes";
 
 dotenv.config();
 
@@ -126,32 +103,8 @@ app.get("/", (req, res) => {
   res.send("API is running...");
 });
 
-// Public & Protected Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-// app.use("/api/projects", projectRoutes);
-app.use("/api/projects", projectIdeaRoutes);
-app.use("/api/projects", projectVotingRoutes);
-app.use("/api/projects", projectCommentRoutes);
-app.use("/api/blog", publicBlogRoutes); // Public blog routes
-app.use("/api/blogs", blogRoutes); // Admin blog routes
-app.use("/api/comments", commentRoutes);
-// app.use("/api/funding", adminFundingRoutes);
-// app.use("/api/admin", authMiddleware, adminRoutes);
-// app.use("/api/admin/funding", adminFundingRoutes);
-// app.use("/api/analytics", authMiddleware, analyticsRoutes);
-// app.use("/api/reports", authMiddleware, reportRoutes);
-app.use("/api/notifications", authMiddleware, notificationRoutes);
-app.use("/api/campaigns", campaignRoutes);
-app.use("/api/grants", grantRoutes);
-app.use("/api/grant-applications", grantApplicationRoutes);
-app.use("/api/milestones", milestoneRoutes);
-app.use("/api/waitlist", waitlistRoutes);
-app.use("/api/newsletter", newsletterRoutes);
-app.use("/api/crowdfunding", crowdfundingRoutes);
-app.use("/api/upload", uploadRoutes);
-app.use("/api/organizations", organizationRoutes);
-// app.use("/api/contracts", contractRoutes);
+// All routes registered through centralized registry
+app.use(routes);
 
 // Swagger Docs
 setupSwagger(app);

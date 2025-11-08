@@ -4,7 +4,7 @@
  * This file demonstrates how to use the Cloudinary service for various operations
  */
 
-import cloudinaryService from "../services/cloudinary.service";
+import cloudinaryService from "../services/storage/cloudinary.service";
 import fs from "fs";
 import path from "path";
 
