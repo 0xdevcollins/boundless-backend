@@ -1,5 +1,27 @@
 import mongoose, { Schema, Document } from "mongoose";
 
+// Type definitions for permissions
+export type PermissionValue = boolean | { value: boolean; note?: string };
+
+export interface RolePermissions {
+  owner: boolean; // Owner always has full permissions
+  admin: PermissionValue;
+  member: PermissionValue;
+}
+
+export interface CustomPermissions {
+  create_edit_profile: RolePermissions;
+  manage_hackathons_grants: RolePermissions;
+  publish_hackathons: RolePermissions;
+  view_analytics: RolePermissions;
+  invite_remove_members: RolePermissions;
+  assign_roles: RolePermissions;
+  post_announcements: RolePermissions;
+  comment_discussions: RolePermissions;
+  access_submissions: RolePermissions;
+  delete_organization: RolePermissions;
+}
+
 export interface IOrganization extends Document {
   _id: mongoose.Types.ObjectId;
   name: string;
@@ -19,6 +41,7 @@ export interface IOrganization extends Document {
   grants: mongoose.Types.ObjectId[];
   isProfileComplete: boolean;
   pendingInvites: string[];
+  customPermissions?: CustomPermissions;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -119,6 +142,10 @@ const OrganizationSchema = new Schema<IOrganization>(
         },
       },
     ],
+    customPermissions: {
+      type: Schema.Types.Mixed,
+      default: undefined,
+    },
   },
   { timestamps: true },
 );
