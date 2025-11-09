@@ -452,6 +452,10 @@ export const getOrganizationById = async (
     const responseData = {
       ...organizationData,
       analytics,
+      memberCount: organization.members.length,
+      hackathonCount: organization.hackathons.length,
+      grantCount: organization.grants.length,
+      createdAt: organization.createdAt.toISOString(),
     };
 
     sendSuccess(res, responseData, "Organization retrieved successfully");
