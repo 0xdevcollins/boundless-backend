@@ -6,6 +6,8 @@ import Organization, {
   PermissionValue,
 } from "../../models/organization.model";
 import User from "../../models/user.model";
+import Hackathon from "../../models/hackathon.model";
+import Grant from "../../models/grant.model";
 import {
   sendSuccess,
   sendError,
@@ -181,12 +183,209 @@ export const createOrganization = async (
   }
 };
 
+// Helper function to calculate trend data
+const calculateTrend = (
+  current: number,
+  previous: number,
+): {
+  current: number;
+  previous: number;
+  change: number;
+  changePercentage: number;
+  isPositive: boolean;
+} => {
+  const change = current - previous;
+  const changePercentage =
+    previous > 0 ? (change / previous) * 100 : current > 0 ? 100 : 0;
+  const isPositive = change > 0;
+
+  return {
+    current,
+    previous,
+    change,
+    changePercentage: Math.round(changePercentage * 10) / 10, // Round to 1 decimal
+    isPositive,
+  };
+};
+
+// Helper function to get monthly time series data
+const getMonthlyTimeSeries = async (
+  organizationId: string,
+  model: mongoose.Model<any>,
+  organizationIdField: string,
+  months: number = 12,
+): Promise<
+  Array<{
+    month: string;
+    year: number;
+    count: number;
+    timestamp: string;
+  }>
+> => {
+  const now = new Date();
+  const timeSeries: Array<{
+    month: string;
+    year: number;
+    count: number;
+    timestamp: string;
+  }> = [];
+
+  const monthNames = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+
+  // Get data for the last N months
+  for (let i = months - 1; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+    const endOfMonth = new Date(
+      date.getFullYear(),
+      date.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
+
+    const count = await model.countDocuments({
+      [organizationIdField]: new mongoose.Types.ObjectId(organizationId),
+      createdAt: {
+        $gte: startOfMonth,
+        $lte: endOfMonth,
+      },
+    });
+
+    timeSeries.push({
+      month: monthNames[date.getMonth()],
+      year: date.getFullYear(),
+      count,
+      timestamp: startOfMonth.toISOString(),
+    });
+  }
+
+  return timeSeries;
+};
+
+// Helper function to calculate organization analytics
+const calculateOrganizationAnalytics = async (
+  organizationId: string,
+  organization: IOrganization,
+): Promise<{
+  trends: {
+    members: {
+      current: number;
+      previous: number;
+      change: number;
+      changePercentage: number;
+      isPositive: boolean;
+    };
+    hackathons: {
+      current: number;
+      previous: number;
+      change: number;
+      changePercentage: number;
+      isPositive: boolean;
+    };
+    grants: {
+      current: number;
+      previous: number;
+      change: number;
+      changePercentage: number;
+      isPositive: boolean;
+    };
+  };
+  timeSeries: {
+    hackathons: Array<{
+      month: string;
+      year: number;
+      count: number;
+      timestamp: string;
+    }>;
+  };
+}> => {
+  const now = new Date();
+  const periodDays = 30; // Compare last 30 days vs previous 30 days
+
+  // Current period (last 30 days)
+  const currentPeriodStart = new Date(now);
+  currentPeriodStart.setDate(currentPeriodStart.getDate() - periodDays);
+  const currentPeriodEnd = now;
+
+  // Previous period (30 days before current period)
+  const previousPeriodStart = new Date(currentPeriodStart);
+  previousPeriodStart.setDate(previousPeriodStart.getDate() - periodDays);
+  const previousPeriodEnd = new Date(currentPeriodStart);
+
+  const orgObjectId = new mongoose.Types.ObjectId(organizationId);
+
+  // Calculate trends for members
+  // Note: Since members are stored as an array without join dates,
+  // we use the current count. For accurate trends, member join tracking would be needed.
+  const currentMembers = organization.members.length;
+  const previousMembers = currentMembers; // Simplified: would need join date tracking for accuracy
+
+  // Get organization user IDs for grant queries (run in parallel with hackathon queries)
+  const orgMemberEmails = [organization.owner, ...organization.members];
+  const [orgUsers, currentHackathons, previousHackathons] = await Promise.all([
+    User.find({ email: { $in: orgMemberEmails } })
+      .select("_id")
+      .lean(),
+    Hackathon.countDocuments({
+      organizationId: orgObjectId,
+      createdAt: { $gte: currentPeriodStart, $lte: currentPeriodEnd },
+    }),
+    Hackathon.countDocuments({
+      organizationId: orgObjectId,
+      createdAt: { $gte: previousPeriodStart, $lte: previousPeriodEnd },
+    }),
+  ]);
+
+  const orgUserIds = orgUsers.map((u) => u._id);
+
+  // Calculate trends for grants (run in parallel)
+  const [currentGrants, previousGrants, hackathonsTimeSeries] =
+    await Promise.all([
+      Grant.countDocuments({
+        creatorId: { $in: orgUserIds },
+        createdAt: { $gte: currentPeriodStart, $lte: currentPeriodEnd },
+      }),
+      Grant.countDocuments({
+        creatorId: { $in: orgUserIds },
+        createdAt: { $gte: previousPeriodStart, $lte: previousPeriodEnd },
+      }),
+      getMonthlyTimeSeries(organizationId, Hackathon, "organizationId", 12),
+    ]);
+
+  return {
+    trends: {
+      members: calculateTrend(currentMembers, previousMembers),
+      hackathons: calculateTrend(currentHackathons, previousHackathons),
+      grants: calculateTrend(currentGrants, previousGrants),
+    },
+    timeSeries: {
+      hackathons: hackathonsTimeSeries,
+    },
+  };
+};
+
 /**
  * @swagger
  * /api/organizations/{id}:
  *   get:
  *     summary: Get organization by ID
- *     description: Fetch organization by ID (only accessible by members)
+ *     description: Fetch organization by ID with analytics data (only accessible by members)
  *     tags: [Organizations]
  *     security:
  *       - bearerAuth: []
@@ -199,7 +398,7 @@ export const createOrganization = async (
  *         description: Organization ID
  *     responses:
  *       200:
- *         description: Organization retrieved successfully
+ *         description: Organization retrieved successfully with analytics
  *       401:
  *         description: Unauthorized
  *       403:
@@ -245,7 +444,17 @@ export const getOrganizationById = async (
       return;
     }
 
-    sendSuccess(res, organization, "Organization retrieved successfully");
+    // Calculate analytics data
+    const analytics = await calculateOrganizationAnalytics(id, organization);
+
+    // Convert organization to plain object and add analytics
+    const organizationData = organization.toObject();
+    const responseData = {
+      ...organizationData,
+      analytics,
+    };
+
+    sendSuccess(res, responseData, "Organization retrieved successfully");
   } catch (error) {
     console.error("Get organization error:", error);
     sendInternalServerError(
