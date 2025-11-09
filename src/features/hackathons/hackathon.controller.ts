@@ -142,6 +142,15 @@ const transformRequestBody = (body: any): Partial<IHackathon> => {
       updateData.sponsorsPartners = body.collaboration.sponsorsPartners;
   }
 
+  // Contract-related fields (top-level in request body)
+  if (body.contractId !== undefined) updateData.contractId = body.contractId;
+  if (body.escrowAddress !== undefined)
+    updateData.escrowAddress = body.escrowAddress;
+  if (body.transactionHash !== undefined)
+    updateData.transactionHash = body.transactionHash;
+  if (body.escrowDetails !== undefined)
+    updateData.escrowDetails = body.escrowDetails;
+
   return updateData;
 };
 

@@ -122,6 +122,10 @@ export interface IHackathon extends Document {
   discord?: string;
   socialLinks?: string[];
   sponsorsPartners?: ISponsorPartner[];
+  contractId?: string;
+  escrowAddress?: string;
+  transactionHash?: string;
+  escrowDetails?: object;
 
   createdAt: Date;
   updatedAt: Date;
@@ -426,6 +430,21 @@ const HackathonSchema = new Schema<IHackathon>(
     sponsorsPartners: {
       type: [SponsorPartnerSchema],
       default: [],
+    },
+    contractId: {
+      type: String,
+      trim: true,
+    },
+    escrowAddress: {
+      type: String,
+      trim: true,
+    },
+    transactionHash: {
+      type: String,
+      trim: true,
+    },
+    escrowDetails: {
+      type: Schema.Types.Mixed,
     },
   },
   {
