@@ -17,6 +17,7 @@ import newsletterRoutes from "../features/newsletter/newsletter.route";
 import crowdfundingRoutes from "../features/crowdfunding/crowdfunding.route";
 import uploadRoutes from "../features/upload/upload.route";
 import organizationRoutes from "../features/organizations/organization.route";
+import hackathonRoutes from "../features/hackathons/hackathon.route";
 import teamInvitationRoutes from "../features/team-invitations/team-invitation.route";
 import { authMiddleware } from "../utils/jwt.utils";
 
@@ -40,6 +41,7 @@ router.use("/api/newsletter", newsletterRoutes);
 router.use("/api/crowdfunding", crowdfundingRoutes);
 router.use("/api/upload", uploadRoutes);
 router.use("/api/organizations", organizationRoutes);
+router.use("/api/organizations", hackathonRoutes);
 router.use("/api/notifications", authMiddleware, notificationRoutes);
 router.use("/api/team-invitations", teamInvitationRoutes);
 

@@ -18,3 +18,4 @@ import "./tag.model";
 import "./otp.model";
 import "./crowdfund.model";
 import "./waitlist.model";
+import "./hackathon.model";
