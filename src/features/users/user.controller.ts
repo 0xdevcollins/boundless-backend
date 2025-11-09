@@ -96,7 +96,9 @@ export const getUserProfile = async (
     const userOrganizations = await Organization.find({
       $or: [{ members: user?.email }, { owner: user?.email }],
     })
-      .select("name logo about")
+      .select(
+        "_id name logo tagline about isProfileComplete owner members hackathons grants createdAt",
+      )
       .lean();
 
     // Get following users
@@ -235,9 +237,20 @@ export const getUserProfile = async (
       id: org._id.toString(),
       name: org.name,
       avatar: org.logo,
-      role: org.owner === (user?.email || "") ? "owner" : "member",
       joinedAt: new Date().toISOString(), // This would need to be from the membership
       description: org.about,
+      tagline: org.tagline,
+      isProfileComplete: org.isProfileComplete || false,
+      role:
+        org.owner === (user?.email || "")
+          ? ("owner" as const)
+          : ("member" as const),
+      memberCount: org.members?.length || 0,
+      hackathonCount: org.hackathons?.length || 0,
+      grantCount: org.grants?.length || 0,
+      createdAt: org.createdAt
+        ? new Date(org.createdAt).toISOString()
+        : new Date().toISOString(),
     }));
 
     // Format following data
