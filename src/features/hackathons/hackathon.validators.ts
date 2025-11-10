@@ -1,4 +1,4 @@
-import { body, param, ValidationChain } from "express-validator";
+import { body, param, query, ValidationChain } from "express-validator";
 import {
   HackathonCategory,
   ParticipantType,
@@ -322,4 +322,12 @@ export const publishSchema: ValidationChain[] = [
   body("collaboration.sponsorsPartners")
     .isArray({ min: 1 })
     .withMessage("At least one sponsor/partner is required"),
+];
+
+// Analytics query validators
+export const analyticsQuerySchema: ValidationChain[] = [
+  query("granularity")
+    .optional()
+    .isIn(["daily", "weekly"])
+    .withMessage("Granularity must be either 'daily' or 'weekly'"),
 ];

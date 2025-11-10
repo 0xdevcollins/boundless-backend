@@ -824,3 +824,290 @@ export const getHackathons = async (
     );
   }
 };
+
+/**
+ * @swagger
+ * /api/organizations/{orgId}/hackathons/{hackathonId}/statistics:
+ *   get:
+ *     summary: Get hackathon statistics
+ *     description: Retrieve statistics for a hackathon including participants, submissions, judges, and milestones
+ *     tags: [Hackathons]
+ *     security:
+ *       - bearerAuth: []
+ */
+export const getHackathonStatistics = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const user = (req as AuthenticatedRequest).user;
+    const { orgId, hackathonId } = req.params;
+
+    if (!user) {
+      sendError(res, "Authentication required", 401);
+      return;
+    }
+
+    const { canManage, organization } = await canManageHackathons(
+      orgId,
+      user.email,
+    );
+
+    if (!canManage) {
+      if (!organization) {
+        sendNotFound(res, "Organization not found");
+        return;
+      }
+      sendForbidden(
+        res,
+        "Only owners and admins can view hackathon statistics for this organization",
+      );
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(hackathonId)) {
+      sendBadRequest(res, "Invalid hackathon ID");
+      return;
+    }
+
+    const hackathon = await Hackathon.findOne({
+      _id: hackathonId,
+      organizationId: orgId,
+    });
+
+    if (!hackathon) {
+      sendNotFound(res, "Hackathon not found");
+      return;
+    }
+
+    // TODO: Replace with actual queries when hackathon participant/submission models are created
+    // For now, using placeholder logic that returns realistic structure
+
+    // Get participants count
+    // This would query a HackathonParticipant model or similar
+    // Example: const participantsCount = await HackathonParticipant.countDocuments({ hackathonId });
+    const participantsCount = 0; // Placeholder
+
+    // Get submissions count
+    // This would query a HackathonSubmission model or Project model filtered by hackathonId
+    // Example: const submissionsCount = await HackathonSubmission.countDocuments({ hackathonId, status: 'submitted' });
+    const submissionsCount = 0; // Placeholder
+
+    // Get active judges count
+    // This would query users with judge role for this hackathon
+    // Example: const activeJudges = await User.countDocuments({ hackathonId, role: 'judge', isActive: true });
+    const activeJudges = 0; // Placeholder
+
+    // Get completed milestones count
+    // This would query Milestone model filtered by hackathon-related projects
+    // Example: const completedMilestones = await Milestone.countDocuments({ hackathonId, status: 'completed' });
+    const completedMilestones = 0; // Placeholder
+
+    const statistics = {
+      participantsCount,
+      submissionsCount,
+      activeJudges,
+      completedMilestones,
+    };
+
+    sendSuccess(res, statistics, "Statistics retrieved successfully");
+  } catch (error) {
+    console.error("Get hackathon statistics error:", error);
+    sendInternalServerError(
+      res,
+      "Failed to retrieve hackathon statistics",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};
+
+/**
+ * @swagger
+ * /api/organizations/{orgId}/hackathons/{hackathonId}/analytics:
+ *   get:
+ *     summary: Get hackathon analytics
+ *     description: Retrieve time-series analytics data for submissions and participants
+ *     tags: [Hackathons]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: granularity
+ *         schema:
+ *           type: string
+ *           enum: [daily, weekly]
+ *         description: Time granularity for analytics (optional)
+ */
+export const getHackathonAnalytics = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const user = (req as AuthenticatedRequest).user;
+    const { orgId, hackathonId } = req.params;
+    const { granularity } = req.query;
+
+    if (!user) {
+      sendError(res, "Authentication required", 401);
+      return;
+    }
+
+    const { canManage, organization } = await canManageHackathons(
+      orgId,
+      user.email,
+    );
+
+    if (!canManage) {
+      if (!organization) {
+        sendNotFound(res, "Organization not found");
+        return;
+      }
+      sendForbidden(
+        res,
+        "Only owners and admins can view hackathon analytics for this organization",
+      );
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(hackathonId)) {
+      sendBadRequest(res, "Invalid hackathon ID");
+      return;
+    }
+
+    const hackathon = await Hackathon.findOne({
+      _id: hackathonId,
+      organizationId: orgId,
+    });
+
+    if (!hackathon) {
+      sendNotFound(res, "Hackathon not found");
+      return;
+    }
+
+    // Helper function to generate time series data
+    const generateTimeSeries = (
+      startDate: Date,
+      endDate: Date,
+      granularity: "daily" | "weekly",
+    ): Array<{ date: string; count: number }> => {
+      const data: Array<{ date: string; count: number }> = [];
+      const current = new Date(startDate);
+      const end = new Date(endDate);
+
+      if (granularity === "daily") {
+        while (current <= end) {
+          data.push({
+            date: current.toISOString().split("T")[0],
+            count: 0,
+          });
+          current.setDate(current.getDate() + 1);
+        }
+      } else {
+        // Weekly aggregation
+        const seenWeeks = new Set<string>();
+        while (current <= end) {
+          // Get the start of the week (Monday)
+          const weekStart = new Date(current);
+          const dayOfWeek = current.getDay();
+          const diff =
+            current.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+          weekStart.setDate(diff);
+          weekStart.setHours(0, 0, 0, 0);
+
+          const weekKey = weekStart.toISOString().split("T")[0];
+
+          // Only add if we haven't seen this week yet
+          if (!seenWeeks.has(weekKey)) {
+            data.push({
+              date: weekKey,
+              count: 0,
+            });
+            seenWeeks.add(weekKey);
+          }
+
+          // Move to next week
+          current.setDate(current.getDate() + 7);
+        }
+      }
+
+      return data;
+    };
+
+    // Get hackathon date range
+    const startDate = hackathon.startDate || hackathon.createdAt;
+    const endDate =
+      hackathon.winnerAnnouncementDate ||
+      hackathon.submissionDeadline ||
+      new Date();
+
+    // Generate daily time series
+    const dailySubmissions = generateTimeSeries(startDate, endDate, "daily");
+    const dailyParticipants = generateTimeSeries(startDate, endDate, "daily");
+
+    // Generate weekly time series
+    const weeklySubmissions = generateTimeSeries(startDate, endDate, "weekly");
+    const weeklyParticipants = generateTimeSeries(startDate, endDate, "weekly");
+
+    // TODO: Replace with actual aggregation queries when models are created
+    // Example for submissions daily:
+    // const submissionsDaily = await HackathonSubmission.aggregate([
+    //   { $match: { hackathonId: new mongoose.Types.ObjectId(hackathonId) } },
+    //   {
+    //     $group: {
+    //       _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+    //       count: { $sum: 1 },
+    //     },
+    //   },
+    //   { $sort: { _id: 1 } },
+    // ]);
+    //
+    // Then map the results to the time series data:
+    // submissionsDaily.forEach((item) => {
+    //   const dataPoint = dailySubmissions.find((d) => d.date === item._id);
+    //   if (dataPoint) dataPoint.count = item.count;
+    // });
+
+    // Similar logic for participants, weekly aggregations, etc.
+
+    const analytics = {
+      submissions: {
+        daily: dailySubmissions,
+        weekly: weeklySubmissions,
+      },
+      participants: {
+        daily: dailyParticipants,
+        weekly: weeklyParticipants,
+      },
+    };
+
+    // If granularity is specified, filter the response
+    if (granularity === "daily") {
+      sendSuccess(
+        res,
+        {
+          submissions: { daily: dailySubmissions },
+          participants: { daily: dailyParticipants },
+        },
+        "Analytics retrieved successfully",
+      );
+    } else if (granularity === "weekly") {
+      sendSuccess(
+        res,
+        {
+          submissions: { weekly: weeklySubmissions },
+          participants: { weekly: weeklyParticipants },
+        },
+        "Analytics retrieved successfully",
+      );
+    } else {
+      sendSuccess(res, analytics, "Analytics retrieved successfully");
+    }
+  } catch (error) {
+    console.error("Get hackathon analytics error:", error);
+    sendInternalServerError(
+      res,
+      "Failed to retrieve hackathon analytics",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};

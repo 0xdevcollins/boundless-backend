@@ -8,6 +8,8 @@ import {
   updateHackathon,
   getHackathon,
   getHackathons,
+  getHackathonStatistics,
+  getHackathonAnalytics,
 } from "./hackathon.controller";
 import { protect } from "../../middleware/auth";
 import { validateRequest } from "../../middleware/validateRequest";
@@ -17,6 +19,7 @@ import {
   hackathonIdParam,
   draftSchema,
   publishSchema,
+  analyticsQuerySchema,
 } from "./hackathon.validators";
 
 const router = Router();
@@ -77,6 +80,21 @@ router.get(
   protect,
   validateRequest([orgIdParam]),
   getHackathons,
+);
+
+// Statistics and Analytics Routes
+router.get(
+  "/:orgId/hackathons/:hackathonId/statistics",
+  protect,
+  validateRequest([orgIdParam, hackathonIdParam]),
+  getHackathonStatistics,
+);
+
+router.get(
+  "/:orgId/hackathons/:hackathonId/analytics",
+  protect,
+  validateRequest([orgIdParam, hackathonIdParam, ...analyticsQuerySchema]),
+  getHackathonAnalytics,
 );
 
 export default router;
