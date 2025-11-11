@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import HackathonParticipant from "../models/hackathon-participant.model";
+import HackathonSubmissionComment from "../models/hackathon-submission-comment.model";
+import HackathonSubmissionVote from "../models/hackathon-submission-vote.model";
 import Hackathon from "../models/hackathon.model";
 import User from "../models/user.model";
 import Organization from "../models/organization.model";
@@ -264,16 +266,19 @@ const generateMockParticipants = async (
     }
 
     // Insert participants (with error handling for duplicates)
+    let insertedParticipants: any[] = [];
     try {
-      await HackathonParticipant.insertMany(participants, {
+      const result = await HackathonParticipant.insertMany(participants, {
         ordered: false, // Continue inserting even if some fail
       });
+      insertedParticipants = result;
       console.log(
-        `✅ Successfully created ${participants.length} mock participants`,
+        `✅ Successfully created ${insertedParticipants.length} mock participants`,
       );
     } catch (error: any) {
       // Handle partial insertions
       if (error.insertedDocs && error.insertedDocs.length > 0) {
+        insertedParticipants = error.insertedDocs;
         console.log(
           `⚠️  Partially successful: Created ${error.insertedDocs.length} out of ${participants.length} participants`,
         );
@@ -287,14 +292,122 @@ const generateMockParticipants = async (
       }
     }
     console.log(
-      `   - Individual participants: ${participants.filter((p) => p.participationType === "individual").length}`,
+      `   - Individual participants: ${insertedParticipants.filter((p) => p.participationType === "individual").length}`,
     );
     console.log(
-      `   - Team participants: ${participants.filter((p) => p.participationType === "team").length}`,
+      `   - Team participants: ${insertedParticipants.filter((p) => p.participationType === "team").length}`,
     );
     console.log(
-      `   - With submissions: ${participants.filter((p) => p.submission).length}`,
+      `   - With submissions: ${insertedParticipants.filter((p) => p.submission).length}`,
     );
+
+    // Generate mock comments and votes for submissions
+    const submissionsWithData = insertedParticipants.filter(
+      (p) => p.submission,
+    );
+    const allUsers = await User.find().limit(20).lean();
+
+    if (submissionsWithData.length > 0 && allUsers.length > 0) {
+      const comments = [];
+      const votes = [];
+      const commentTemplates = [
+        "Great project! This looks really promising.",
+        "Interesting approach. How do you plan to scale this?",
+        "Love the UI/UX design. Very clean and intuitive.",
+        "The smart contract architecture looks solid. Well done!",
+        "This could really solve a major problem in the space.",
+        "Impressive work. Looking forward to seeing this in action.",
+        "The technical implementation is impressive.",
+        "Great team and execution. Best of luck!",
+        "This is exactly what the ecosystem needs.",
+        "Very innovative solution. Keep up the good work!",
+      ];
+
+      for (const participant of submissionsWithData) {
+        const submissionId = participant._id;
+        const submissionDate =
+          participant.submittedAt || participant.registeredAt;
+
+        // Generate 2-8 comments per submission
+        const numComments = Math.floor(Math.random() * 7) + 2;
+        for (let i = 0; i < numComments && i < allUsers.length; i++) {
+          const commentUser = allUsers[i % allUsers.length];
+          const commentDate = new Date(submissionDate);
+          commentDate.setTime(
+            commentDate.getTime() + Math.random() * 7 * 24 * 60 * 60 * 1000,
+          ); // Within 7 days of submission
+
+          comments.push({
+            submissionId,
+            userId: commentUser._id,
+            content: getRandomElement(commentTemplates),
+            status: "active",
+            reactionCounts: {
+              LIKE: Math.floor(Math.random() * 10),
+              DISLIKE: Math.floor(Math.random() * 2),
+              HELPFUL: Math.floor(Math.random() * 5),
+            },
+            createdAt: commentDate,
+            updatedAt: commentDate,
+          });
+        }
+
+        // Generate 5-25 votes per submission
+        const numVotes = Math.floor(Math.random() * 21) + 5;
+        const usedVoteUsers = new Set<string>();
+        for (let i = 0; i < numVotes && i < allUsers.length; i++) {
+          let voteUser = allUsers[Math.floor(Math.random() * allUsers.length)];
+          let attempts = 0;
+          while (usedVoteUsers.has(voteUser._id.toString()) && attempts < 10) {
+            voteUser = allUsers[Math.floor(Math.random() * allUsers.length)];
+            attempts++;
+          }
+          usedVoteUsers.add(voteUser._id.toString());
+
+          const voteDate = new Date(submissionDate);
+          voteDate.setTime(
+            voteDate.getTime() + Math.random() * 7 * 24 * 60 * 60 * 1000,
+          );
+
+          votes.push({
+            submissionId,
+            userId: voteUser._id,
+            value: Math.random() > 0.1 ? 1 : -1, // 90% upvotes, 10% downvotes
+            createdAt: voteDate,
+            updatedAt: voteDate,
+          });
+        }
+      }
+
+      // Insert comments and votes
+      if (comments.length > 0) {
+        try {
+          await HackathonSubmissionComment.insertMany(comments, {
+            ordered: false,
+          });
+          console.log(`✅ Created ${comments.length} mock comments`);
+        } catch (error: any) {
+          if (error.insertedDocs) {
+            console.log(
+              `⚠️  Created ${error.insertedDocs.length} out of ${comments.length} comments`,
+            );
+          }
+        }
+      }
+
+      if (votes.length > 0) {
+        try {
+          await HackathonSubmissionVote.insertMany(votes, { ordered: false });
+          console.log(`✅ Created ${votes.length} mock votes`);
+        } catch (error: any) {
+          if (error.insertedDocs) {
+            console.log(
+              `⚠️  Created ${error.insertedDocs.length} out of ${votes.length} votes`,
+            );
+          }
+        }
+      }
+    }
   } catch (error) {
     console.error("Error generating mock participants:", error);
     throw error;

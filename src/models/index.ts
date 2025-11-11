@@ -20,3 +20,5 @@ import "./crowdfund.model";
 import "./waitlist.model";
 import "./hackathon.model";
 import "./hackathon-participant.model";
+import "./hackathon-submission-comment.model";
+import "./hackathon-submission-vote.model";

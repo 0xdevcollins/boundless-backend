@@ -9,6 +9,8 @@ import Hackathon, {
 import HackathonParticipant, {
   IHackathonParticipant,
 } from "../../models/hackathon-participant.model";
+import HackathonSubmissionComment from "../../models/hackathon-submission-comment.model";
+import HackathonSubmissionVote from "../../models/hackathon-submission-vote.model";
 import Organization from "../../models/organization.model";
 import User from "../../models/user.model";
 import {
@@ -1356,9 +1358,100 @@ export const getParticipants = async (
       .limit(limitNum)
       .lean();
 
+    // Get all submission IDs to fetch comments and votes
+    const submissionIds = participants
+      .filter((p: any) => p.submission)
+      .map((p: any) => p._id);
+
+    // Fetch comments and votes for all submissions
+    const [commentsData, votesData] = await Promise.all([
+      HackathonSubmissionComment.find({
+        submissionId: { $in: submissionIds },
+        status: "active",
+      })
+        .populate({
+          path: "userId",
+          select: "profile email",
+        })
+        .sort({ createdAt: -1 })
+        .lean(),
+      HackathonSubmissionVote.find({
+        submissionId: { $in: submissionIds },
+      })
+        .populate({
+          path: "userId",
+          select: "profile email",
+        })
+        .sort({ createdAt: -1 })
+        .lean(),
+    ]);
+
+    // Group comments and votes by submissionId
+    const commentsBySubmission = new Map<string, any[]>();
+    const votesBySubmission = new Map<string, any[]>();
+
+    commentsData.forEach((comment: any) => {
+      const subId = comment.submissionId.toString();
+      if (!commentsBySubmission.has(subId)) {
+        commentsBySubmission.set(subId, []);
+      }
+      const user = comment.userId;
+      commentsBySubmission.get(subId)!.push({
+        _id: comment._id.toString(),
+        userId: user._id.toString(),
+        user: {
+          _id: user._id.toString(),
+          profile: {
+            firstName: user.profile?.firstName || "",
+            lastName: user.profile?.lastName || "",
+            username: user.profile?.username || "",
+            avatar: user.profile?.avatar || "",
+          },
+          email: user.email || "",
+        },
+        content: comment.content,
+        parentCommentId: comment.parentCommentId?.toString() || undefined,
+        reactionCounts: comment.reactionCounts || {
+          LIKE: 0,
+          DISLIKE: 0,
+          HELPFUL: 0,
+        },
+        createdAt: comment.createdAt.toISOString(),
+        updatedAt: comment.updatedAt.toISOString(),
+      });
+    });
+
+    votesData.forEach((vote: any) => {
+      const subId = vote.submissionId.toString();
+      if (!votesBySubmission.has(subId)) {
+        votesBySubmission.set(subId, []);
+      }
+      const user = vote.userId;
+      votesBySubmission.get(subId)!.push({
+        _id: vote._id.toString(),
+        userId: user._id.toString(),
+        user: {
+          _id: user._id.toString(),
+          profile: {
+            firstName: user.profile?.firstName || "",
+            lastName: user.profile?.lastName || "",
+            username: user.profile?.username || "",
+            avatar: user.profile?.avatar || "",
+          },
+          email: user.email || "",
+        },
+        value: vote.value,
+        createdAt: vote.createdAt.toISOString(),
+      });
+    });
+
     // Transform participants to match frontend interface
     const transformedParticipants = participants.map((participant: any) => {
       const user = participant.userId;
+      const submissionId = participant._id.toString();
+      const comments = commentsBySubmission.get(submissionId) || [];
+      const votes = votesBySubmission.get(submissionId) || [];
+
       return {
         _id: participant._id.toString(),
         userId: participant.userId._id.toString(),
@@ -1396,8 +1489,8 @@ export const getParticipants = async (
               videoUrl: participant.submission.videoUrl || undefined,
               introduction: participant.submission.introduction || undefined,
               links: participant.submission.links || undefined,
-              votes: participant.submission.votes || 0,
-              comments: participant.submission.comments || 0,
+              votes: votes, // Array of vote objects with content
+              comments: comments, // Array of comment objects with content
               submissionDate:
                 participant.submission.submissionDate.toISOString(),
               status: participant.submission.status,
