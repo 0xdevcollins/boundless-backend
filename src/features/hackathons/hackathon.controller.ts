@@ -6,7 +6,11 @@ import Hackathon, {
   ParticipantType,
   VenueType,
 } from "../../models/hackathon.model";
+import HackathonParticipant, {
+  IHackathonParticipant,
+} from "../../models/hackathon-participant.model";
 import Organization from "../../models/organization.model";
+import User from "../../models/user.model";
 import {
   sendSuccess,
   sendError,
@@ -880,28 +884,28 @@ export const getHackathonStatistics = async (
       return;
     }
 
-    // TODO: Replace with actual queries when hackathon participant/submission models are created
-    // For now, using placeholder logic that returns realistic structure
-
     // Get participants count
-    // This would query a HackathonParticipant model or similar
-    // Example: const participantsCount = await HackathonParticipant.countDocuments({ hackathonId });
-    const participantsCount = 0; // Placeholder
+    const participantsCount = await HackathonParticipant.countDocuments({
+      hackathonId: new mongoose.Types.ObjectId(hackathonId),
+      organizationId: new mongoose.Types.ObjectId(orgId),
+    });
 
-    // Get submissions count
-    // This would query a HackathonSubmission model or Project model filtered by hackathonId
-    // Example: const submissionsCount = await HackathonSubmission.countDocuments({ hackathonId, status: 'submitted' });
-    const submissionsCount = 0; // Placeholder
+    // Get submissions count (participants who have submitted)
+    const submissionsCount = await HackathonParticipant.countDocuments({
+      hackathonId: new mongoose.Types.ObjectId(hackathonId),
+      organizationId: new mongoose.Types.ObjectId(orgId),
+      submission: { $exists: true, $ne: null },
+    });
 
     // Get active judges count
-    // This would query users with judge role for this hackathon
-    // Example: const activeJudges = await User.countDocuments({ hackathonId, role: 'judge', isActive: true });
-    const activeJudges = 0; // Placeholder
+    // TODO: Implement judge model/role system when available
+    // For now, returning 0 as placeholder
+    const activeJudges = 0;
 
     // Get completed milestones count
-    // This would query Milestone model filtered by hackathon-related projects
-    // Example: const completedMilestones = await Milestone.countDocuments({ hackathonId, status: 'completed' });
-    const completedMilestones = 0; // Placeholder
+    // TODO: Implement milestone tracking for hackathon projects when available
+    // For now, returning 0 as placeholder
+    const completedMilestones = 0;
 
     const statistics = {
       participantsCount,
@@ -1048,26 +1052,126 @@ export const getHackathonAnalytics = async (
     const weeklySubmissions = generateTimeSeries(startDate, endDate, "weekly");
     const weeklyParticipants = generateTimeSeries(startDate, endDate, "weekly");
 
-    // TODO: Replace with actual aggregation queries when models are created
-    // Example for submissions daily:
-    // const submissionsDaily = await HackathonSubmission.aggregate([
-    //   { $match: { hackathonId: new mongoose.Types.ObjectId(hackathonId) } },
-    //   {
-    //     $group: {
-    //       _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-    //       count: { $sum: 1 },
-    //     },
-    //   },
-    //   { $sort: { _id: 1 } },
-    // ]);
-    //
-    // Then map the results to the time series data:
-    // submissionsDaily.forEach((item) => {
-    //   const dataPoint = dailySubmissions.find((d) => d.date === item._id);
-    //   if (dataPoint) dataPoint.count = item.count;
-    // });
+    // Aggregate submissions by date (daily)
+    const submissionsDaily = await HackathonParticipant.aggregate([
+      {
+        $match: {
+          hackathonId: new mongoose.Types.ObjectId(hackathonId),
+          organizationId: new mongoose.Types.ObjectId(orgId),
+          submission: { $exists: true, $ne: null },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: {
+              format: "%Y-%m-%d",
+              date: "$submittedAt",
+            },
+          },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
 
-    // Similar logic for participants, weekly aggregations, etc.
+    // Map daily submissions to time series
+    submissionsDaily.forEach((item) => {
+      const dataPoint = dailySubmissions.find((d) => d.date === item._id);
+      if (dataPoint) dataPoint.count = item.count;
+    });
+
+    // Aggregate participants by registration date (daily)
+    const participantsDaily = await HackathonParticipant.aggregate([
+      {
+        $match: {
+          hackathonId: new mongoose.Types.ObjectId(hackathonId),
+          organizationId: new mongoose.Types.ObjectId(orgId),
+        },
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: {
+              format: "%Y-%m-%d",
+              date: "$registeredAt",
+            },
+          },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    // Map daily participants to time series
+    participantsDaily.forEach((item) => {
+      const dataPoint = dailyParticipants.find((d) => d.date === item._id);
+      if (dataPoint) dataPoint.count = item.count;
+    });
+
+    // Aggregate submissions by week
+    // Get all submissions and group them by week manually
+    const allSubmissions = await HackathonParticipant.find({
+      hackathonId: new mongoose.Types.ObjectId(hackathonId),
+      organizationId: new mongoose.Types.ObjectId(orgId),
+      submission: { $exists: true, $ne: null },
+    })
+      .select("submittedAt")
+      .lean();
+
+    const submissionsByWeek = new Map<string, number>();
+    allSubmissions.forEach((item: any) => {
+      if (item.submittedAt) {
+        const date = new Date(item.submittedAt);
+        const dayOfWeek = date.getDay();
+        const diff = date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+        const weekStart = new Date(date);
+        weekStart.setDate(diff);
+        weekStart.setHours(0, 0, 0, 0);
+        const weekKey = weekStart.toISOString().split("T")[0];
+        submissionsByWeek.set(
+          weekKey,
+          (submissionsByWeek.get(weekKey) || 0) + 1,
+        );
+      }
+    });
+
+    // Map weekly submissions to time series
+    submissionsByWeek.forEach((count, weekKey) => {
+      const dataPoint = weeklySubmissions.find((d) => d.date === weekKey);
+      if (dataPoint) dataPoint.count = count;
+    });
+
+    // Aggregate participants by week
+    const allParticipants = await HackathonParticipant.find({
+      hackathonId: new mongoose.Types.ObjectId(hackathonId),
+      organizationId: new mongoose.Types.ObjectId(orgId),
+    })
+      .select("registeredAt")
+      .lean();
+
+    const participantsByWeek = new Map<string, number>();
+    allParticipants.forEach((item: any) => {
+      if (item.registeredAt) {
+        const date = new Date(item.registeredAt);
+        const dayOfWeek = date.getDay();
+        const diff = date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+        const weekStart = new Date(date);
+        weekStart.setDate(diff);
+        weekStart.setHours(0, 0, 0, 0);
+        const weekKey = weekStart.toISOString().split("T")[0];
+        participantsByWeek.set(
+          weekKey,
+          (participantsByWeek.get(weekKey) || 0) + 1,
+        );
+      }
+    });
+
+    // Map weekly participants to time series
+    participantsByWeek.forEach((count, weekKey) => {
+      const dataPoint = weeklyParticipants.find((d) => d.date === weekKey);
+      if (dataPoint) dataPoint.count = count;
+    });
 
     const analytics = {
       submissions: {
@@ -1107,6 +1211,225 @@ export const getHackathonAnalytics = async (
     sendInternalServerError(
       res,
       "Failed to retrieve hackathon analytics",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};
+
+/**
+ * @swagger
+ * /api/organizations/{orgId}/hackathons/{hackathonId}/participants:
+ *   get:
+ *     summary: Get hackathon participants
+ *     description: Retrieve paginated list of participants for a hackathon with optional filters
+ *     tags: [Hackathons]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Items per page
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [submitted, not_submitted]
+ *         description: Filter by submission status
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [individual, team]
+ *         description: Filter by participation type
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search by name, username, or project name
+ */
+export const getParticipants = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const user = (req as AuthenticatedRequest).user;
+    const { orgId, hackathonId } = req.params;
+    const { page = "1", limit = "10", status, type, search } = req.query;
+
+    if (!user) {
+      sendError(res, "Authentication required", 401);
+      return;
+    }
+
+    const { canManage, organization } = await canManageHackathons(
+      orgId,
+      user.email,
+    );
+
+    if (!canManage) {
+      if (!organization) {
+        sendNotFound(res, "Organization not found");
+        return;
+      }
+      sendForbidden(
+        res,
+        "Only owners and admins can view hackathon participants for this organization",
+      );
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(hackathonId)) {
+      sendBadRequest(res, "Invalid hackathon ID");
+      return;
+    }
+
+    const hackathon = await Hackathon.findOne({
+      _id: hackathonId,
+      organizationId: orgId,
+    });
+
+    if (!hackathon) {
+      sendNotFound(res, "Hackathon not found");
+      return;
+    }
+
+    // Build query
+    const query: any = {
+      hackathonId: new mongoose.Types.ObjectId(hackathonId),
+      organizationId: new mongoose.Types.ObjectId(orgId),
+    };
+
+    // Filter by participation type
+    if (type === "individual" || type === "team") {
+      query.participationType = type;
+    }
+
+    // Filter by submission status
+    if (status === "submitted") {
+      query.submission = { $exists: true, $ne: null };
+    } else if (status === "not_submitted") {
+      query.$or = [{ submission: { $exists: false } }, { submission: null }];
+    }
+
+    // Search filter
+    if (search && typeof search === "string") {
+      const searchRegex = new RegExp(search, "i");
+      const searchConditions: any[] = [
+        { teamName: searchRegex },
+        { "submission.projectName": searchRegex },
+      ];
+
+      // If we already have $or for status, merge it
+      if (query.$or) {
+        query.$and = [{ $or: query.$or }, { $or: searchConditions }];
+        delete query.$or;
+      } else {
+        query.$or = searchConditions;
+      }
+    }
+
+    // Pagination
+    const pageNum = parseInt(page as string, 10);
+    const limitNum = parseInt(limit as string, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Get total count
+    const totalItems = await HackathonParticipant.countDocuments(query);
+
+    // Get participants with user population
+    const participants = await HackathonParticipant.find(query)
+      .populate({
+        path: "userId",
+        select: "email profile",
+      })
+      .sort({ registeredAt: -1 })
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
+
+    // Transform participants to match frontend interface
+    const transformedParticipants = participants.map((participant: any) => {
+      const user = participant.userId;
+      return {
+        _id: participant._id.toString(),
+        userId: participant.userId._id.toString(),
+        hackathonId: participant.hackathonId.toString(),
+        organizationId: participant.organizationId.toString(),
+        user: {
+          _id: user._id.toString(),
+          profile: {
+            firstName: user.profile?.firstName || "",
+            lastName: user.profile?.lastName || "",
+            username: user.profile?.username || "",
+            avatar: user.profile?.avatar || "",
+          },
+          email: user.email || "",
+        },
+        socialLinks: participant.socialLinks || undefined,
+        participationType: participant.participationType,
+        teamId: participant.teamId || undefined,
+        teamName: participant.teamName || undefined,
+        teamMembers:
+          participant.teamMembers?.map((member: any) => ({
+            userId: member.userId.toString(),
+            name: member.name,
+            username: member.username,
+            role: member.role,
+            avatar: member.avatar || undefined,
+          })) || undefined,
+        submission: participant.submission
+          ? {
+              _id: participant._id.toString(),
+              projectName: participant.submission.projectName,
+              category: participant.submission.category,
+              description: participant.submission.description,
+              logo: participant.submission.logo || undefined,
+              videoUrl: participant.submission.videoUrl || undefined,
+              introduction: participant.submission.introduction || undefined,
+              links: participant.submission.links || undefined,
+              votes: participant.submission.votes || 0,
+              comments: participant.submission.comments || 0,
+              submissionDate:
+                participant.submission.submissionDate.toISOString(),
+              status: participant.submission.status,
+            }
+          : undefined,
+        registeredAt: participant.registeredAt.toISOString(),
+        submittedAt: participant.submittedAt?.toISOString() || undefined,
+      };
+    });
+
+    const totalPages = Math.ceil(totalItems / limitNum);
+
+    sendSuccess(
+      res,
+      {
+        data: transformedParticipants,
+        pagination: {
+          currentPage: pageNum,
+          totalPages,
+          totalItems,
+          itemsPerPage: limitNum,
+          hasNext: pageNum < totalPages,
+          hasPrev: pageNum > 1,
+        },
+      },
+      "Participants retrieved successfully",
+    );
+  } catch (error) {
+    console.error("Get participants error:", error);
+    sendInternalServerError(
+      res,
+      "Failed to retrieve participants",
       error instanceof Error ? error.message : "Unknown error",
     );
   }

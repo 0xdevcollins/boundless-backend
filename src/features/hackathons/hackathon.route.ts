@@ -10,6 +10,7 @@ import {
   getHackathons,
   getHackathonStatistics,
   getHackathonAnalytics,
+  getParticipants,
 } from "./hackathon.controller";
 import { protect } from "../../middleware/auth";
 import { validateRequest } from "../../middleware/validateRequest";
@@ -95,6 +96,13 @@ router.get(
   protect,
   validateRequest([orgIdParam, hackathonIdParam, ...analyticsQuerySchema]),
   getHackathonAnalytics,
+);
+
+router.get(
+  "/:orgId/hackathons/:hackathonId/participants",
+  protect,
+  validateRequest([orgIdParam, hackathonIdParam]),
+  getParticipants,
 );
 
 export default router;

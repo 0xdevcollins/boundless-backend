@@ -19,3 +19,4 @@ import "./otp.model";
 import "./crowdfund.model";
 import "./waitlist.model";
 import "./hackathon.model";
+import "./hackathon-participant.model";

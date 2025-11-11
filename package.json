@@ -18,7 +18,8 @@
     "seed:blog": "ts-node src/seed-blog.ts",
     "seed:waitlist": "ts-node src/seed-waitlist.ts",
     "test:waitlist": "ts-node src/test-waitlist-seed.ts",
-    "migrate:comments-posted": "ts-node src/migrations/add-comments-posted-field.ts"
+    "migrate:comments-posted": "ts-node src/migrations/add-comments-posted-field.ts",
+    "seed:hackathon-participants": "ts-node src/scripts/seed-hackathon-participants.ts"
   },
   "keywords": [],
   "author": "",
