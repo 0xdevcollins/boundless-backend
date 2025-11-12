@@ -70,19 +70,61 @@ export const getJudgingSubmissions = async (
       return;
     }
 
-    // Get shortlisted participants
-    const pageNum = parseInt(page as string, 10);
-    const limitNum = parseInt(limit as string, 10);
-    const skip = (pageNum - 1) * limitNum;
-
-    const query = {
+    // First, find all shortlisted participants that have been judged
+    const baseQuery = {
       hackathonId: new mongoose.Types.ObjectId(hackathonId),
       organizationId: new mongoose.Types.ObjectId(orgId),
       "submission.status": "shortlisted",
       submission: { $exists: true, $ne: null },
     };
 
-    const totalItems = await HackathonParticipant.countDocuments(query);
+    // Get all shortlisted participants
+    const allShortlistedParticipants = await HackathonParticipant.find(
+      baseQuery,
+    )
+      .select("_id")
+      .lean();
+
+    const allSubmissionIds = allShortlistedParticipants.map(
+      (p: any) => p._id,
+    ) as mongoose.Types.ObjectId[];
+
+    // Find which submissions have been judged
+    const judgedSubmissionIds = (await HackathonJudgingScore.distinct(
+      "submissionId",
+      {
+        submissionId: { $in: allSubmissionIds },
+      },
+    )) as mongoose.Types.ObjectId[];
+
+    if (judgedSubmissionIds.length === 0) {
+      sendPaginatedResponse(
+        res,
+        [],
+        {
+          currentPage: 1,
+          totalPages: 0,
+          totalItems: 0,
+          itemsPerPage: parseInt(limit as string, 10),
+          hasNext: false,
+          hasPrev: false,
+        },
+        "Submissions retrieved successfully",
+      );
+      return;
+    }
+
+    // Now query only judged participants with pagination
+    const pageNum = parseInt(page as string, 10);
+    const limitNum = parseInt(limit as string, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    const query = {
+      ...baseQuery,
+      _id: { $in: judgedSubmissionIds },
+    };
+
+    const judgedTotalItems = judgedSubmissionIds.length;
 
     const participants = await HackathonParticipant.find(query)
       .populate({
@@ -98,7 +140,7 @@ export const getJudgingSubmissions = async (
       .limit(limitNum)
       .lean();
 
-    // Get all submission IDs
+    // Get all submission IDs for the current page
     const submissionIds = participants.map(
       (p: any) => p._id,
     ) as mongoose.Types.ObjectId[];
@@ -174,6 +216,7 @@ export const getJudgingSubmissions = async (
           participationType: participant.participationType,
           teamId: participant.teamId || undefined,
           teamName: participant.teamName || undefined,
+          rank: participant.rank || undefined,
         },
         submission: participant.submission
           ? {
@@ -192,12 +235,14 @@ export const getJudgingSubmissions = async (
           : undefined,
         criteria: hackathon.criteria || [],
         scores: scores,
-        averageScore: averageScore,
+        averageScore: averageScore
+          ? Math.round(averageScore * 100) / 100
+          : null,
         judgeCount: scores.length,
       };
     });
 
-    const totalPages = Math.ceil(totalItems / limitNum);
+    const totalPages = Math.ceil(judgedTotalItems / limitNum);
 
     sendPaginatedResponse(
       res,
@@ -205,12 +250,12 @@ export const getJudgingSubmissions = async (
       {
         currentPage: pageNum,
         totalPages,
-        totalItems,
+        totalItems: judgedTotalItems,
         itemsPerPage: limitNum,
         hasNext: pageNum < totalPages,
         hasPrev: pageNum > 1,
       },
-      "Judging submissions retrieved successfully",
+      "Submissions retrieved successfully",
     );
   } catch (error) {
     console.error("Get judging submissions error:", error);

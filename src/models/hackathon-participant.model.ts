@@ -47,6 +47,7 @@ export interface IHackathonParticipant extends Document {
   teamMembers?: ITeamMember[];
   socialLinks?: IParticipantSocialLinks;
   submission?: IParticipantSubmission;
+  rank?: number;
   registeredAt: Date;
   submittedAt?: Date;
   createdAt: Date;
@@ -241,6 +242,10 @@ const HackathonParticipantSchema = new Schema<IHackathonParticipant>(
     submittedAt: {
       type: Date,
     },
+    rank: {
+      type: Number,
+      min: [1, "Rank must be a positive integer"],
+    },
   },
   {
     timestamps: true,
@@ -256,6 +261,7 @@ HackathonParticipantSchema.index({ hackathonId: 1, organizationId: 1 });
 HackathonParticipantSchema.index({ hackathonId: 1, participationType: 1 });
 HackathonParticipantSchema.index({ hackathonId: 1, teamId: 1 });
 HackathonParticipantSchema.index({ "submission.status": 1 });
+HackathonParticipantSchema.index({ hackathonId: 1, rank: 1 });
 
 export default mongoose.model<IHackathonParticipant>(
   "HackathonParticipant",

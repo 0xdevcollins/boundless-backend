@@ -126,6 +126,9 @@ export interface IHackathon extends Document {
   escrowAddress?: string;
   transactionHash?: string;
   escrowDetails?: object;
+  winnersAnnounced?: boolean;
+  winnersAnnouncedAt?: Date;
+  winnersAnnouncement?: string;
 
   createdAt: Date;
   updatedAt: Date;
@@ -445,6 +448,18 @@ const HackathonSchema = new Schema<IHackathon>(
     },
     escrowDetails: {
       type: Schema.Types.Mixed,
+    },
+    winnersAnnounced: {
+      type: Boolean,
+      default: false,
+    },
+    winnersAnnouncedAt: {
+      type: Date,
+    },
+    winnersAnnouncement: {
+      type: String,
+      trim: true,
+      maxlength: [5000, "Winner announcement cannot exceed 5000 characters"],
     },
   },
   {

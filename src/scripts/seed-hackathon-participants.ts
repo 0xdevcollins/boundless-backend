@@ -448,37 +448,65 @@ const generateMockParticipants = async (
   }
 };
 
-const seedHackathonParticipants = async () => {
+const seedHackathonParticipants = async (hackathonId?: string) => {
   try {
-    await mongoose.connect(
-      "mongodb+srv://Vercel-Admin-boundless-db:Ev22QK3ZHNAJy0bE@boundless-db.ho6o77g.mongodb.net/?retryWrites=true&w=majority",
-    );
+    const mongoUri =
+      process.env.MONGODB_URI ||
+      "mongodb+srv://Vercel-Admin-boundless-db:Ev22QK3ZHNAJy0bE@boundless-db.ho6o77g.mongodb.net/?retryWrites=true&w=majority";
+    await mongoose.connect(mongoUri);
 
     console.log("🌱 Starting hackathon participants seed...");
 
-    // Get first organization
-    const organization = await Organization.findOne();
-    if (!organization) {
-      console.error(
-        "No organization found. Please create an organization first.",
-      );
-      process.exit(1);
+    let hackathon;
+    let organization;
+
+    if (hackathonId) {
+      // Use provided hackathon ID
+      if (!mongoose.Types.ObjectId.isValid(hackathonId)) {
+        console.error("❌ Invalid hackathon ID format");
+        process.exit(1);
+      }
+
+      hackathon = await Hackathon.findById(hackathonId);
+      if (!hackathon) {
+        console.error(`❌ Hackathon with ID ${hackathonId} not found`);
+        process.exit(1);
+      }
+
+      organization = await Organization.findById(hackathon.organizationId);
+      if (!organization) {
+        console.error(
+          `❌ Organization with ID ${hackathon.organizationId} not found`,
+        );
+        process.exit(1);
+      }
+    } else {
+      // Fallback to original behavior: Get first organization
+      organization = await Organization.findOne();
+      if (!organization) {
+        console.error(
+          "No organization found. Please create an organization first.",
+        );
+        process.exit(1);
+      }
+
+      // Get first published hackathon
+      hackathon = await Hackathon.findOne({
+        organizationId: organization._id,
+        status: { $in: ["published", "ongoing"] },
+      });
+
+      if (!hackathon) {
+        console.error(
+          "No published hackathon found. Please create and publish a hackathon first.",
+        );
+        process.exit(1);
+      }
     }
 
-    // Get first published hackathon
-    const hackathon = await Hackathon.findOne({
-      organizationId: organization._id,
-      status: { $in: ["published", "ongoing"] },
-    });
-
-    if (!hackathon) {
-      console.error(
-        "No published hackathon found. Please create and publish a hackathon first.",
-      );
-      process.exit(1);
-    }
-
-    console.log(`📋 Using hackathon: ${hackathon.title}`);
+    console.log(
+      `📋 Using hackathon: ${hackathon.title} (ID: ${hackathon._id})`,
+    );
     console.log(`🏢 Using organization: ${organization.name}`);
 
     await generateMockParticipants(
@@ -499,7 +527,9 @@ const seedHackathonParticipants = async () => {
 
 // Run if called directly
 if (require.main === module) {
-  seedHackathonParticipants();
+  // Get hackathon ID from command line arguments
+  const hackathonId = process.argv[2];
+  seedHackathonParticipants(hackathonId);
 }
 
 export { generateMockParticipants, seedHackathonParticipants };

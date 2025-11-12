@@ -257,3 +257,67 @@ export const validatePublishRequirements = (
 
   return { valid: errors.length === 0, errors };
 };
+
+/**
+ * Validate Stellar wallet address format
+ * Must be 56 characters, start with 'G', and match pattern
+ */
+export const validateStellarAddress = (address: string): boolean => {
+  if (!address || typeof address !== "string") {
+    return false;
+  }
+  // Stellar address pattern: starts with 'G', followed by 55 characters from base32 alphabet
+  const stellarPattern = /^G[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{55}$/;
+  return address.length === 56 && stellarPattern.test(address);
+};
+
+/**
+ * Get rank suffix for ordinal display (1st, 2nd, 3rd, 4th, etc.)
+ */
+export const getRankSuffix = (rank: number): string => {
+  if (rank % 100 >= 11 && rank % 100 <= 13) {
+    return "th";
+  }
+  switch (rank % 10) {
+    case 1:
+      return "st";
+    case 2:
+      return "nd";
+    case 3:
+      return "rd";
+    default:
+      return "th";
+  }
+};
+
+/**
+ * Map participant rank to prize amount from hackathon prize tiers
+ */
+export const mapRankToPrizeAmount = (
+  rank: number,
+  prizeTiers: IHackathon["prizeTiers"],
+): number | null => {
+  if (!prizeTiers || prizeTiers.length === 0) {
+    return null;
+  }
+
+  // Find prize tier that matches the rank
+  // Prize tier position can be "1st", "1", "First", etc.
+  const rankStr = rank.toString();
+  const rankSuffix = getRankSuffix(rank);
+  const rankWithSuffix = `${rank}${rankSuffix}`;
+
+  const matchingTier = prizeTiers.find((tier) => {
+    const position = tier.position.toLowerCase().trim();
+    return (
+      position === rankStr ||
+      position === rankWithSuffix.toLowerCase() ||
+      position === `${rankStr}st` ||
+      position === `${rankStr}nd` ||
+      position === `${rankStr}rd` ||
+      position === `${rankStr}th`
+    );
+  });
+
+  return matchingTier ? matchingTier.amount : null;
+};

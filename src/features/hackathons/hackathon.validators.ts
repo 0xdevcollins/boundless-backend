@@ -363,3 +363,55 @@ export const gradeSubmissionSchema: ValidationChain[] = [
     .isLength({ max: 1000 })
     .withMessage("Notes must not exceed 1000 characters"),
 ];
+
+// Rewards validators
+export const assignRanksSchema: ValidationChain[] = [
+  body("ranks")
+    .isArray({ min: 1 })
+    .withMessage("Ranks must be a non-empty array"),
+  body("ranks.*.participantId")
+    .isMongoId()
+    .withMessage("Each participant ID must be a valid MongoDB ObjectId"),
+  body("ranks.*.rank")
+    .isInt({ min: 1 })
+    .withMessage("Each rank must be a positive integer"),
+];
+
+export const createMilestonesSchema: ValidationChain[] = [
+  body("winners")
+    .isArray({ min: 1 })
+    .withMessage("Winners must be a non-empty array"),
+  body("winners.*.participantId")
+    .isMongoId()
+    .withMessage("Each participant ID must be a valid MongoDB ObjectId"),
+  body("winners.*.rank")
+    .isInt({ min: 1 })
+    .withMessage("Each rank must be a positive integer"),
+  body("winners.*.walletAddress")
+    .trim()
+    .notEmpty()
+    .withMessage("Wallet address is required")
+    .isLength({ min: 56, max: 56 })
+    .withMessage("Wallet address must be exactly 56 characters")
+    .matches(/^G[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{55}$/)
+    .withMessage(
+      "Wallet address must be a valid Stellar address (starts with 'G', 56 characters)",
+    ),
+];
+
+export const announceWinnersSchema: ValidationChain[] = [
+  body("winners")
+    .isArray({ min: 1 })
+    .withMessage("Winners must be a non-empty array"),
+  body("winners.*.submissionId")
+    .isMongoId()
+    .withMessage("Each submission ID must be a valid MongoDB ObjectId"),
+  body("winners.*.rank")
+    .isInt({ min: 1 })
+    .withMessage("Each rank must be a positive integer"),
+  body("announcement")
+    .optional()
+    .trim()
+    .isLength({ max: 5000 })
+    .withMessage("Announcement must not exceed 5000 characters"),
+];

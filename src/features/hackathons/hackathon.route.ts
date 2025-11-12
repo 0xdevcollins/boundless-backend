@@ -30,7 +30,16 @@ import {
   participantIdParam,
   disqualifySchema,
   gradeSubmissionSchema,
+  assignRanksSchema,
+  createMilestonesSchema,
+  announceWinnersSchema,
 } from "./hackathon.validators";
+import {
+  assignRanks,
+  createWinnerMilestones,
+  getEscrowDetails,
+  announceWinners,
+} from "./hackathon-rewards.controller";
 
 const router = Router();
 
@@ -159,6 +168,35 @@ router.get(
   protect,
   validateRequest([orgIdParam, hackathonIdParam, participantIdParam]),
   getSubmissionScores,
+);
+
+// Rewards Routes
+router.post(
+  "/:orgId/hackathons/:hackathonId/rewards/ranks",
+  protect,
+  validateRequest([orgIdParam, hackathonIdParam, ...assignRanksSchema]),
+  assignRanks,
+);
+
+router.post(
+  "/:orgId/hackathons/:hackathonId/rewards/milestones",
+  protect,
+  validateRequest([orgIdParam, hackathonIdParam, ...createMilestonesSchema]),
+  createWinnerMilestones,
+);
+
+router.get(
+  "/:orgId/hackathons/:hackathonId/escrow",
+  protect,
+  validateRequest([orgIdParam, hackathonIdParam]),
+  getEscrowDetails,
+);
+
+router.post(
+  "/:orgId/hackathons/:hackathonId/winners/announce",
+  protect,
+  validateRequest([orgIdParam, hackathonIdParam, ...announceWinnersSchema]),
+  announceWinners,
 );
 
 export default router;
