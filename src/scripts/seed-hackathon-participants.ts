@@ -143,7 +143,10 @@ const generateMockParticipants = async (
       console.log(
         "ℹ️  All available users are already participants in this hackathon.",
       );
-      return;
+      console.log(
+        "📝 Will generate comments/votes for existing submissions...",
+      );
+      // Don't return - continue to generate comments/votes for existing participants
     }
 
     // Clear existing participants for this hackathon if you want to regenerate
@@ -267,47 +270,78 @@ const generateMockParticipants = async (
 
     // Insert participants (with error handling for duplicates)
     let insertedParticipants: any[] = [];
-    try {
-      const result = await HackathonParticipant.insertMany(participants, {
-        ordered: false, // Continue inserting even if some fail
-      });
-      insertedParticipants = result;
-      console.log(
-        `✅ Successfully created ${insertedParticipants.length} mock participants`,
-      );
-    } catch (error: any) {
-      // Handle partial insertions
-      if (error.insertedDocs && error.insertedDocs.length > 0) {
-        insertedParticipants = error.insertedDocs;
+    if (participants.length > 0) {
+      try {
+        const result = await HackathonParticipant.insertMany(participants, {
+          ordered: false, // Continue inserting even if some fail
+        });
+        insertedParticipants = result;
         console.log(
-          `⚠️  Partially successful: Created ${error.insertedDocs.length} out of ${participants.length} participants`,
+          `✅ Successfully created ${insertedParticipants.length} mock participants`,
         );
-        if (error.writeErrors) {
+      } catch (error: any) {
+        // Handle partial insertions
+        if (error.insertedDocs && error.insertedDocs.length > 0) {
+          insertedParticipants = error.insertedDocs;
           console.log(
-            `   ${error.writeErrors.length} duplicates or errors skipped`,
+            `⚠️  Partially successful: Created ${error.insertedDocs.length} out of ${participants.length} participants`,
           );
+          if (error.writeErrors) {
+            console.log(
+              `   ${error.writeErrors.length} duplicates or errors skipped`,
+            );
+          }
+        } else {
+          // If it's a duplicate error but no docs were inserted, continue
+          if (error.code === 11000) {
+            console.log("ℹ️  All participants already exist, continuing...");
+          } else {
+            throw error;
+          }
         }
-      } else {
-        throw error;
       }
+      if (insertedParticipants.length > 0) {
+        console.log(
+          `   - Individual participants: ${insertedParticipants.filter((p) => p.participationType === "individual").length}`,
+        );
+        console.log(
+          `   - Team participants: ${insertedParticipants.filter((p) => p.participationType === "team").length}`,
+        );
+        console.log(
+          `   - With submissions: ${insertedParticipants.filter((p) => p.submission).length}`,
+        );
+      }
+    } else {
+      console.log("ℹ️  No new participants to create.");
     }
-    console.log(
-      `   - Individual participants: ${insertedParticipants.filter((p) => p.participationType === "individual").length}`,
-    );
-    console.log(
-      `   - Team participants: ${insertedParticipants.filter((p) => p.participationType === "team").length}`,
-    );
-    console.log(
-      `   - With submissions: ${insertedParticipants.filter((p) => p.submission).length}`,
-    );
 
     // Generate mock comments and votes for submissions
-    const submissionsWithData = insertedParticipants.filter(
-      (p) => p.submission,
-    );
+    // Get existing participants with submissions if no new ones were created
+    let submissionsWithData = insertedParticipants.filter((p) => p.submission);
+
+    // If no new participants were created, get existing ones with submissions
+    if (submissionsWithData.length === 0) {
+      const existingParticipants = await HackathonParticipant.find({
+        hackathonId: new mongoose.Types.ObjectId(hackathonId),
+        submission: { $exists: true, $ne: null },
+      }).lean();
+      submissionsWithData = existingParticipants;
+      console.log(
+        `📝 Found ${submissionsWithData.length} existing submissions to add comments/votes to`,
+      );
+    } else {
+      console.log(
+        `📝 Using ${submissionsWithData.length} new submissions to add comments/votes to`,
+      );
+    }
+
     const allUsers = await User.find().limit(20).lean();
+    console.log(
+      `👥 Found ${allUsers.length} users for generating comments/votes`,
+    );
 
     if (submissionsWithData.length > 0 && allUsers.length > 0) {
+      console.log(`🚀 Starting to generate comments and votes...`);
       const comments = [];
       const votes = [];
       const commentTemplates = [

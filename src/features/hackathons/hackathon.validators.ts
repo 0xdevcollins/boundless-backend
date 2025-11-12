@@ -331,3 +331,16 @@ export const analyticsQuerySchema: ValidationChain[] = [
     .isIn(["daily", "weekly"])
     .withMessage("Granularity must be either 'daily' or 'weekly'"),
 ];
+
+// Participant review validators
+export const participantIdParam: ValidationChain = param("participantId")
+  .isMongoId()
+  .withMessage("Invalid participant ID");
+
+export const disqualifySchema: ValidationChain[] = [
+  body("comment")
+    .optional()
+    .trim()
+    .isLength({ max: 1000 })
+    .withMessage("Comment must not exceed 1000 characters"),
+];

@@ -28,7 +28,6 @@ const HackathonSubmissionCommentSchema =
         type: Schema.Types.ObjectId,
         ref: "User",
         required: true,
-        index: true,
       },
       content: {
         type: String,
@@ -41,7 +40,6 @@ const HackathonSubmissionCommentSchema =
         type: Schema.Types.ObjectId,
         ref: "HackathonSubmissionComment",
         default: null,
-        index: true,
       },
       status: {
         type: String,

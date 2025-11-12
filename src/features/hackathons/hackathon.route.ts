@@ -11,6 +11,8 @@ import {
   getHackathonStatistics,
   getHackathonAnalytics,
   getParticipants,
+  shortlistSubmission,
+  disqualifySubmission,
 } from "./hackathon.controller";
 import { protect } from "../../middleware/auth";
 import { validateRequest } from "../../middleware/validateRequest";
@@ -21,6 +23,8 @@ import {
   draftSchema,
   publishSchema,
   analyticsQuerySchema,
+  participantIdParam,
+  disqualifySchema,
 } from "./hackathon.validators";
 
 const router = Router();
@@ -103,6 +107,26 @@ router.get(
   protect,
   validateRequest([orgIdParam, hackathonIdParam]),
   getParticipants,
+);
+
+// Submission Review Routes
+router.post(
+  "/:orgId/hackathons/:hackathonId/participants/:participantId/shortlist",
+  protect,
+  validateRequest([orgIdParam, hackathonIdParam, participantIdParam]),
+  shortlistSubmission,
+);
+
+router.post(
+  "/:orgId/hackathons/:hackathonId/participants/:participantId/disqualify",
+  protect,
+  validateRequest([
+    orgIdParam,
+    hackathonIdParam,
+    participantIdParam,
+    ...disqualifySchema,
+  ]),
+  disqualifySubmission,
 );
 
 export default router;

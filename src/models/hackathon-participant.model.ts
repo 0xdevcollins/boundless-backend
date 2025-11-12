@@ -25,6 +25,9 @@ export interface IParticipantSubmission {
   comments: number;
   submissionDate: Date;
   status: "submitted" | "shortlisted" | "disqualified";
+  disqualificationReason?: string;
+  reviewedBy?: Types.ObjectId;
+  reviewedAt?: Date;
 }
 
 export interface IParticipantSocialLinks {
@@ -147,6 +150,17 @@ const ParticipantSubmissionSchema = new Schema<IParticipantSubmission>(
       type: String,
       enum: ["submitted", "shortlisted", "disqualified"],
       default: "submitted",
+    },
+    disqualificationReason: {
+      type: String,
+      trim: true,
+    },
+    reviewedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
+    reviewedAt: {
+      type: Date,
     },
   },
   { _id: false },
