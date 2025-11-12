@@ -344,3 +344,22 @@ export const disqualifySchema: ValidationChain[] = [
     .isLength({ max: 1000 })
     .withMessage("Comment must not exceed 1000 characters"),
 ];
+
+// Judging validators
+export const gradeSubmissionSchema: ValidationChain[] = [
+  body("scores")
+    .isArray({ min: 1 })
+    .withMessage("Scores must be a non-empty array"),
+  body("scores.*.criterionTitle")
+    .trim()
+    .notEmpty()
+    .withMessage("Criterion title is required"),
+  body("scores.*.score")
+    .isFloat({ min: 0, max: 100 })
+    .withMessage("Score must be a number between 0 and 100"),
+  body("notes")
+    .optional()
+    .trim()
+    .isLength({ max: 1000 })
+    .withMessage("Notes must not exceed 1000 characters"),
+];

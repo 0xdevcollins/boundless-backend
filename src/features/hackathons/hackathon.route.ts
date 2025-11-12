@@ -1,4 +1,5 @@
 import { Router } from "express";
+// Import from modular controllers (they're re-exported from hackathon.controller.ts for backward compatibility)
 import {
   createDraft,
   updateDraft,
@@ -13,6 +14,9 @@ import {
   getParticipants,
   shortlistSubmission,
   disqualifySubmission,
+  getJudgingSubmissions,
+  submitGrade,
+  getSubmissionScores,
 } from "./hackathon.controller";
 import { protect } from "../../middleware/auth";
 import { validateRequest } from "../../middleware/validateRequest";
@@ -25,6 +29,7 @@ import {
   analyticsQuerySchema,
   participantIdParam,
   disqualifySchema,
+  gradeSubmissionSchema,
 } from "./hackathon.validators";
 
 const router = Router();
@@ -127,6 +132,33 @@ router.post(
     ...disqualifySchema,
   ]),
   disqualifySubmission,
+);
+
+// Judging Routes
+router.get(
+  "/:orgId/hackathons/:hackathonId/judging/submissions",
+  protect,
+  validateRequest([orgIdParam, hackathonIdParam]),
+  getJudgingSubmissions,
+);
+
+router.post(
+  "/:orgId/hackathons/:hackathonId/judging/submissions/:participantId/grade",
+  protect,
+  validateRequest([
+    orgIdParam,
+    hackathonIdParam,
+    participantIdParam,
+    ...gradeSubmissionSchema,
+  ]),
+  submitGrade,
+);
+
+router.get(
+  "/:orgId/hackathons/:hackathonId/judging/submissions/:participantId/scores",
+  protect,
+  validateRequest([orgIdParam, hackathonIdParam, participantIdParam]),
+  getSubmissionScores,
 );
 
 export default router;
