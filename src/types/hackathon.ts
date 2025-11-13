@@ -52,3 +52,11 @@ export interface Hackathon {
   featured?: boolean;
   resources?: string[];
 }
+
+export interface HackathonListResponse {
+  hackathons: Hackathon[];
+  hasMore: boolean;
+  total: number;
+  currentPage: number;
+  totalPages: number;
+}
