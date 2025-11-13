@@ -159,7 +159,9 @@ export const assignRanks = async (
     // Assign new ranks
     let updatedCount = 0;
     for (const participant of participants) {
-      const newRank = ranksToAssign.get(participant._id.toString());
+      const newRank = ranksToAssign.get(
+        (participant._id as mongoose.Types.ObjectId).toString(),
+      );
       if (newRank !== undefined) {
         participant.rank = newRank;
         await participant.save({ session });
@@ -318,7 +320,10 @@ export const createWinnerMilestones = async (
 
     // Validate participants have the assigned ranks
     const participantMap = new Map(
-      participants.map((p) => [p._id.toString(), p]),
+      participants.map((p) => [
+        (p._id as mongoose.Types.ObjectId).toString(),
+        p,
+      ]),
     );
     for (const winner of winners) {
       const participant = participantMap.get(winner.participantId);
@@ -519,7 +524,10 @@ export const announceWinners = async (
 
     // Validate ranks match assigned ranks
     const participantMap = new Map(
-      participants.map((p) => [p._id.toString(), p]),
+      participants.map((p) => [
+        (p._id as mongoose.Types.ObjectId).toString(),
+        p,
+      ]),
     );
     for (const winner of winners) {
       const participant = participantMap.get(winner.submissionId);
