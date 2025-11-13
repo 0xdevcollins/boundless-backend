@@ -256,6 +256,16 @@ export const createWinnerMilestones = async (
       return;
     }
 
+    // Check if escrow is funded (only time updates are blocked)
+    const escrowDetails = hackathon.escrowDetails as any;
+    if (escrowDetails?.isFunded === true) {
+      sendConflict(
+        res,
+        "Escrow is funded and cannot be updated. Milestones cannot be created for a funded escrow.",
+      );
+      return;
+    }
+
     // Validate winners array
     if (!winners || !Array.isArray(winners) || winners.length === 0) {
       sendBadRequest(res, "Winners array is required and cannot be empty");
@@ -421,6 +431,7 @@ export const getEscrowDetails = async (
     const escrowDetails = hackathon.escrowDetails as any;
     const contractId = hackathon.contractId || hackathon.escrowAddress;
 
+    const isFunded = escrowDetails?.isFunded === true;
     sendSuccess(
       res,
       {
@@ -428,8 +439,8 @@ export const getEscrowDetails = async (
         escrowAddress: hackathon.escrowAddress || contractId,
         balance: escrowDetails?.balance || null,
         milestones: escrowDetails?.milestones || [],
-        isFunded: escrowDetails?.isFunded || false,
-        canUpdate: escrowDetails?.canUpdate !== false, // Default to true if not specified
+        isFunded: isFunded,
+        canUpdate: !isFunded, // Can update if not funded
       },
       "Escrow details retrieved successfully",
     );

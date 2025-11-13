@@ -7,6 +7,7 @@ import {
 } from "../../models/hackathon.model";
 import Organization from "../../models/organization.model";
 import { checkPermission } from "../../utils/getUserRole";
+import { isValidStellarAddress } from "../../utils/wallet";
 
 export interface AuthenticatedRequest extends Request {
   user: any;
@@ -260,15 +261,13 @@ export const validatePublishRequirements = (
 
 /**
  * Validate Stellar wallet address format
- * Must be 56 characters, start with 'G', and match pattern
+ * Uses Stellar SDK's validation function for proper validation
  */
 export const validateStellarAddress = (address: string): boolean => {
   if (!address || typeof address !== "string") {
     return false;
   }
-  // Stellar address pattern: starts with 'G', followed by 55 characters from base32 alphabet
-  const stellarPattern = /^G[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{55}$/;
-  return address.length === 56 && stellarPattern.test(address);
+  return isValidStellarAddress(address);
 };
 
 /**

@@ -4,6 +4,7 @@ import {
   ParticipantType,
   VenueType,
 } from "../../models/hackathon.model";
+import { isValidStellarAddress } from "../../utils/wallet";
 
 export const orgIdParam: ValidationChain = param("orgId")
   .isMongoId()
@@ -391,12 +392,14 @@ export const createMilestonesSchema: ValidationChain[] = [
     .trim()
     .notEmpty()
     .withMessage("Wallet address is required")
-    .isLength({ min: 56, max: 56 })
-    .withMessage("Wallet address must be exactly 56 characters")
-    .matches(/^G[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{55}$/)
-    .withMessage(
-      "Wallet address must be a valid Stellar address (starts with 'G', 56 characters)",
-    ),
+    .custom((value) => {
+      if (!isValidStellarAddress(value)) {
+        throw new Error(
+          "Wallet address must be a valid Stellar address (starts with 'G', 56 characters)",
+        );
+      }
+      return true;
+    }),
 ];
 
 export const announceWinnersSchema: ValidationChain[] = [
