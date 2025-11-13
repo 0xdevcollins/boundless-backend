@@ -1,4 +1,6 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
+import { generateSlug } from "../utils/blog.utils";
+import { ensureUniqueHackathonSlug } from "../utils/hackathon.utils";
 
 export enum HackathonStatus {
   DRAFT = "draft",
@@ -65,6 +67,7 @@ export interface IHackathon extends Document {
   organizationId: Types.ObjectId;
   status: HackathonStatus;
   publishedAt?: Date;
+  slug?: string;
 
   // Information Tab
   title?: string;
@@ -247,6 +250,12 @@ const HackathonSchema = new Schema<IHackathon>(
     },
     publishedAt: {
       type: Date,
+    },
+    slug: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      sparse: true,
     },
 
     // Information Tab
@@ -471,9 +480,43 @@ const HackathonSchema = new Schema<IHackathon>(
 HackathonSchema.index({ organizationId: 1, status: 1 });
 HackathonSchema.index({ status: 1, createdAt: -1 });
 HackathonSchema.index({ organizationId: 1, createdAt: -1 });
+HackathonSchema.index({ slug: 1 }, { unique: true, sparse: true });
 
 // Validation: Date sequence must be: start < submission < judging < announcement
-HackathonSchema.pre("save", function (next) {
+HackathonSchema.pre("save", async function (next) {
+  // Auto-generate slug from title if not provided and title exists
+  if (this.isModified("title") && this.title && !this.slug) {
+    try {
+      this.slug = await ensureUniqueHackathonSlug(
+        generateSlug(this.title),
+        this._id?.toString(),
+      );
+    } catch (error) {
+      return next(
+        error instanceof Error ? error : new Error("Failed to generate slug"),
+      );
+    }
+  }
+
+  // Regenerate slug if title changed and slug should be updated
+  if (this.isModified("title") && this.title && this.slug) {
+    const newSlug = generateSlug(this.title);
+    if (newSlug !== this.slug) {
+      try {
+        this.slug = await ensureUniqueHackathonSlug(
+          newSlug,
+          this._id?.toString(),
+        );
+      } catch (error) {
+        return next(
+          error instanceof Error
+            ? error
+            : new Error("Failed to regenerate slug"),
+        );
+      }
+    }
+  }
+
   if (this.status === HackathonStatus.PUBLISHED) {
     // Only validate date sequence for published hackathons
     if (

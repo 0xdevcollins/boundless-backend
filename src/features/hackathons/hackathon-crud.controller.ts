@@ -21,6 +21,7 @@ import {
   transformRequestBody,
   validatePublishRequirements,
 } from "./hackathon.helpers";
+import { generateHackathonSlug } from "../../utils/hackathon.utils";
 
 /**
  * @swagger
@@ -98,6 +99,14 @@ export const publishHackathon = async (
         publish: { msg: validation.errors.join("; ") },
       });
       return;
+    }
+
+    // Ensure slug exists before publishing
+    if (!hackathon.slug && hackathon.title) {
+      hackathon.slug = await generateHackathonSlug(
+        hackathon.title,
+        hackathon._id?.toString(),
+      );
     }
 
     // Set status to published and set publishedAt
