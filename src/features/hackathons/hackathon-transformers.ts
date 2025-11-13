@@ -181,6 +181,7 @@ export const transformHackathonToFrontend = async (
 
   return {
     id: hackathon._id?.toString() || hackathon.id?.toString() || "",
+    slug: hackathon.slug || "",
     title: hackathon.title || "",
     subtitle,
     description: hackathon.description || "",

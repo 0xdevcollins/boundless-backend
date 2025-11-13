@@ -37,6 +37,7 @@ export interface SubmissionCardProps {
 
 export interface Hackathon {
   id: string;
+  slug: string;
   title: string;
   subtitle: string;
   description: string;
