@@ -61,3 +61,19 @@ export interface HackathonListResponse {
   currentPage: number;
   totalPages: number;
 }
+
+export interface ParticipantListResponse {
+  participants: Participant[];
+  hasMore: boolean;
+  total: number;
+  currentPage: number;
+  totalPages: number;
+}
+
+export interface SubmissionListResponse {
+  submissions: SubmissionCardProps[];
+  hasMore: boolean;
+  total: number;
+  currentPage: number;
+  totalPages: number;
+}

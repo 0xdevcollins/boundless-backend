@@ -68,12 +68,13 @@ export interface IHackathon extends Document {
   status: HackathonStatus;
   publishedAt?: Date;
   slug?: string;
+  featured?: boolean;
 
   // Information Tab
   title?: string;
   banner?: string;
   description?: string;
-  category?: HackathonCategory;
+  categories?: HackathonCategory[];
   venue?: {
     type: VenueType;
     country?: string;
@@ -257,6 +258,11 @@ const HackathonSchema = new Schema<IHackathon>(
       trim: true,
       sparse: true,
     },
+    featured: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
 
     // Information Tab
     title: {
@@ -275,12 +281,13 @@ const HackathonSchema = new Schema<IHackathon>(
       minlength: [10, "Description must be at least 10 characters"],
       maxlength: [5000, "Description cannot exceed 5000 characters"],
     },
-    category: {
-      type: String,
+    categories: {
+      type: [String],
       enum: {
         values: Object.values(HackathonCategory),
         message: `Category must be one of: ${Object.values(HackathonCategory).join(", ")}`,
       },
+      default: [],
     },
     venue: {
       type: {

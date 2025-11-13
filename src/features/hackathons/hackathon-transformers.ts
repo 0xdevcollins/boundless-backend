@@ -152,8 +152,14 @@ export const transformHackathonToFrontend = async (
       )
     : 0;
 
-  // Convert category to array
-  const categories = hackathon.category ? [hackathon.category] : [];
+  // Handle categories (support both old single category and new array)
+  const categories = hackathon.categories
+    ? Array.isArray(hackathon.categories)
+      ? hackathon.categories
+      : [hackathon.categories]
+    : hackathon.category
+      ? [hackathon.category]
+      : [];
 
   // Convert social links to resources array
   const resources: string[] = [];
@@ -205,7 +211,7 @@ export const transformHackathonToFrontend = async (
         ? new Date(hackathon.submissionDeadline).toISOString()
         : "",
     organizer,
-    featured: false, // Could be added to model if needed
+    featured: hackathon.featured || false,
     resources: resources.length > 0 ? resources : undefined,
   };
 };

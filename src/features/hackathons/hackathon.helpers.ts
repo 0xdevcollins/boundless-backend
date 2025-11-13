@@ -52,8 +52,16 @@ export const transformRequestBody = (body: any): Partial<IHackathon> => {
       updateData.banner = body.information.banner;
     if (body.information.description !== undefined)
       updateData.description = body.information.description;
-    if (body.information.category !== undefined)
-      updateData.category = body.information.category;
+    if (body.information.categories !== undefined)
+      updateData.categories = Array.isArray(body.information.categories)
+        ? body.information.categories
+        : [body.information.categories];
+    // Support legacy category field
+    if (body.information.category !== undefined) {
+      updateData.categories = Array.isArray(body.information.category)
+        ? body.information.category
+        : [body.information.category];
+    }
     if (body.information.venue !== undefined) {
       updateData.venue = {
         type: body.information.venue.type,
@@ -161,7 +169,11 @@ export const validatePublishRequirements = (
   if (!hackathon.banner) errors.push("Banner is required");
   if (!hackathon.description || hackathon.description.trim().length < 10)
     errors.push("Description is required and must be at least 10 characters");
-  if (!hackathon.category) errors.push("Category is required");
+  if (
+    (!hackathon.categories || hackathon.categories.length === 0) &&
+    !hackathon.category
+  )
+    errors.push("At least one category is required");
   if (!hackathon.venue || !hackathon.venue.type)
     errors.push("Venue type is required");
   if (

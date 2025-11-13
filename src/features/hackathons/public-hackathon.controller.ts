@@ -6,8 +6,17 @@ import {
   sendNotFound,
   sendInternalServerError,
 } from "../../utils/apiResponse";
-import { transformHackathonToFrontend } from "./hackathon-transformers";
-import { HackathonListResponse } from "../../types/hackathon";
+import {
+  transformHackathonToFrontend,
+  transformParticipantToFrontend,
+  transformSubmissionToCardProps,
+} from "./hackathon-transformers";
+import {
+  HackathonListResponse,
+  ParticipantListResponse,
+  SubmissionListResponse,
+} from "../../types/hackathon";
+import { hackathonCache } from "../../utils/hackathon-cache.utils";
 
 /**
  * Get hackathon by slug (public endpoint)
@@ -22,6 +31,26 @@ export const getHackathonBySlug = async (
 
     if (!slug) {
       sendNotFound(res, "Slug is required");
+      return;
+    }
+
+    // Check cache
+    const cached = hackathonCache.getHackathon(slug);
+    if (cached) {
+      // Check if client has cached version
+      const ifNoneMatch = req.headers["if-none-match"];
+      if (ifNoneMatch === cached.etag) {
+        res.status(304).end();
+        return;
+      }
+
+      // Set cache headers
+      res.set({
+        ETag: cached.etag,
+        "Cache-Control": "public, max-age=300", // 5 minutes
+      });
+
+      sendSuccess(res, cached.data, "Hackathon retrieved successfully");
       return;
     }
 
@@ -58,6 +87,18 @@ export const getHackathonBySlug = async (
       participantsCount,
     );
 
+    // Cache the result
+    hackathonCache.setHackathon(slug, transformedHackathon);
+
+    // Set cache headers
+    const cachedResult = hackathonCache.getHackathon(slug);
+    if (cachedResult) {
+      res.set({
+        ETag: cachedResult.etag,
+        "Cache-Control": "public, max-age=300", // 5 minutes
+      });
+    }
+
     sendSuccess(res, transformedHackathon, "Hackathon retrieved successfully");
   } catch (error) {
     console.error("Get hackathon by slug error:", error);
@@ -92,6 +133,32 @@ export const getHackathonsList = async (
     const limitNum = Math.min(50, Math.max(1, Number(limit)));
     const skip = (pageNum - 1) * limitNum;
 
+    // Generate cache key from query string
+    const queryString = new URLSearchParams(
+      Object.entries(req.query).map(([k, v]) => [k, String(v)]),
+    ).toString();
+    const cacheKey = queryString || "default";
+
+    // Check cache
+    const cached = hackathonCache.getList(cacheKey);
+    if (cached) {
+      // Check if client has cached version
+      const ifNoneMatch = req.headers["if-none-match"];
+      if (ifNoneMatch === cached.etag) {
+        res.status(304).end();
+        return;
+      }
+
+      // Set cache headers
+      res.set({
+        ETag: cached.etag,
+        "Cache-Control": "public, max-age=120", // 2 minutes
+      });
+
+      sendSuccess(res, cached.data, "Hackathons retrieved successfully");
+      return;
+    }
+
     // Build base filter - only published/active/completed hackathons
     const filter: any = {
       status: {
@@ -103,15 +170,17 @@ export const getHackathonsList = async (
       },
     };
 
-    // Filter by category
+    // Filter by category (supports both single category and array)
     if (category) {
-      filter.category = category;
+      filter.$or = [
+        { categories: { $in: [category] } }, // New array field
+        { category: category }, // Support legacy single category field
+      ];
     }
 
-    // Filter by featured (if featured field exists in model)
+    // Filter by featured
     if (featured !== undefined) {
-      // Note: featured field doesn't exist yet, but we'll add it for future use
-      // filter.featured = featured === "true" || featured === true;
+      filter.featured = featured === "true" || featured === true;
     }
 
     // Search filter
@@ -235,12 +304,233 @@ export const getHackathonsList = async (
       totalPages,
     };
 
+    // Cache the result
+    hackathonCache.setList(cacheKey, response);
+
+    // Set cache headers
+    const cachedResult = hackathonCache.getList(cacheKey);
+    if (cachedResult) {
+      res.set({
+        ETag: cachedResult.etag,
+        "Cache-Control": "public, max-age=120", // 2 minutes
+      });
+    }
+
     sendSuccess(res, response, "Hackathons retrieved successfully");
   } catch (error) {
     console.error("Get hackathons list error:", error);
     sendInternalServerError(
       res,
       "Failed to retrieve hackathons",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};
+
+/**
+ * Get hackathon participants (public endpoint)
+ * GET /api/hackathons/:slug/participants
+ */
+export const getHackathonParticipants = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { slug } = req.params;
+    const { page = "1", limit = "10", status } = req.query;
+
+    if (!slug) {
+      sendNotFound(res, "Slug is required");
+      return;
+    }
+
+    // Find hackathon by slug
+    const hackathon = await Hackathon.findOne({
+      slug,
+      status: {
+        $in: [
+          HackathonStatus.PUBLISHED,
+          HackathonStatus.ACTIVE,
+          HackathonStatus.COMPLETED,
+        ],
+      },
+    }).lean();
+
+    if (!hackathon) {
+      sendNotFound(res, "Hackathon not found");
+      return;
+    }
+
+    const pageNum = Math.max(1, Number(page));
+    const limitNum = Math.min(50, Math.max(1, Number(limit)));
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build filter
+    const filter: any = {
+      hackathonId: hackathon._id,
+    };
+
+    // Filter by submission status
+    if (status === "submitted") {
+      filter["submission.status"] = { $exists: true };
+    } else if (status === "not_submitted") {
+      filter["submission"] = { $exists: false };
+    }
+
+    // Execute query
+    const [participants, totalCount] = await Promise.all([
+      HackathonParticipant.find(filter)
+        .populate({
+          path: "userId",
+          select: "email profile",
+        })
+        .sort({ registeredAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      HackathonParticipant.countDocuments(filter),
+    ]);
+
+    // Transform participants
+    const transformedParticipants = participants.map((participant: any) =>
+      transformParticipantToFrontend(participant),
+    );
+
+    const totalPages = Math.ceil(totalCount / limitNum);
+
+    const response: ParticipantListResponse = {
+      participants: transformedParticipants,
+      hasMore: pageNum < totalPages,
+      total: totalCount,
+      currentPage: pageNum,
+      totalPages,
+    };
+
+    sendSuccess(res, response, "Participants retrieved successfully");
+  } catch (error) {
+    console.error("Get hackathon participants error:", error);
+    sendInternalServerError(
+      res,
+      "Failed to retrieve participants",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};
+
+/**
+ * Get hackathon submissions (public endpoint)
+ * GET /api/hackathons/:slug/submissions
+ */
+export const getHackathonSubmissions = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { slug } = req.params;
+    const { page = "1", limit = "10", status, sort = "votes" } = req.query;
+
+    if (!slug) {
+      sendNotFound(res, "Slug is required");
+      return;
+    }
+
+    // Find hackathon by slug
+    const hackathon = await Hackathon.findOne({
+      slug,
+      status: {
+        $in: [
+          HackathonStatus.PUBLISHED,
+          HackathonStatus.ACTIVE,
+          HackathonStatus.COMPLETED,
+        ],
+      },
+    }).lean();
+
+    if (!hackathon) {
+      sendNotFound(res, "Hackathon not found");
+      return;
+    }
+
+    const pageNum = Math.max(1, Number(page));
+    const limitNum = Math.min(50, Math.max(1, Number(limit)));
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build filter - only participants with submissions
+    const filter: any = {
+      hackathonId: hackathon._id,
+      submission: { $exists: true },
+    };
+
+    // Filter by submission status
+    if (status) {
+      if (status === "submitted") {
+        filter["submission.status"] = "submitted";
+      } else if (status === "shortlisted") {
+        filter["submission.status"] = "shortlisted";
+      } else if (status === "disqualified") {
+        filter["submission.status"] = "disqualified";
+      }
+    }
+
+    // Build sort options
+    let sortOptions: any = {};
+    switch (sort) {
+      case "votes":
+        sortOptions = { "submission.votes": -1 };
+        break;
+      case "date":
+        sortOptions = { "submission.submissionDate": -1 };
+        break;
+      case "score":
+        // Note: Score sorting would require joining with judging scores
+        sortOptions = { "submission.votes": -1 };
+        break;
+      default:
+        sortOptions = { "submission.votes": -1 };
+    }
+
+    // Execute query
+    const [participants, totalCount] = await Promise.all([
+      HackathonParticipant.find(filter)
+        .populate({
+          path: "userId",
+          select: "email profile",
+        })
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      HackathonParticipant.countDocuments(filter),
+    ]);
+
+    // Transform submissions
+    const transformedSubmissions = participants
+      .map((participant: any) => {
+        try {
+          return transformSubmissionToCardProps(participant, hackathon as any);
+        } catch (error) {
+          console.error("Error transforming submission:", error);
+          return null;
+        }
+      })
+      .filter((submission) => submission !== null) as any[];
+
+    const totalPages = Math.ceil(totalCount / limitNum);
+
+    const response: SubmissionListResponse = {
+      submissions: transformedSubmissions,
+      hasMore: pageNum < totalPages,
+      total: totalCount,
+      currentPage: pageNum,
+      totalPages,
+    };
+
+    sendSuccess(res, response, "Submissions retrieved successfully");
+  } catch (error) {
+    console.error("Get hackathon submissions error:", error);
+    sendInternalServerError(
+      res,
+      "Failed to retrieve submissions",
       error instanceof Error ? error.message : "Unknown error",
     );
   }
