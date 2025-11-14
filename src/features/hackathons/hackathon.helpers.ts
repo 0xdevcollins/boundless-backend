@@ -171,7 +171,7 @@ export const validatePublishRequirements = (
     errors.push("Description is required and must be at least 10 characters");
   if (
     (!hackathon.categories || hackathon.categories.length === 0) &&
-    !hackathon.category
+    !(hackathon as any).category
   )
     errors.push("At least one category is required");
   if (!hackathon.venue || !hackathon.venue.type)

@@ -180,7 +180,8 @@ export const getHackathonsList = async (
 
     // Filter by featured
     if (featured !== undefined) {
-      filter.featured = featured === "true" || featured === true;
+      const featuredStr = String(featured).toLowerCase();
+      filter.featured = featuredStr === "true";
     }
 
     // Search filter
