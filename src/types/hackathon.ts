@@ -35,6 +35,15 @@ export interface SubmissionCardProps {
   hasUserUpvoted?: boolean;
 }
 
+export interface Venue {
+  type: "virtual" | "physical";
+  country?: string;
+  state?: string;
+  city?: string;
+  venueName?: string;
+  venueAddress?: string;
+}
+
 export interface Hackathon {
   id: string;
   slug: string;
@@ -52,6 +61,8 @@ export interface Hackathon {
   organizer: string;
   featured?: boolean;
   resources?: string[];
+  venue?: Venue;
+  participantType?: "individual" | "team" | "team_or_individual";
 }
 
 export interface HackathonListResponse {

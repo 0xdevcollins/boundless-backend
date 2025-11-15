@@ -185,6 +185,18 @@ export const transformHackathonToFrontend = async (
   // Calculate status
   const status = calculateHackathonStatus(hackathon);
 
+  // Transform venue
+  const venue = hackathon.venue
+    ? {
+        type: hackathon.venue.type,
+        country: hackathon.venue.country || undefined,
+        state: hackathon.venue.state || undefined,
+        city: hackathon.venue.city || undefined,
+        venueName: hackathon.venue.venueName || undefined,
+        venueAddress: hackathon.venue.venueAddress || undefined,
+      }
+    : undefined;
+
   return {
     id: hackathon._id?.toString() || hackathon.id?.toString() || "",
     slug: hackathon.slug || "",
@@ -213,5 +225,7 @@ export const transformHackathonToFrontend = async (
     organizer,
     featured: hackathon.featured || false,
     resources: resources.length > 0 ? resources : undefined,
+    venue,
+    participantType: hackathon.participantType || undefined,
   };
 };
