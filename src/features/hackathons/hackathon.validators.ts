@@ -39,6 +39,16 @@ export const informationTabSchema: ValidationChain[] = [
     .withMessage(
       `Category must be one of: ${Object.values(HackathonCategory).join(", ")}`,
     ),
+  body("information.categories")
+    .optional()
+    .isArray({ min: 1 })
+    .withMessage("Categories must be a non-empty array"),
+  body("information.categories.*")
+    .optional()
+    .isIn(Object.values(HackathonCategory))
+    .withMessage(
+      `Each category must be one of: ${Object.values(HackathonCategory).join(", ")}`,
+    ),
   body("information.venue.type")
     .optional()
     .isIn(Object.values(VenueType))
@@ -277,10 +287,32 @@ export const publishSchema: ValidationChain[] = [
     .isLength({ min: 10, max: 5000 })
     .withMessage("Description must be between 10 and 5000 characters"),
   body("information.category")
+    .optional()
     .isIn(Object.values(HackathonCategory))
     .withMessage(
       `Category must be one of: ${Object.values(HackathonCategory).join(", ")}`,
     ),
+  body("information.categories")
+    .optional()
+    .isArray({ min: 1 })
+    .withMessage("Categories must be a non-empty array"),
+  body("information.categories.*")
+    .optional()
+    .isIn(Object.values(HackathonCategory))
+    .withMessage(
+      `Each category must be one of: ${Object.values(HackathonCategory).join(", ")}`,
+    ),
+  body()
+    .custom((value) => {
+      // At least one category must be provided (either category or categories)
+      if (!value.information?.category && !value.information?.categories) {
+        throw new Error(
+          "Either 'category' or 'categories' must be provided in information",
+        );
+      }
+      return true;
+    })
+    .withMessage("At least one category is required"),
   body("information.venue.type")
     .isIn(Object.values(VenueType))
     .withMessage(
