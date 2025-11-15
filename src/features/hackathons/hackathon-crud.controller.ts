@@ -40,7 +40,10 @@ export const publishHackathon = async (
   try {
     const user = (req as AuthenticatedRequest).user;
     const { orgId } = req.params;
-    const { draftId } = req.query; // Optional: if publishing from existing draft
+    // Check both body and query for draftId (body takes precedence)
+    const draftId = (req.body.draftId || req.query.draftId) as
+      | string
+      | undefined;
 
     if (!user) {
       sendError(res, "Authentication required", 401);
@@ -67,7 +70,7 @@ export const publishHackathon = async (
     let hackathon: IHackathon | null = null;
 
     // If draftId is provided, update existing draft; otherwise create new
-    if (draftId && mongoose.Types.ObjectId.isValid(draftId as string)) {
+    if (draftId && mongoose.Types.ObjectId.isValid(draftId)) {
       hackathon = await Hackathon.findOne({
         _id: draftId,
         organizationId: orgId,
@@ -79,12 +82,14 @@ export const publishHackathon = async (
         return;
       }
 
-      // Merge new data with existing draft
-      const updateData = transformRequestBody(req.body);
+      // Merge new data with existing draft (exclude draftId from body)
+      const { draftId: _, ...bodyWithoutDraftId } = req.body;
+      const updateData = transformRequestBody(bodyWithoutDraftId);
       Object.assign(hackathon, updateData);
     } else {
-      // Create new hackathon
-      const updateData = transformRequestBody(req.body);
+      // Create new hackathon (exclude draftId from body)
+      const { draftId: _, ...bodyWithoutDraftId } = req.body;
+      const updateData = transformRequestBody(bodyWithoutDraftId);
       hackathon = new Hackathon({
         organizationId: new mongoose.Types.ObjectId(orgId),
         status: HackathonStatus.DRAFT,
