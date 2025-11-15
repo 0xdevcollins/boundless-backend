@@ -231,6 +231,7 @@ export const getJudgingSubmissions = async (
               submissionDate:
                 participant.submission.submissionDate.toISOString(),
               status: participant.submission.status,
+              rank: participant.rank || undefined,
             }
           : undefined,
         criteria: hackathon.criteria || [],

@@ -313,21 +313,36 @@ export const mapRankToPrizeAmount = (
   }
 
   // Find prize tier that matches the rank
-  // Prize tier position can be "1st", "1", "First", etc.
+  // Prize tier position can be "1st", "1", "First", "1st Place", "2nd Place", etc.
   const rankStr = rank.toString();
   const rankSuffix = getRankSuffix(rank);
   const rankWithSuffix = `${rank}${rankSuffix}`;
 
   const matchingTier = prizeTiers.find((tier) => {
     const position = tier.position.toLowerCase().trim();
-    return (
+    // Check for exact matches
+    if (
       position === rankStr ||
       position === rankWithSuffix.toLowerCase() ||
       position === `${rankStr}st` ||
       position === `${rankStr}nd` ||
       position === `${rankStr}rd` ||
       position === `${rankStr}th`
-    );
+    ) {
+      return true;
+    }
+    // Check if position starts with the rank pattern (e.g., "1st Place", "2nd Place")
+    if (
+      position.startsWith(rankWithSuffix.toLowerCase()) ||
+      position.startsWith(`${rankStr}st`) ||
+      position.startsWith(`${rankStr}nd`) ||
+      position.startsWith(`${rankStr}rd`) ||
+      position.startsWith(`${rankStr}th`) ||
+      position.startsWith(rankStr + " ")
+    ) {
+      return true;
+    }
+    return false;
   });
 
   return matchingTier ? matchingTier.amount : null;
