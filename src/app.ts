@@ -1,4 +1,4 @@
-import "./models";
+import "./models/index.js";
 import express, {
   type Application,
   Request,
@@ -14,17 +14,17 @@ import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import { toNodeHandler } from "better-auth/node";
 
-import connectDB from "./config/db";
-import { setupSwagger } from "./config/swagger";
-import { sendError } from "./utils/apiResponse";
-import { authMiddleware } from "./utils/jwt.utils";
-import { checkDatabaseHealth, getDatabaseStatus } from "./utils/db.utils";
-import { auth } from "./lib/auth";
+import connectDB from "./config/db.js";
+import { setupSwagger } from "./config/swagger.js";
+import { sendError } from "./utils/apiResponse.js";
+import { authMiddleware } from "./utils/jwt.utils.js";
+import { checkDatabaseHealth, getDatabaseStatus } from "./utils/db.utils.js";
+import { auth } from "./lib/auth.js";
 
-import { config } from "./config/main.config";
+import { config } from "./config/main.config.js";
 
 // Centralized route registry
-import routes from "./routes";
+import routes from "./routes/index.js";
 
 dotenv.config();
 

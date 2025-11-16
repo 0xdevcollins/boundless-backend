@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
-import app from "./app";
+import app from "./app.js";
 import dotenv from "dotenv";
-import connectDB from "./config/db";
-import { config } from "./config/main.config";
+import connectDB from "./config/db.js";
+import { config } from "./config/main.config.js";
 dotenv.config({ path: ".env.local" });
 
 dotenv.config();
