@@ -217,13 +217,14 @@ export const auth = betterAuth({
       }
     }),
   },
-  trustedOrigins(request) {
-    return [
-      "https://boundlessfi.xyz",
-      "https://www.boundlessfi.xyz",
-      "https://staging.boundlessfi.xyz",
-      "https://www.staging.boundlessfi.xyz",
-      "http://localhost:3000",
-    ];
-  },
+  // trustedOrigins must be at the top level (not inside advanced)
+  // Must include exactly the origins your browser uses (protocol, hostname, and port must all match)
+  trustedOrigins: [
+    "https://boundlessfi.xyz",
+    "https://www.boundlessfi.xyz",
+    "https://staging.boundlessfi.xyz",
+    "https://www.staging.boundlessfi.xyz",
+    "http://localhost:3000",
+    "http://localhost:8000", // For local development
+  ],
 });
