@@ -23,8 +23,13 @@ export const auth = betterAuth({
     client,
     usePlural: true, // Use plural collection names (users) to match backend Mongoose model
   }),
+  // baseURL should be the backend server URL, not frontend
   baseURL:
-    process.env.BASE_URL || process.env.FRONTEND_URL || "http://localhost:3000",
+    process.env.BETTER_AUTH_URL ||
+    process.env.BASE_URL ||
+    (process.env.NODE_ENV === "production"
+      ? "https://staging.boundlessfi.xyz"
+      : "http://localhost:8000"),
   // basePath: "/api/auth",
   emailAndPassword: {
     enabled: true,

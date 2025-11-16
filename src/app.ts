@@ -47,17 +47,47 @@ const app: Application = express();
 app.set("trust proxy", 1);
 
 // Middlewares
-app.use(helmet());
+// Configure CORS before other middleware
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://staging.boundlessfi.xyz",
+  "https://staging.boundless.xyz", // Keep both variants for compatibility
+];
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "https://staging.boundlessfi.xyz",
-      "https://staging.boundless.xyz", // Keep both variants for compatibility
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, Postman, or same-origin requests)
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      // Check if origin is in allowed list
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.warn(`CORS blocked origin: ${origin}`);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+      "Origin",
     ],
-    methods: config.cors.methods,
-    allowedHeaders: config.cors.allowedHeaders,
     credentials: true,
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
+  }),
+);
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginEmbedderPolicy: false,
   }),
 );
 // app.use(
