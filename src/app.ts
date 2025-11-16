@@ -50,9 +50,13 @@ app.set("trust proxy", 1);
 app.use(helmet());
 app.use(
   cors({
-    origin: ["http://localhost:3000", "https://staging.boundless.xyz"],
+    origin: [
+      "http://localhost:3000",
+      "https://staging.boundlessfi.xyz",
+      "https://staging.boundless.xyz", // Keep both variants for compatibility
+    ],
     methods: config.cors.methods,
-    // allowedHeaders: config.cors.allowedHeaders,
+    allowedHeaders: config.cors.allowedHeaders,
     credentials: true,
   }),
 );

@@ -221,20 +221,22 @@ export async function syncBetterAuthUser(
 
 /**
  * Update user verification status after email verification
+ * Uses updateOne to avoid validation errors if user document is missing required fields
  */
 export async function updateUserVerificationStatus(
   email: string,
   isVerified: boolean,
 ): Promise<void> {
   try {
-    const user = await User.findOne({ email: email.toLowerCase() });
-    if (user) {
-      user.isVerified = isVerified;
-      if (isVerified) {
-        user.otp = undefined; // Clear OTP after verification
-      }
-      await user.save();
+    // Use updateOne instead of save() to avoid validation errors
+    // This is safer when Better Auth may have created users directly in MongoDB
+    const updateQuery: any = { $set: { isVerified } };
+    if (isVerified) {
+      // Clear OTP after verification using $unset
+      updateQuery.$unset = { otp: "" };
     }
+
+    await User.updateOne({ email: email.toLowerCase() }, updateQuery);
   } catch (error) {
     console.error("Error updating user verification status:", error);
     throw error;
@@ -243,14 +245,16 @@ export async function updateUserVerificationStatus(
 
 /**
  * Update user last login
+ * Uses updateOne to avoid validation errors if user document is missing required fields
  */
 export async function updateUserLastLogin(email: string): Promise<void> {
   try {
-    const user = await User.findOne({ email: email.toLowerCase() });
-    if (user) {
-      user.lastLogin = new Date();
-      await user.save();
-    }
+    // Use updateOne instead of save() to avoid validation errors
+    // This is safer when Better Auth may have created users directly in MongoDB
+    await User.updateOne(
+      { email: email.toLowerCase() },
+      { $set: { lastLogin: new Date() } },
+    );
   } catch (error) {
     console.error("Error updating user last login:", error);
     // Don't throw - this is not critical

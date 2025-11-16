@@ -124,12 +124,14 @@ export class Config {
   }
 
   private getCorsOrigin(): string | string[] {
-    if (this.NODE_ENV === "development") {
-      // Support multiple origins in development
-      const corsOrigin = this.getEnvVariable("CORS_ORIGIN", true);
+    // Support multiple origins (comma-separated) in all environments
+    const corsOrigin = this.getEnvVariable("CORS_ORIGIN", true);
+
+    // If comma-separated, return as array; otherwise return as string
+    if (corsOrigin.includes(",")) {
       return corsOrigin.split(",").map((origin) => origin.trim());
     }
-    return this.getEnvVariable("CORS_ORIGIN", true);
+    return corsOrigin;
   }
 }
 
