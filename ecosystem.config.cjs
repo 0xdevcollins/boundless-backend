@@ -43,7 +43,7 @@ module.exports = {
       ref: 'origin/main',
       repo: 'git@github.com:0xdevcollins/boundless-backend.git',
       path: '/home/bound-api/htdocs/api.boundlessfi.xyz',
-      'post-deploy': 'npm install --production && pm2 reload ecosystem.config.js --env production'
+      'post-deploy': 'npm install --production && pm2 reload ecosystem.config.cjs --env production'
     }
   }
 };
