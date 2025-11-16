@@ -28,7 +28,7 @@ export const auth = betterAuth({
     process.env.BETTER_AUTH_URL ||
     process.env.BASE_URL ||
     (process.env.NODE_ENV === "production"
-      ? "https://staging.boundlessfi.xyz"
+      ? "https://boundlessfi.xyz"
       : "http://localhost:8000"),
   // basePath: "/api/auth",
   emailAndPassword: {
@@ -216,5 +216,14 @@ export const auth = betterAuth({
         await updateUserVerificationStatus(user.email, true);
       }
     }),
+  },
+  trustedOrigins(request) {
+    return [
+      "https://boundlessfi.xyz",
+      "https://www.boundlessfi.xyz",
+      "https://staging.boundlessfi.xyz",
+      "https://www.staging.boundlessfi.xyz",
+      "http://localhost:3000",
+    ];
   },
 });
