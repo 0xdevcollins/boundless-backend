@@ -79,6 +79,14 @@ jobs:
             echo "📦 Installing production dependencies..."
             npm ci --production --no-optional --no-audit --no-fund --ignore-scripts
             
+            # Fix permissions and clean dist directory before building
+            echo "🔧 Fixing permissions and cleaning dist directory..."
+            # Remove dist directory completely and recreate it to avoid permission issues
+            rm -rf dist
+            mkdir -p dist/templates
+            # Ensure we own the directory
+            chmod -R u+w dist 2>/dev/null || true
+            
             # Build the application
             echo "🔨 Building application..."
             npm run build
@@ -90,9 +98,12 @@ jobs:
             fi
             echo "✅ Build completed successfully"
             
+            # Ensure logs directory exists
+            mkdir -p logs
+            
             # Restart PM2 application
             echo "🔄 Restarting application..."
-            pm2 reload ecosystem.config.js --env production || pm2 start ecosystem.config.js --env production
+            pm2 reload ecosystem.config.cjs --env production || pm2 start ecosystem.config.cjs --env production
             
             # Show PM2 status
             echo "📊 Application status:"
