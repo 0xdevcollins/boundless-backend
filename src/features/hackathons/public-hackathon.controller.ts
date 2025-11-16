@@ -187,11 +187,7 @@ export const getHackathonsList = async (
     // Search filter
     if (search) {
       const searchRegex = { $regex: search as string, $options: "i" };
-      filter.$or = [
-        { title: searchRegex },
-        { description: searchRegex },
-        { about: searchRegex },
-      ];
+      filter.$or = [{ title: searchRegex }, { description: searchRegex }];
     }
 
     // Status filter using date-based queries (more efficient than post-processing)

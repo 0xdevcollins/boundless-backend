@@ -58,28 +58,63 @@ export const informationTabSchema: ValidationChain[] = [
   body("information.venue.country")
     .optional()
     .trim()
-    .notEmpty()
-    .withMessage("Country is required for physical venues"),
+    .custom((value, { req }) => {
+      const venueType = req.body?.information?.venue?.type;
+      if (venueType === VenueType.PHYSICAL) {
+        if (!value || value.trim() === "") {
+          throw new Error("Country is required for physical venues");
+        }
+      }
+      return true;
+    }),
   body("information.venue.state")
     .optional()
     .trim()
-    .notEmpty()
-    .withMessage("State is required for physical venues"),
+    .custom((value, { req }) => {
+      const venueType = req.body?.information?.venue?.type;
+      if (venueType === VenueType.PHYSICAL) {
+        if (!value || value.trim() === "") {
+          throw new Error("State is required for physical venues");
+        }
+      }
+      return true;
+    }),
   body("information.venue.city")
     .optional()
     .trim()
-    .notEmpty()
-    .withMessage("City is required for physical venues"),
+    .custom((value, { req }) => {
+      const venueType = req.body?.information?.venue?.type;
+      if (venueType === VenueType.PHYSICAL) {
+        if (!value || value.trim() === "") {
+          throw new Error("City is required for physical venues");
+        }
+      }
+      return true;
+    }),
   body("information.venue.venueName")
     .optional()
     .trim()
-    .notEmpty()
-    .withMessage("Venue name is required for physical venues"),
+    .custom((value, { req }) => {
+      const venueType = req.body?.information?.venue?.type;
+      if (venueType === VenueType.PHYSICAL) {
+        if (!value || value.trim() === "") {
+          throw new Error("Venue name is required for physical venues");
+        }
+      }
+      return true;
+    }),
   body("information.venue.venueAddress")
     .optional()
     .trim()
-    .notEmpty()
-    .withMessage("Venue address is required for physical venues"),
+    .custom((value, { req }) => {
+      const venueType = req.body?.information?.venue?.type;
+      if (venueType === VenueType.PHYSICAL) {
+        if (!value || value.trim() === "") {
+          throw new Error("Venue address is required for physical venues");
+        }
+      }
+      return true;
+    }),
 ];
 
 export const timelineTabSchema: ValidationChain[] = [
@@ -139,7 +174,6 @@ export const participationTabSchema: ValidationChain[] = [
     .optional()
     .isInt({ min: 1, max: 20 })
     .withMessage("Team max must be between 1 and 20"),
-  body("participation.about").optional().trim(),
   body("participation.submissionRequirements.requireGithub")
     .optional()
     .isBoolean()
@@ -156,38 +190,42 @@ export const participationTabSchema: ValidationChain[] = [
     .optional()
     .isBoolean()
     .withMessage("detailsTab must be a boolean"),
-  body("participation.tabVisibility.scheduleTab")
-    .optional()
-    .isBoolean()
-    .withMessage("scheduleTab must be a boolean"),
-  body("participation.tabVisibility.rulesTab")
-    .optional()
-    .isBoolean()
-    .withMessage("rulesTab must be a boolean"),
-  body("participation.tabVisibility.rewardTab")
-    .optional()
-    .isBoolean()
-    .withMessage("rewardTab must be a boolean"),
-  body("participation.tabVisibility.announcementsTab")
-    .optional()
-    .isBoolean()
-    .withMessage("announcementsTab must be a boolean"),
-  body("participation.tabVisibility.partnersTab")
-    .optional()
-    .isBoolean()
-    .withMessage("partnersTab must be a boolean"),
-  body("participation.tabVisibility.joinATeamTab")
-    .optional()
-    .isBoolean()
-    .withMessage("joinATeamTab must be a boolean"),
-  body("participation.tabVisibility.projectsTab")
-    .optional()
-    .isBoolean()
-    .withMessage("projectsTab must be a boolean"),
   body("participation.tabVisibility.participantsTab")
     .optional()
     .isBoolean()
     .withMessage("participantsTab must be a boolean"),
+  body("participation.tabVisibility.resourcesTab")
+    .optional()
+    .isBoolean()
+    .withMessage("resourcesTab must be a boolean"),
+  body("participation.tabVisibility.submissionTab")
+    .optional()
+    .isBoolean()
+    .withMessage("submissionTab must be a boolean"),
+  body("participation.tabVisibility.announcementsTab")
+    .optional()
+    .isBoolean()
+    .withMessage("announcementsTab must be a boolean"),
+  body("participation.tabVisibility.discussionTab")
+    .optional()
+    .isBoolean()
+    .withMessage("discussionTab must be a boolean"),
+  body("participation.tabVisibility.winnersTab")
+    .optional()
+    .isBoolean()
+    .withMessage("winnersTab must be a boolean"),
+  body("participation.tabVisibility.sponsorsTab")
+    .optional()
+    .isBoolean()
+    .withMessage("sponsorsTab must be a boolean"),
+  body("participation.tabVisibility.joinATeamTab")
+    .optional()
+    .isBoolean()
+    .withMessage("joinATeamTab must be a boolean"),
+  body("participation.tabVisibility.rulesTab")
+    .optional()
+    .isBoolean()
+    .withMessage("rulesTab must be a boolean"),
 ];
 
 export const rewardsTabSchema: ValidationChain[] = [
@@ -248,19 +286,35 @@ export const collaborationTabSchema: ValidationChain[] = [
     .optional()
     .isArray({ min: 1 })
     .withMessage("At least one sponsor/partner is required"),
-  body("collaboration.sponsorsPartners.*.sponsorName")
-    .optional()
-    .trim()
-    .notEmpty()
-    .withMessage("Sponsor name is required"),
+  body("collaboration.sponsorsPartners.*.sponsorName").optional().trim(),
   body("collaboration.sponsorsPartners.*.sponsorLogo")
     .optional()
-    .isURL()
-    .withMessage("Sponsor logo must be a valid URL"),
+    .trim()
+    .custom((value) => {
+      // Only validate URL if value is provided and not empty
+      if (value !== undefined && value !== null && value.trim() !== "") {
+        try {
+          new URL(value);
+        } catch {
+          throw new Error("Sponsor logo must be a valid URL");
+        }
+      }
+      return true;
+    }),
   body("collaboration.sponsorsPartners.*.partnerLink")
     .optional()
-    .isURL()
-    .withMessage("Partner link must be a valid URL"),
+    .trim()
+    .custom((value) => {
+      // Only validate URL if value is provided and not empty
+      if (value !== undefined && value !== null && value.trim() !== "") {
+        try {
+          new URL(value);
+        } catch {
+          throw new Error("Partner link must be a valid URL");
+        }
+      }
+      return true;
+    }),
 ];
 
 export const draftSchema: ValidationChain[] = [

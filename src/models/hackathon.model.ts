@@ -58,7 +58,7 @@ export interface IJudgingCriterion {
 }
 
 export interface ISponsorPartner {
-  sponsorName: string;
+  sponsorName?: string;
   sponsorLogo?: string;
   partnerLink?: string;
 }
@@ -96,7 +96,6 @@ export interface IHackathon extends Document {
   participantType?: ParticipantType;
   teamMin?: number;
   teamMax?: number;
-  about?: string;
   submissionRequirements?: {
     requireGithub?: boolean;
     requireDemoVideo?: boolean;
@@ -104,14 +103,15 @@ export interface IHackathon extends Document {
   };
   tabVisibility?: {
     detailsTab?: boolean;
-    scheduleTab?: boolean;
-    rulesTab?: boolean;
-    rewardTab?: boolean;
-    announcementsTab?: boolean;
-    partnersTab?: boolean;
-    joinATeamTab?: boolean;
-    projectsTab?: boolean;
     participantsTab?: boolean;
+    resourcesTab?: boolean;
+    submissionTab?: boolean;
+    announcementsTab?: boolean;
+    discussionTab?: boolean;
+    winnersTab?: boolean;
+    sponsorsTab?: boolean;
+    joinATeamTab?: boolean;
+    rulesTab?: boolean;
   };
 
   // Rewards Tab
@@ -217,7 +217,6 @@ const SponsorPartnerSchema = new Schema<ISponsorPartner>(
   {
     sponsorName: {
       type: String,
-      required: true,
       trim: true,
     },
     sponsorLogo: {
@@ -361,22 +360,18 @@ const HackathonSchema = new Schema<IHackathon>(
       min: [1, "Team max must be at least 1"],
       max: [20, "Team max cannot exceed 20"],
     },
-    about: {
-      type: String,
-      trim: true,
-    },
     submissionRequirements: {
       requireGithub: {
         type: Boolean,
-        default: false,
+        default: true,
       },
       requireDemoVideo: {
         type: Boolean,
-        default: false,
+        default: true,
       },
       requireOtherLinks: {
         type: Boolean,
-        default: false,
+        default: true,
       },
     },
     tabVisibility: {
@@ -384,15 +379,15 @@ const HackathonSchema = new Schema<IHackathon>(
         type: Boolean,
         default: true,
       },
-      scheduleTab: {
+      participantsTab: {
         type: Boolean,
         default: true,
       },
-      rulesTab: {
+      resourcesTab: {
         type: Boolean,
         default: true,
       },
-      rewardTab: {
+      submissionTab: {
         type: Boolean,
         default: true,
       },
@@ -400,7 +395,15 @@ const HackathonSchema = new Schema<IHackathon>(
         type: Boolean,
         default: true,
       },
-      partnersTab: {
+      discussionTab: {
+        type: Boolean,
+        default: true,
+      },
+      winnersTab: {
+        type: Boolean,
+        default: true,
+      },
+      sponsorsTab: {
         type: Boolean,
         default: true,
       },
@@ -408,11 +411,7 @@ const HackathonSchema = new Schema<IHackathon>(
         type: Boolean,
         default: true,
       },
-      projectsTab: {
-        type: Boolean,
-        default: true,
-      },
-      participantsTab: {
+      rulesTab: {
         type: Boolean,
         default: true,
       },

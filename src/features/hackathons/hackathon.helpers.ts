@@ -108,8 +108,6 @@ export const transformRequestBody = (body: any): Partial<IHackathon> => {
       updateData.teamMin = body.participation.teamMin;
     if (body.participation.teamMax !== undefined)
       updateData.teamMax = body.participation.teamMax;
-    if (body.participation.about !== undefined)
-      updateData.about = body.participation.about;
     if (body.participation.submissionRequirements !== undefined)
       updateData.submissionRequirements =
         body.participation.submissionRequirements;

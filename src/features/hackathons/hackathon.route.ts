@@ -5,6 +5,7 @@ import {
   updateDraft,
   getDraft,
   getDrafts,
+  previewDraft,
   publishHackathon,
   updateHackathon,
   getHackathon,
@@ -70,6 +71,13 @@ router.get(
   protect,
   validateRequest([orgIdParam]),
   getDrafts,
+);
+
+router.get(
+  "/:orgId/hackathons/drafts/:draftId/preview",
+  protect,
+  validateRequest([orgIdParam, draftIdParam]),
+  previewDraft,
 );
 
 // Publish & Management Routes

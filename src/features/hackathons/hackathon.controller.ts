@@ -22,6 +22,7 @@ export {
   updateDraft,
   getDraft,
   getDrafts,
+  previewDraft,
 } from "./hackathon-draft.controller";
 
 // Re-export CRUD controllers

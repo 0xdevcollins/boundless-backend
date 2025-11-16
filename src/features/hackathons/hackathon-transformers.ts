@@ -169,11 +169,8 @@ export const transformHackathonToFrontend = async (
     resources.push(...hackathon.socialLinks);
   }
 
-  // Extract subtitle from description or use about field
-  const subtitle =
-    hackathon.description?.split(".")[0]?.trim() ||
-    hackathon.about?.split(".")[0]?.trim() ||
-    "";
+  // Extract subtitle from description
+  const subtitle = hackathon.description?.split(".")[0]?.trim() || "";
 
   // Get organizer name
   const organization =

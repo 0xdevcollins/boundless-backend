@@ -16,6 +16,7 @@ import {
   canManageHackathons,
   transformRequestBody,
 } from "./hackathon.helpers";
+import { transformHackathonToFrontend } from "./hackathon-transformers";
 
 /**
  * @swagger
@@ -260,6 +261,81 @@ export const getDrafts = async (req: Request, res: Response): Promise<void> => {
     sendInternalServerError(
       res,
       "Failed to retrieve drafts",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};
+
+/**
+ * @swagger
+ * /api/organizations/{orgId}/hackathons/drafts/{draftId}/preview:
+ *   get:
+ *     summary: Preview a hackathon draft
+ *     description: Get a preview of how the draft hackathon will appear to users (formatted for frontend display)
+ *     tags: [Hackathons]
+ *     security:
+ *       - bearerAuth: []
+ */
+export const previewDraft = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const user = (req as AuthenticatedRequest).user;
+    const { orgId, draftId } = req.params;
+
+    if (!user) {
+      sendError(res, "Authentication required", 401);
+      return;
+    }
+
+    const { canManage, organization } = await canManageHackathons(
+      orgId,
+      user.email,
+    );
+
+    if (!canManage) {
+      if (!organization) {
+        sendNotFound(res, "Organization not found");
+        return;
+      }
+      sendForbidden(
+        res,
+        "Only owners and admins can preview hackathons for this organization",
+      );
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(draftId)) {
+      sendBadRequest(res, "Invalid draft ID");
+      return;
+    }
+
+    const hackathon = await Hackathon.findOne({
+      _id: draftId,
+      organizationId: orgId,
+      status: HackathonStatus.DRAFT,
+    })
+      .populate({
+        path: "organizationId",
+        select: "name",
+      })
+      .lean();
+
+    if (!hackathon) {
+      sendNotFound(res, "Draft not found");
+      return;
+    }
+
+    // Transform to frontend format (participants count will be 0 for drafts)
+    const preview = await transformHackathonToFrontend(hackathon, 0);
+
+    sendSuccess(res, preview, "Draft preview retrieved successfully");
+  } catch (error) {
+    console.error("Preview draft error:", error);
+    sendInternalServerError(
+      res,
+      "Failed to retrieve draft preview",
       error instanceof Error ? error.message : "Unknown error",
     );
   }
