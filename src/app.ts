@@ -52,8 +52,8 @@ app.use(
   cors({
     origin: "http://localhost:3000",
     methods: config.cors.methods,
-    allowedHeaders: config.cors.allowedHeaders,
-    credentials: config.cors.credentials,
+    // allowedHeaders: config.cors.allowedHeaders,
+    credentials: true,
   }),
 );
 // app.use(

@@ -48,6 +48,7 @@ const BlogSchema = new Schema<IBlog>(
     slug: {
       type: String,
       required: true,
+      unique: true,
       lowercase: true,
       trim: true,
     },
@@ -172,7 +173,7 @@ const BlogSchema = new Schema<IBlog>(
 );
 
 // Indexes for better query performance
-BlogSchema.index({ slug: 1 }, { unique: true });
+// Note: slug index is automatically created by unique: true in field definition
 BlogSchema.index({ status: 1, publishedAt: -1 });
 BlogSchema.index({ category: 1, status: 1 });
 BlogSchema.index({ tags: 1, status: 1 });

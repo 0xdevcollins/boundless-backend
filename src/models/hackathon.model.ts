@@ -254,9 +254,10 @@ const HackathonSchema = new Schema<IHackathon>(
     },
     slug: {
       type: String,
+      unique: true,
+      sparse: true,
       lowercase: true,
       trim: true,
-      sparse: true,
     },
     featured: {
       type: Boolean,
@@ -487,7 +488,7 @@ const HackathonSchema = new Schema<IHackathon>(
 HackathonSchema.index({ organizationId: 1, status: 1 });
 HackathonSchema.index({ status: 1, createdAt: -1 });
 HackathonSchema.index({ organizationId: 1, createdAt: -1 });
-HackathonSchema.index({ slug: 1 }, { unique: true, sparse: true });
+// Note: slug index is automatically created by unique: true in field definition
 
 // Validation: Date sequence must be: start < submission < judging < announcement
 HackathonSchema.pre("save", async function (next) {

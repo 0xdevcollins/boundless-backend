@@ -97,7 +97,7 @@ const teamInvitationSchema = new Schema<ITeamInvitation>(
 
 // Indexes for performance
 teamInvitationSchema.index({ email: 1, projectId: 1 });
-teamInvitationSchema.index({ token: 1 });
+// Note: token index is automatically created by unique: true in field definition
 teamInvitationSchema.index({ status: 1 });
 teamInvitationSchema.index({ expiresAt: 1 });
 
