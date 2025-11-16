@@ -52,7 +52,7 @@ const allowedOrigins = [
   // "http://localhost:3000",
   // "https://staging.boundlessfi.xyz",
   // "https://staging.boundless.xyz",
-  "https://www.boundless.xyz", // Keep both variants for compatibility
+  "https://www.boundlessfi.xyz", // Keep both variants for compatibility
 ];
 
 app.use(
