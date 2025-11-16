@@ -243,8 +243,69 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
+// Ensure username is always set before saving
+// Always derives username from email to prevent issues
+userSchema.pre("save", async function (next) {
+  // Only set username if it's missing or empty
+  if (!this.profile?.username || this.profile.username.trim() === "") {
+    if (!this.email) {
+      return next(new Error("Email is required to generate username"));
+    }
+
+    // Always generate username from email
+    const emailPrefix = this.email.split("@")[0];
+    let baseUsername = emailPrefix.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+
+    // If empty after cleaning, use email hash as fallback
+    if (!baseUsername || baseUsername.trim() === "") {
+      const emailHash = Buffer.from(this.email)
+        .toString("base64")
+        .replace(/[^a-zA-Z0-9]/g, "")
+        .slice(0, 8);
+      baseUsername = `user${emailHash}`;
+    }
+
+    // Check if this username already exists and append number if needed
+    const UserModel = this.constructor as mongoose.Model<IUser>;
+    let username = baseUsername;
+    let counter = 1;
+
+    while (
+      await UserModel.findOne({
+        "profile.username": username,
+        _id: { $ne: this._id },
+      })
+    ) {
+      username = `${baseUsername}${counter}`;
+      counter++;
+      if (counter > 1000) {
+        username = `${baseUsername}${Date.now()}`;
+        break;
+      }
+    }
+
+    if (!this.profile) {
+      this.profile = {} as any;
+    }
+    this.profile.username = username;
+  }
+  next();
+});
+
 // Add indexes explicitly
-userSchema.index({ "profile.username": 1 }, { unique: true });
+// Partial index excludes null/empty values from uniqueness constraint
+// This prevents duplicate key errors when Better Auth writes directly to MongoDB
+// Using $type: "string" instead of $ne: null because MongoDB partial indexes don't support $ne: null
+userSchema.index(
+  { "profile.username": 1 },
+  {
+    unique: true,
+    sparse: true,
+    partialFilterExpression: {
+      "profile.username": { $type: "string", $ne: "" },
+    },
+  },
+);
 
 export default (mongoose.models.User as mongoose.Model<IUser>) ||
   mongoose.model<IUser>("User", userSchema);

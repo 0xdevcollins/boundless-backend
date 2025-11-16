@@ -6,7 +6,7 @@ import {
   deleteProjectComment,
   reportProjectComment,
 } from "./project-comment.controller";
-import { protect } from "../../middleware/auth";
+import { protect } from "../../middleware/better-auth.middleware";
 import { validateRequest } from "../../middleware/validateRequest";
 import { body, param, query } from "express-validator";
 import rateLimit from "express-rate-limit";

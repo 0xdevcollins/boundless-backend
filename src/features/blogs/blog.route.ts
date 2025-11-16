@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { BlogController } from "./blog.controller";
 import { validateRequestMarkdown } from "../../middleware/validateRequest";
-import { protect } from "../../middleware/auth";
-import { roleMiddleware } from "../../utils/jwt.utils";
+import { protect } from "../../middleware/better-auth.middleware";
+import { roleMiddleware } from "../../middleware/better-auth.middleware";
 import { blogAdminRateLimit } from "../../middleware/blogRateLimit";
 import {
   analyticsValidation,

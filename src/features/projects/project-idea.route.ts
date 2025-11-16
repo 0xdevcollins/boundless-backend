@@ -7,7 +7,7 @@ import {
   deleteProjectIdea,
   approveProject,
 } from "./project-idea.controller";
-import { protect, admin } from "../../middleware/auth";
+import { protect, admin } from "../../middleware/better-auth.middleware";
 import { validateRequest } from "../../middleware/validateRequest";
 import { body, query, param } from "express-validator";
 

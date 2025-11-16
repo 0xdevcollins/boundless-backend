@@ -11,7 +11,7 @@ import {
   updateUserSecurity,
   // getDashboardOverview,
 } from "./user.controller";
-import { protect } from "../../middleware/auth";
+import { protect } from "../../middleware/better-auth.middleware";
 import { asyncHandler } from "../../utils/asyncHandler";
 
 const router = express.Router();

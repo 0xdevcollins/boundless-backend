@@ -157,8 +157,20 @@ export const createOrganization = async (
       return;
     }
 
+    // Check if an organization with this name already exists
+    const existingOrganization = await Organization.findOne({
+      name: name.trim(),
+    });
+    if (existingOrganization) {
+      sendBadRequest(
+        res,
+        `An organization with the name "${name}" already exists. Please choose a different name.`,
+      );
+      return;
+    }
+
     const organization = await Organization.create({
-      name,
+      name: name.trim(),
       logo,
       tagline,
       about,
@@ -173,8 +185,18 @@ export const createOrganization = async (
     });
 
     sendCreated(res, organization, "Organization created successfully");
-  } catch (error) {
+  } catch (error: any) {
     console.error("Create organization error:", error);
+
+    // Handle duplicate key error specifically
+    if (error.code === 11000 && error.keyPattern?.name) {
+      sendBadRequest(
+        res,
+        `An organization with the name "${error.keyValue?.name || "this name"}" already exists. Please choose a different name.`,
+      );
+      return;
+    }
+
     sendInternalServerError(
       res,
       "Failed to create organization",

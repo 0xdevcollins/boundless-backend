@@ -137,8 +137,8 @@ import {
   submitMilestoneProof,
   updateMilestoneStatus,
 } from "./milestone.controller";
-import { protect } from "../../middleware/auth";
-import { roleMiddleware } from "../../utils/jwt.utils";
+import { protect } from "../../middleware/better-auth.middleware";
+import { roleMiddleware } from "../../middleware/better-auth.middleware";
 import { validateRequest } from "../../middleware/validateRequest";
 import { body, param } from "express-validator";
 

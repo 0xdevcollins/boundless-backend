@@ -20,12 +20,12 @@ import organizationRoutes from "../features/organizations/organization.route";
 import hackathonRoutes from "../features/hackathons/hackathon.route";
 import publicHackathonRoutes from "../features/hackathons/public-hackathon.route";
 import teamInvitationRoutes from "../features/team-invitations/team-invitation.route";
-import { authMiddleware } from "../utils/jwt.utils";
+import { protect } from "../middleware/better-auth.middleware";
 
 const router = Router();
 
 // Public routes
-router.use("/api/auth", authRoutes);
+router.use("/api", authRoutes);
 router.use("/api/users", userRoutes);
 router.use("/api/projects", projectIdeaRoutes);
 router.use("/api/projects", projectVotingRoutes);
@@ -44,7 +44,7 @@ router.use("/api/upload", uploadRoutes);
 router.use("/api/hackathons", publicHackathonRoutes); // Public hackathon routes (must be before organization routes)
 router.use("/api/organizations", organizationRoutes);
 router.use("/api/organizations", hackathonRoutes);
-router.use("/api/notifications", authMiddleware, notificationRoutes);
+router.use("/api/notifications", protect, notificationRoutes);
 router.use("/api/team-invitations", teamInvitationRoutes);
 
 export default router;

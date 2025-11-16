@@ -12,12 +12,14 @@ import compression from "compression";
 import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
+import { toNodeHandler } from "better-auth/node";
 
 import connectDB from "./config/db";
 import { setupSwagger } from "./config/swagger";
 import { sendError } from "./utils/apiResponse";
 import { authMiddleware } from "./utils/jwt.utils";
 import { checkDatabaseHealth, getDatabaseStatus } from "./utils/db.utils";
+import { auth } from "./lib/auth";
 
 import { config } from "./config/main.config";
 
@@ -54,12 +56,18 @@ app.use(
     credentials: config.cors.credentials,
   }),
 );
-app.use(
-  rateLimit({
-    windowMs: config.rateLimit.windowMs,
-    max: config.rateLimit.max,
-  }),
-);
+// app.use(
+//   rateLimit({
+//     windowMs: config.rateLimit.windowMs,
+//     max: config.rateLimit.max,
+//   }),
+// );
+
+// Mount Better Auth handler BEFORE express.json() middleware
+// This is critical - Better Auth needs to handle requests before body parsing
+app.all("/api/auth/*", toNodeHandler(auth));
+
+// Mount express json middleware after Better Auth handler
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());

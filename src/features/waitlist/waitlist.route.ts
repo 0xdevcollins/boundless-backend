@@ -1,5 +1,5 @@
 import express from "express";
-import { protect } from "../../middleware/auth";
+import { protect } from "../../middleware/better-auth.middleware";
 import waitlistController, { validateSubscribe } from "./waitlist.controller";
 
 const router = express.Router();

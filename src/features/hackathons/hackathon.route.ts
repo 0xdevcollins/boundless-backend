@@ -18,7 +18,7 @@ import {
   submitGrade,
   getSubmissionScores,
 } from "./hackathon.controller";
-import { protect } from "../../middleware/auth";
+import { protect } from "../../middleware/better-auth.middleware";
 import { validateRequest } from "../../middleware/validateRequest";
 import {
   orgIdParam,

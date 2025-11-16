@@ -6,7 +6,7 @@ import {
   removeVote,
 } from "./project-voting.controller";
 
-import { protect, optionalAuth } from "../../middleware/auth";
+import { protect, optionalAuth } from "../../middleware/better-auth.middleware";
 import { validateRequest } from "../../middleware/validateRequest";
 import { body, param, query } from "express-validator";
 import rateLimit from "express-rate-limit";

@@ -1,5 +1,5 @@
 import express from "express";
-import { protect } from "../../middleware/auth";
+import { protect } from "../../middleware/better-auth.middleware";
 import {
   createComment,
   getComments,

@@ -12,7 +12,7 @@ import {
   validateCrowdfundingProject,
   validateCrowdfundingUpdate,
 } from "../../middleware/validateCrowdfunding";
-import { protect } from "../../middleware/auth";
+import { protect } from "../../middleware/better-auth.middleware";
 import { validateRequest } from "../../middleware/validateRequest";
 
 const router = Router();
