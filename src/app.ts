@@ -71,8 +71,14 @@ app.use(
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        console.warn(`CORS blocked origin: ${origin}`);
-        // Return false instead of error to prevent CORS headers from being set
+        // Log blocked origins for debugging (only in development)
+        if (config.NODE_ENV !== "production") {
+          console.warn(
+            `CORS blocked origin: ${origin}. Allowed origins:`,
+            allowedOrigins,
+          );
+        }
+        // Return false to prevent CORS headers from being set
         callback(null, false);
       }
     },
@@ -88,7 +94,7 @@ app.use(
     ],
     exposedHeaders: ["Set-Cookie"],
     credentials: true,
-    preflightContinue: false,
+    preflightContinue: false, // CORS middleware handles preflight, don't continue
     optionsSuccessStatus: 204,
     maxAge: 86400, // 24 hours - cache preflight requests
   }),
@@ -106,35 +112,6 @@ app.use(
 //     max: config.rateLimit.max,
 //   }),
 // );
-
-// Handle OPTIONS requests explicitly for CORS preflight
-// This ensures preflight requests are handled even if CORS middleware has issues
-app.options("*", (req, res) => {
-  const origin = req.headers.origin;
-
-  // Check if origin is allowed
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header("Access-Control-Allow-Origin", origin);
-    res.header(
-      "Access-Control-Allow-Methods",
-      "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-    );
-    res.header(
-      "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, X-Requested-With, Accept, Origin, Cookie, Set-Cookie",
-    );
-    res.header("Access-Control-Allow-Credentials", "true");
-    res.header("Access-Control-Max-Age", "86400");
-    res.sendStatus(204);
-  } else if (!origin) {
-    // Allow requests with no origin
-    res.sendStatus(204);
-  } else {
-    // Origin not allowed
-    console.warn(`OPTIONS preflight blocked for origin: ${origin}`);
-    res.sendStatus(403);
-  }
-});
 
 // Mount Better Auth handler BEFORE express.json() middleware
 // This is critical - Better Auth needs to handle requests before body parsing
