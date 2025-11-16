@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
-import Hackathon from "../../models/hackathon.model";
-import HackathonParticipant from "../../models/hackathon-participant.model";
+import Hackathon from "../../models/hackathon.model.js";
+import HackathonParticipant from "../../models/hackathon-participant.model.js";
 import {
   sendSuccess,
   sendError,
@@ -10,13 +10,13 @@ import {
   sendBadRequest,
   sendInternalServerError,
   sendConflict,
-} from "../../utils/apiResponse";
+} from "../../utils/apiResponse.js";
 import {
   AuthenticatedRequest,
   canManageHackathons,
   validateStellarAddress,
   mapRankToPrizeAmount,
-} from "./hackathon.helpers";
+} from "./hackathon.helpers.js";
 
 /**
  * @swagger

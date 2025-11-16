@@ -25,6 +25,7 @@ export class Config {
   public readonly SMTP_USER: string;
   public readonly SMTP_PASS: string;
   public readonly EMAIL_FROM: string;
+  public readonly frontendUrl: string;
 
   public readonly cloudinary: {
     cloudName: string;
@@ -73,6 +74,8 @@ export class Config {
     this.SMTP_USER = this.getEnvVariable("SMTP_USER", true);
     this.SMTP_PASS = this.getEnvVariable("SMTP_PASS", true);
     this.EMAIL_FROM = this.getEnvVariable("EMAIL_FROM", true);
+    this.frontendUrl =
+      this.getEnvVariable("FRONTEND_URL", false) || "http://localhost:3000";
 
     this.cloudinary = {
       cloudName: this.getEnvVariable("CLOUDINARY_CLOUD_NAME", true),

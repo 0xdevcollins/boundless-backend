@@ -1,4 +1,4 @@
-import { IOrganization } from "../models/organization.model";
+import { IOrganization } from "../models/organization.model.js";
 
 const getUserRole = (
   organization: IOrganization,

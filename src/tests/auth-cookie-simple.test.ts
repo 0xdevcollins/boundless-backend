@@ -1,7 +1,7 @@
 import request from "supertest";
-import app from "../app";
-import { generateTokens, verifyToken } from "../utils/jwt.utils";
-import User from "../models/user.model";
+import app from "../app.js";
+import { generateTokens, verifyToken } from "../utils/jwt.utils.js";
+import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 
 describe("Simple Auth Test", () => {

@@ -1,13 +1,13 @@
 import express from "express";
-import { protect } from "../../middleware/better-auth.middleware";
+import { protect } from "../../middleware/better-auth.middleware.js";
 import {
   createComment,
   getComments,
   updateComment,
   deleteComment,
   reportComment,
-} from "./comment.controller";
-import * as reactionController from "./reaction.controller";
+} from "./comment.controller.js";
+import * as reactionController from "./reaction.controller.js";
 
 const router = express.Router();
 

@@ -6,8 +6,8 @@ import {
   getProjectTeamInvitations,
   getUserTeamInvitations,
   cancelTeamInvitation,
-} from "./team-invitation.controller";
-import { protect } from "../../middleware/better-auth.middleware";
+} from "./team-invitation.controller.js";
+import { protect } from "../../middleware/better-auth.middleware.js";
 
 const router = Router();
 

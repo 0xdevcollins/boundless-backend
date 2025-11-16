@@ -5,9 +5,9 @@
  * for sending professional authentication emails.
  */
 
-import EmailTemplatesService from "../services/email/email-templates.service";
-import EmailTemplateUtils from "../utils/email-template.utils";
-import { sendEmail } from "../utils/email.utils";
+import EmailTemplatesService from "../services/email/email-templates.service.js";
+import EmailTemplateUtils from "../utils/email-template.utils.js";
+import { sendEmail } from "../utils/email.utils.js";
 
 // Example 1: Using EmailTemplatesService (recommended approach)
 export const sendOtpEmailExample = async (

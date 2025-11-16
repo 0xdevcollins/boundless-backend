@@ -4,10 +4,13 @@ import {
   voteOnProject,
   getProjectVotes,
   removeVote,
-} from "./project-voting.controller";
+} from "./project-voting.controller.js";
 
-import { protect, optionalAuth } from "../../middleware/better-auth.middleware";
-import { validateRequest } from "../../middleware/validateRequest";
+import {
+  protect,
+  optionalAuth,
+} from "../../middleware/better-auth.middleware.js";
+import { validateRequest } from "../../middleware/validateRequest.js";
 import { body, param, query } from "express-validator";
 import rateLimit from "express-rate-limit";
 

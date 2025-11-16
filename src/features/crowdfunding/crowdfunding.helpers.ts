@@ -1,5 +1,5 @@
-import Vote from "../../models/vote.model";
-import { USER_SELECT_FIELDS } from "./crowdfunding.constants";
+import Vote from "../../models/vote.model.js";
+import { USER_SELECT_FIELDS } from "./crowdfunding.constants.js";
 
 export const populateProjectUserData = (query: any) => {
   return query

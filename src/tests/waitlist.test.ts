@@ -1,9 +1,9 @@
 import request from "supertest";
 import mongoose from "mongoose";
-import app from "../app";
-import Waitlist, { WaitlistStatus } from "../models/waitlist.model";
-import { createTestUser } from "./testHelpers";
-import { UserRole } from "../models/user.model";
+import app from "../app.js";
+import Waitlist, { WaitlistStatus } from "../models/waitlist.model.js";
+import { createTestUser } from "./testHelpers.js";
+import { UserRole } from "../models/user.model.js";
 
 // Mock the email utility to avoid sending real emails during tests
 jest.mock("../utils/email.utils", () => ({

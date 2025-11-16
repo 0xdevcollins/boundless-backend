@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { sendTooManyRequests } from "../utils/apiResponse";
+import { sendTooManyRequests } from "../utils/apiResponse.js";
 
 interface RateLimitOptions {
   windowMs: number; // Time window in milliseconds

@@ -1,4 +1,4 @@
-import Blog from "../models/blog";
+import Blog from "../models/blog.js";
 
 /**
  * Generate a URL-friendly slug from a title

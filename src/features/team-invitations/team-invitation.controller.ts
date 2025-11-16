@@ -1,12 +1,12 @@
 import { Request, Response } from "express";
-import { TeamInvitationService } from "../../features/team-invitations/team-invitation.service";
+import { TeamInvitationService } from "../../features/team-invitations/team-invitation.service.js";
 import {
   sendSuccess,
   sendBadRequest,
   sendInternalServerError,
   sendUnauthorized,
   sendNotFound,
-} from "../../utils/apiResponse";
+} from "../../utils/apiResponse.js";
 import mongoose from "mongoose";
 
 /**

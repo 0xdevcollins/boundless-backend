@@ -1,14 +1,14 @@
 import request from "supertest";
-import app from "../app";
-import GrantApplication from "../models/grant-application.model";
-import User from "../models/user.model";
-import Project from "../models/project.model";
+import app from "../app.js";
+import GrantApplication from "../models/grant-application.model.js";
+import User from "../models/user.model.js";
+import Project from "../models/project.model.js";
 import mongoose from "mongoose";
 import {
   TestUserFactory,
   cleanupTestData,
   generateTestToken,
-} from "./testHelpers";
+} from "./testHelpers.js";
 
 describe("PATCH /api/grant-applications/:id/milestones", () => {
   let adminUser: any;

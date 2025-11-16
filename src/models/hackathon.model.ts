@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
-import { generateSlug } from "../utils/blog.utils";
-import { ensureUniqueHackathonSlug } from "../utils/hackathon.utils";
+import { generateSlug } from "../utils/blog.utils.js";
+import { ensureUniqueHackathonSlug } from "../utils/hackathon.utils.js";
 
 export enum HackathonStatus {
   DRAFT = "draft",

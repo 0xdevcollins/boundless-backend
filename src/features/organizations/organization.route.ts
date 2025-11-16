@@ -18,9 +18,9 @@ import {
   getOrganizationPermissions,
   updateOrganizationPermissions,
   resetOrganizationPermissions,
-} from "./organization.controller";
-import { protect } from "../../middleware/better-auth.middleware";
-import { validateRequest } from "../../middleware/validateRequest";
+} from "./organization.controller.js";
+import { protect } from "../../middleware/better-auth.middleware.js";
+import { validateRequest } from "../../middleware/validateRequest.js";
 
 const router = Router();
 

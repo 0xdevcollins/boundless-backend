@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
-import User from "../../models/user.model";
+import User from "../../models/user.model.js";
 import Notification, {
   NotificationType,
-} from "../../models/notification.model";
-import { sendEmail } from "../../utils/email.utils";
+} from "../../models/notification.model.js";
+import { sendEmail } from "../../utils/email.utils.js";
 
 export interface NotificationData {
   projectId?: mongoose.Types.ObjectId;

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import Blog from "../../models/blog";
-import BlogCategory from "../../models/blog.category";
-import Tag from "../../models/tag.model";
+import Blog from "../../models/blog.js";
+import BlogCategory from "../../models/blog.category.js";
+import Tag from "../../models/tag.model.js";
 
 export interface BlogPost {
   id: string;

@@ -3,11 +3,11 @@ import {
   verifyToken,
   roleMiddleware,
   verifyRefreshToken,
-} from "../utils/jwt.utils";
-import User, { IUser, UserRole } from "../models/user.model";
+} from "../utils/jwt.utils.js";
+import User, { IUser, UserRole } from "../models/user.model.js";
 import mongoose from "mongoose";
-import { generateTokens } from "../utils/jwt.utils";
-import { setAuthCookies } from "../utils/cookie.utils";
+import { generateTokens } from "../utils/jwt.utils.js";
+import { setAuthCookies } from "../utils/cookie.utils.js";
 
 declare global {
   namespace Express {

@@ -1,6 +1,6 @@
-import NotificationService from "../../features/notifications/notification.service";
-import EmailTemplatesService from "../../services/email/email-templates.service";
-import { NotificationType } from "../../models/notification.model";
+import NotificationService from "../../features/notifications/notification.service.js";
+import EmailTemplatesService from "../../services/email/email-templates.service.js";
+import { NotificationType } from "../../models/notification.model.js";
 
 export async function sendProjectCreatedNotifications(
   project: any,

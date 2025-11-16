@@ -1,11 +1,14 @@
 import request from "supertest";
 import mongoose from "mongoose";
-import app from "../app";
-import User from "../models/user.model";
-import Project, { ProjectStatus, ProjectType } from "../models/project.model";
-import Vote from "../models/vote.model";
-import Crowdfund from "../models/crowdfund.model";
-import { TestUserFactory, cleanupTestData } from "./testHelpers";
+import app from "../app.js";
+import User from "../models/user.model.js";
+import Project, {
+  ProjectStatus,
+  ProjectType,
+} from "../models/project.model.js";
+import Vote from "../models/vote.model.js";
+import Crowdfund from "../models/crowdfund.model.js";
+import { TestUserFactory, cleanupTestData } from "./testHelpers.js";
 
 describe("Project Voting API", () => {
   let testUser: any;

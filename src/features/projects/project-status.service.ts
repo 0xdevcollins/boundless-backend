@@ -1,10 +1,10 @@
 import Project, {
   ProjectStatus,
   ProjectType,
-} from "../../models/project.model";
-import Crowdfund, { CrowdfundStatus } from "../../models/crowdfund.model";
-import Vote from "../../models/vote.model";
-import User from "../../models/user.model";
+} from "../../models/project.model.js";
+import Crowdfund, { CrowdfundStatus } from "../../models/crowdfund.model.js";
+import Vote from "../../models/vote.model.js";
+import User from "../../models/user.model.js";
 import mongoose from "mongoose";
 import nodemailer from "nodemailer";
 

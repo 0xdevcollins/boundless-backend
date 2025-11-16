@@ -7,13 +7,13 @@ import {
   updateCrowdfundingProject,
   deleteCrowdfundingProject,
   adminReviewCrowdfundingProject,
-} from "./crowdfunding.controller";
+} from "./crowdfunding.controller.js";
 import {
   validateCrowdfundingProject,
   validateCrowdfundingUpdate,
-} from "../../middleware/validateCrowdfunding";
-import { protect } from "../../middleware/better-auth.middleware";
-import { validateRequest } from "../../middleware/validateRequest";
+} from "../../middleware/validateCrowdfunding.js";
+import { protect } from "../../middleware/better-auth.middleware.js";
+import { validateRequest } from "../../middleware/validateRequest.js";
 
 const router = Router();
 

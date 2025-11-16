@@ -1,10 +1,10 @@
 import request from "supertest";
-import app from "../app";
+import app from "../app.js";
 import mongoose, { Types } from "mongoose";
-import User, { UserRole, UserStatus, IUser } from "../models/user.model";
-import Campaign, { ICampaign } from "../models/campaign.model";
-import Milestone from "../models/milestone.model";
-import { TestUserFactory, cleanupTestData } from "./testHelpers";
+import User, { UserRole, UserStatus, IUser } from "../models/user.model.js";
+import Campaign, { ICampaign } from "../models/campaign.model.js";
+import Milestone from "../models/milestone.model.js";
+import { TestUserFactory, cleanupTestData } from "./testHelpers.js";
 
 describe("PATCH /api/campaigns/:id/approve", () => {
   let adminToken: string;

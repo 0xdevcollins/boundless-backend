@@ -1,13 +1,13 @@
 import request from "supertest";
 import mongoose from "mongoose";
-import app from "../app";
-import Grant from "../models/grant.model";
-import GrantApplication from "../models/grant-application.model";
+import app from "../app.js";
+import Grant from "../models/grant.model.js";
+import GrantApplication from "../models/grant-application.model.js";
 import {
   TestUserFactory,
   cleanupTestData,
   generateTestToken,
-} from "./testHelpers";
+} from "./testHelpers.js";
 
 describe("Grant API", () => {
   let creatorUser: any;

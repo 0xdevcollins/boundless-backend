@@ -12,8 +12,8 @@ import {
   searchFiles,
   getUsageStats,
   upload,
-} from "./upload.controller";
-import { protect } from "../../middleware/better-auth.middleware";
+} from "./upload.controller.js";
+import { protect } from "../../middleware/better-auth.middleware.js";
 
 const router = Router();
 

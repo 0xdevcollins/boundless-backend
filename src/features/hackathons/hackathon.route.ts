@@ -18,9 +18,9 @@ import {
   getJudgingSubmissions,
   submitGrade,
   getSubmissionScores,
-} from "./hackathon.controller";
-import { protect } from "../../middleware/better-auth.middleware";
-import { validateRequest } from "../../middleware/validateRequest";
+} from "./hackathon.controller.js";
+import { protect } from "../../middleware/better-auth.middleware.js";
+import { validateRequest } from "../../middleware/validateRequest.js";
 import {
   orgIdParam,
   draftIdParam,
@@ -34,13 +34,13 @@ import {
   assignRanksSchema,
   createMilestonesSchema,
   announceWinnersSchema,
-} from "./hackathon.validators";
+} from "./hackathon.validators.js";
 import {
   assignRanks,
   createWinnerMilestones,
   getEscrowDetails,
   announceWinners,
-} from "./hackathon-rewards.controller";
+} from "./hackathon-rewards.controller.js";
 
 const router = Router();
 

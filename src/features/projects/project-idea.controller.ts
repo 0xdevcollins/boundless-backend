@@ -3,12 +3,12 @@ import Project, {
   IProject,
   ProjectStatus,
   ProjectType,
-} from "../../models/project.model";
+} from "../../models/project.model.js";
 import Crowdfund, {
   ICrowdfund,
   CrowdfundStatus,
-} from "../../models/crowdfund.model";
-import User from "../../models/user.model";
+} from "../../models/crowdfund.model.js";
+import User from "../../models/user.model.js";
 import mongoose from "mongoose";
 import {
   sendSuccess,
@@ -17,8 +17,8 @@ import {
   sendInternalServerError,
   sendUnauthorized,
   checkResource,
-} from "../../utils/apiResponse";
-import { CROWDFUNDING_STAKEHOLDERS } from "../../constants/stakeholders.constants";
+} from "../../utils/apiResponse.js";
+import { CROWDFUNDING_STAKEHOLDERS } from "../../constants/stakeholders.constants.js";
 
 /**
  * @desc    Create a new Project Idea

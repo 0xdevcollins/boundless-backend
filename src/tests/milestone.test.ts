@@ -1,9 +1,9 @@
 import request from "supertest";
-import app from "../app";
+import app from "../app.js";
 import mongoose, { Types } from "mongoose";
-import Milestone, { IMilestone } from "../models/milestone.model";
-import Campaign, { ICampaign } from "../models/campaign.model";
-import User, { IUser } from "../models/user.model";
+import Milestone, { IMilestone } from "../models/milestone.model.js";
+import Campaign, { ICampaign } from "../models/campaign.model.js";
+import User, { IUser } from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 
 // Blockchain operations removed - frontend handles all transactions

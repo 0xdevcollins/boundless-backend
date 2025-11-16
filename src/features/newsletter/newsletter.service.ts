@@ -1,4 +1,4 @@
-import NewsletterSubscriber from "../../models/newsletter.model";
+import NewsletterSubscriber from "../../models/newsletter.model.js";
 
 export interface CreateNewsletterData {
   email: string;

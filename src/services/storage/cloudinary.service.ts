@@ -1,6 +1,6 @@
 import { v2 as cloudinary } from "cloudinary";
 import { Readable } from "stream";
-import { config } from "../../config";
+import { config } from "../../config/main.config.js";
 
 cloudinary.config({
   cloud_name: config.cloudinary.cloudName,

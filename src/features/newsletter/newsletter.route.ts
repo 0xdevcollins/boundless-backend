@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { subscribe, validateSubscribe } from "./newsletter.controller";
-import { validateRequest } from "../../middleware/validateRequest";
+import { subscribe, validateSubscribe } from "./newsletter.controller.js";
+import { validateRequest } from "../../middleware/validateRequest.js";
 
 const router = Router();
 

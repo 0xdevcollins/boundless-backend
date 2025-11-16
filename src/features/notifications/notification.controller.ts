@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import notificationModel from "../../models/notification.model";
+import notificationModel from "../../models/notification.model.js";
 
 type MarkAsReadBody = { ids: string[]; all?: boolean };
 

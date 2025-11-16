@@ -1,10 +1,10 @@
-import { IHackathon } from "../../models/hackathon.model";
-import { IHackathonParticipant } from "../../models/hackathon-participant.model";
+import { IHackathon } from "../../models/hackathon.model.js";
+import { IHackathonParticipant } from "../../models/hackathon-participant.model.js";
 import {
   Participant,
   SubmissionCardProps,
   Hackathon,
-} from "../../types/hackathon";
+} from "../../types/hackathon.js";
 
 /**
  * Transform hackathon participant to frontend Participant interface

@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
-import Activity, { ActivityType } from "../models/activity.model";
-import User from "../models/user.model";
-import Project from "../models/project.model";
+import Activity, { ActivityType } from "../models/activity.model.js";
+import User from "../models/user.model.js";
+import Project from "../models/project.model.js";
 import { pathToFileURL } from "url";
 
 /**

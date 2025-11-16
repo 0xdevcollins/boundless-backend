@@ -1,6 +1,6 @@
 import { Response } from "express";
-import { sendBadRequest } from "../../utils/apiResponse";
-import { isValidUrl } from "./crowdfunding.helpers";
+import { sendBadRequest } from "../../utils/apiResponse.js";
+import { isValidUrl } from "./crowdfunding.helpers.js";
 
 export const validateMilestones = (
   milestones: any[],

@@ -1,12 +1,12 @@
 import mongoose from "mongoose";
-import User, { UserRole, UserStatus } from "./models/user.model";
-import Project, { ProjectStatus } from "./models/project.model";
-import Badge from "./models/badge.model";
-import Contract from "./models/contract.model";
-import Milestone from "./models/milestone.model";
-import Transaction from "./models/transaction.model";
-import Comment from "./models/comment.model";
-import Notification from "./models/notification.model";
+import User, { UserRole, UserStatus } from "./models/user.model.js";
+import Project, { ProjectStatus } from "./models/project.model.js";
+import Badge from "./models/badge.model.js";
+import Contract from "./models/contract.model.js";
+import Milestone from "./models/milestone.model.js";
+import Transaction from "./models/transaction.model.js";
+import Comment from "./models/comment.model.js";
+import Notification from "./models/notification.model.js";
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 

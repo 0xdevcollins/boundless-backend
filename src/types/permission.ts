@@ -1,4 +1,4 @@
-import { CustomPermissions } from "../models/organization.model";
+import { CustomPermissions } from "../models/organization.model.js";
 
 export const DEFAULT_PERMISSIONS: CustomPermissions = {
   create_edit_profile: {

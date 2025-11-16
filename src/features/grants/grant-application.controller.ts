@@ -1,11 +1,11 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
-import GrantApplication from "../../models/grant-application.model";
-import { sendError, sendValidationError } from "../../utils/apiResponse";
-import { sendSuccess } from "../../utils/apiResponse";
-import Project from "../../models/project.model";
-// import { ContractService } from "../services/contract.service";
-import Account from "../../models/account.model";
+import GrantApplication from "../../models/grant-application.model.js";
+import { sendError, sendValidationError } from "../../utils/apiResponse.js";
+import { sendSuccess } from "../../utils/apiResponse.js";
+import Project from "../../models/project.model.js";
+// import { ContractService } from "../services/contract.service.js";
+import Account from "../../models/account.model.js";
 
 enum ApplicationStatus {
   Submitted = "SUBMITTED",

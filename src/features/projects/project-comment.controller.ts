@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import ProjectComment from "../../models/project-comment.model";
-import Project from "../../models/project.model";
-import User from "../../models/user.model";
+import ProjectComment from "../../models/project-comment.model.js";
+import Project from "../../models/project.model.js";
+import User from "../../models/user.model.js";
 import mongoose from "mongoose";
 import {
   sendSuccess,
@@ -10,11 +10,11 @@ import {
   sendInternalServerError,
   sendUnauthorized,
   checkResource,
-} from "../../utils/apiResponse";
-import { checkSpam } from "../../utils/moderation.utils";
-import { retryTransaction } from "../../utils/retry.utils";
-import { validateCommentContent } from "../../utils/sanitization.utils";
-import { createCommentPostedActivity } from "../../utils/activity.utils";
+} from "../../utils/apiResponse.js";
+import { checkSpam } from "../../utils/moderation.utils.js";
+import { retryTransaction } from "../../utils/retry.utils.js";
+import { validateCommentContent } from "../../utils/sanitization.utils.js";
+import { createCommentPostedActivity } from "../../utils/activity.utils.js";
 
 /**
  * @desc    Add a comment to a project

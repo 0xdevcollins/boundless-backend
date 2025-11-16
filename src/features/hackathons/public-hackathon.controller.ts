@@ -1,22 +1,22 @@
 import { Request, Response } from "express";
-import Hackathon, { HackathonStatus } from "../../models/hackathon.model";
-import HackathonParticipant from "../../models/hackathon-participant.model";
+import Hackathon, { HackathonStatus } from "../../models/hackathon.model.js";
+import HackathonParticipant from "../../models/hackathon-participant.model.js";
 import {
   sendSuccess,
   sendNotFound,
   sendInternalServerError,
-} from "../../utils/apiResponse";
+} from "../../utils/apiResponse.js";
 import {
   transformHackathonToFrontend,
   transformParticipantToFrontend,
   transformSubmissionToCardProps,
-} from "./hackathon-transformers";
+} from "./hackathon-transformers.js";
 import {
   HackathonListResponse,
   ParticipantListResponse,
   SubmissionListResponse,
-} from "../../types/hackathon";
-import { hackathonCache } from "../../utils/hackathon-cache.utils";
+} from "../../types/hackathon.js";
+import { hackathonCache } from "../../utils/hackathon-cache.utils.js";
 
 /**
  * Get hackathon by slug (public endpoint)

@@ -1,6 +1,6 @@
 import mongoose, { Document, Schema } from "mongoose";
 import bcrypt from "bcryptjs";
-import Badge from "./badge.model";
+import Badge from "./badge.model.js";
 
 export enum UserStatus {
   ACTIVE = "ACTIVE",

@@ -1,9 +1,9 @@
 import request from "supertest";
 import mongoose from "mongoose";
-import app from "../app";
-import User, { UserRole, UserStatus } from "../models/user.model";
-import Grant from "../models/grant.model";
-import { TestUserFactory, cleanupTestData } from "./testHelpers";
+import app from "../app.js";
+import User, { UserRole, UserStatus } from "../models/user.model.js";
+import Grant from "../models/grant.model.js";
+import { TestUserFactory, cleanupTestData } from "./testHelpers.js";
 
 describe("Grant Status Update API", () => {
   let creatorUser: any;

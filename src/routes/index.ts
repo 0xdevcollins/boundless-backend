@@ -8,7 +8,7 @@ import blogRoutes from "../features/blogs/blog.route.js";
 import publicBlogRoutes from "../features/blogs/public-blog.route.js";
 import commentRoutes from "../features/comments/comment.route.js";
 import notificationRoutes from "../features/notifications/notification.route.js";
-// import campaignRoutes from "../features/campaigns/campaign.route";
+// import campaignRoutes from "../features/campaigns/campaign.route.js";
 import grantRoutes from "../features/grants/grant.route.js";
 import grantApplicationRoutes from "../features/grants/grant-application.route.js";
 import milestoneRoutes from "../features/milestones/milestone.route.js";

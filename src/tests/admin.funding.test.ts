@@ -1,13 +1,13 @@
 // import request from "supertest";
 // import mongoose, { Types } from "mongoose";
-// import app from "../app";
-// import User, { UserRole } from "../models/user.model";
-// import Project from "../models/project.model";
+// import app from "../app.js";
+// import User, { UserRole } from "../models/user.model.js";
+// import Project from "../models/project.model.js";
 // import Transaction, {
 //   TransactionType,
 //   TransactionStatus,
-// } from "../models/admin.transaction.model";
-// import { generateTokens } from "../utils/jwt.utils";
+// } from "../models/admin.transaction.model.js";
+// import { generateTokens } from "../utils/jwt.utils.js";
 
 // describe("Admin Funding Endpoints", () => {
 //   let adminToken: string;

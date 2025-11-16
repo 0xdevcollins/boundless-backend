@@ -1,6 +1,9 @@
 import { Router } from "express";
-import { lockEscrow, updateMilestones } from "./grant-application.controller";
-import { protect } from "../../middleware/better-auth.middleware";
+import {
+  lockEscrow,
+  updateMilestones,
+} from "./grant-application.controller.js";
+import { protect } from "../../middleware/better-auth.middleware.js";
 const router = Router();
 
 // PATCH /api/grant-applications/:id/escrow

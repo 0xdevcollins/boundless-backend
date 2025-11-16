@@ -1,13 +1,13 @@
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import User from "../../models/user.model";
-import Account from "../../models/account.model";
-import Session from "../../models/session.model";
-import { generateTokens, verifyRefreshToken } from "../../utils/jwt.utils";
-import { setAuthCookies, clearAuthCookies } from "../../utils/cookie.utils";
+import User from "../../models/user.model.js";
+import Account from "../../models/account.model.js";
+import Session from "../../models/session.model.js";
+import { generateTokens, verifyRefreshToken } from "../../utils/jwt.utils.js";
+import { setAuthCookies, clearAuthCookies } from "../../utils/cookie.utils.js";
 import axios from "axios";
 import { OAuth2Client } from "google-auth-library";
-import { generateOTP } from "../../utils/otp.utils";
+import { generateOTP } from "../../utils/otp.utils.js";
 import {
   sendSuccess,
   sendCreated,
@@ -17,17 +17,17 @@ import {
   sendConflict,
   sendInternalServerError,
   checkResource,
-} from "../../utils/apiResponse";
-import { sendEmail } from "../../utils/email.utils";
-import EmailTemplatesService from "../../services/email/email-templates.service";
-import { mongooseWithRetry } from "../../utils/db.utils";
-import { TeamInvitationService } from "../../features/team-invitations/team-invitation.service";
+} from "../../utils/apiResponse.js";
+import { sendEmail } from "../../utils/email.utils.js";
+import EmailTemplatesService from "../../services/email/email-templates.service.js";
+import { mongooseWithRetry } from "../../utils/db.utils.js";
+import { TeamInvitationService } from "../../features/team-invitations/team-invitation.service.js";
 import {
   createDefaultUserSettings,
   createDefaultUserProfile,
   createUserFromOAuth,
   extractRefreshToken,
-} from "./auth.helpers";
+} from "./auth.helpers.js";
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
