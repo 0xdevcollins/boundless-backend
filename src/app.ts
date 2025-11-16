@@ -50,7 +50,7 @@ app.set("trust proxy", 1);
 app.use(helmet());
 app.use(
   cors({
-    origin: config.cors.origin,
+    origin: "http://localhost:3000",
     methods: config.cors.methods,
     allowedHeaders: config.cors.allowedHeaders,
     credentials: config.cors.credentials,
