@@ -2,6 +2,7 @@
 
 import { execSync } from "child_process";
 import path from "path";
+import { pathToFileURL } from "url";
 
 interface TestResult {
   testFile: string;
@@ -103,7 +104,7 @@ class TrustlessWorkTestRunner {
 }
 
 // Run tests if this file is executed directly
-if (require.main === module) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const runner = new TrustlessWorkTestRunner();
   runner.runAllTests().catch(console.error);
 }

@@ -2,6 +2,8 @@
  * Database utility functions for handling operations with retry logic and timeout management
  */
 
+import mongoose from "mongoose";
+
 interface RetryOptions {
   maxRetries?: number;
   baseDelay?: number;
@@ -156,8 +158,6 @@ export async function checkDatabaseHealth(): Promise<boolean> {
  * @returns Object with connection status details
  */
 export function getDatabaseStatus() {
-  const mongoose = require("mongoose");
-
   const states = {
     0: "disconnected",
     1: "connected",

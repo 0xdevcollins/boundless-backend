@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Activity, { ActivityType } from "../models/activity.model";
 import User from "../models/user.model";
 import Project from "../models/project.model";
+import { pathToFileURL } from "url";
 
 /**
  * Script to populate sample activities for testing
@@ -100,7 +101,7 @@ async function populateActivities() {
 }
 
 // Run the script if called directly
-if (require.main === module) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   populateActivities();
 }
 

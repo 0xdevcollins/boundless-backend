@@ -296,7 +296,7 @@ export const updateGrantStatus = async (req: Request, res: Response) => {
     const { status } = req.body;
 
     // Validate grant ID
-    if (!id || !require("mongoose").Types.ObjectId.isValid(id)) {
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
       return sendError(
         res,
         "Invalid grant ID",

@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from "mongoose";
+import crypto from "crypto";
 
 export enum WaitlistStatus {
   ACTIVE = "ACTIVE",
@@ -141,7 +142,7 @@ waitlistSchema.virtual("fullName").get(function () {
 
 // Method to generate unsubscribe token
 waitlistSchema.methods.generateUnsubscribeToken = function (): string {
-  return require("crypto").randomBytes(32).toString("hex");
+  return crypto.randomBytes(32).toString("hex");
 };
 
 // Pre-save middleware to generate unsubscribe token if not exists
