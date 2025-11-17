@@ -24,7 +24,7 @@ export const auth = betterAuth({
     usePlural: true, // Use plural collection names (users) to match backend Mongoose model
   }),
   // baseURL should be the backend server URL, not frontend
-  baseURL: "https://api.boundlessfi.xyz",
+  baseURL: process.env.BETTER_AUTH_URL || "https://api.boundlessfi.xyz",
   // basePath: "/api/auth",
   emailAndPassword: {
     enabled: true,
@@ -80,6 +80,16 @@ export const auth = betterAuth({
     google: {
       clientId: config.GOOGLE_CLIENT_ID,
       clientSecret: config.GOOGLE_CLIENT_SECRET,
+      // Optional: Always ask user to select an account (useful for multi-account users)
+      // Uncomment to enable:
+      // prompt: "select_account",
+
+      // Optional: Always get refresh token (required for offline access to Google APIs)
+      // Note: Google only issues refresh token on first consent. To get a new refresh token,
+      // users must revoke app access in their Google account settings, then re-authorize.
+      // Uncomment both lines to enable:
+      accessType: "offline",
+      prompt: "select_account consent", // Required with accessType: "offline"
     },
     github: {
       clientId: config.GITHUB_CLIENT_ID,
