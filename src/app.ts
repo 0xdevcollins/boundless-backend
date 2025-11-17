@@ -49,7 +49,7 @@ app.set("trust proxy", 1);
 // Middlewares
 // Configure CORS before other middleware
 const allowedOrigins = [
-  // "http://localhost:3000",
+  "http://localhost:3000",
   // "https://staging.boundlessfi.xyz",
   // "https://staging.boundless.xyz",
   "https://www.boundlessfi.xyz", // Keep both variants for compatibility
