@@ -96,6 +96,12 @@ export const auth = betterAuth({
       clientSecret: config.GITHUB_CLIENT_SECRET,
     },
   },
+  advanced: {
+    defaultCookieAttributes: {
+      sameSite: "none",
+      secure: true,
+    },
+  },
   plugins: [
     emailOTP({
       overrideDefaultEmailVerification: true,
@@ -229,6 +235,8 @@ export const auth = betterAuth({
     "https://www.boundlessfi.xyz",
     "https://staging.boundlessfi.xyz",
     "https://www.staging.boundlessfi.xyz",
+    "https://staging-api.boundlessfi.xyz", // Add this for staging API
+    "https://api.boundlessfi.xyz", // Add this for production API
     "http://localhost:3000",
     "http://localhost:8000", // For local development
   ],
