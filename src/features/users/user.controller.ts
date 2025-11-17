@@ -23,6 +23,7 @@ import {
   createProfileUpdatedActivity,
   createLoginActivity,
 } from "../../utils/activity.utils.js";
+import { checkProfileCompleteness } from "../../utils/profile.utils.js";
 
 // Extend the Express Request type to include our custom properties
 interface AuthenticatedRequest extends Request {
@@ -165,13 +166,8 @@ export const getUserProfile = async (
     ]);
 
     // Check if profile is complete
-    const isProfileComplete = !!(
-      user?.profile.firstName &&
-      user?.profile.lastName &&
-      user?.profile.username &&
-      user?.profile.bio &&
-      user?.profile.avatar
-    );
+    const profileCompleteness = checkProfileCompleteness(user);
+    const isProfileComplete = profileCompleteness.isComplete;
 
     // Format projects data
     const formattedProjects = projects.map((project) => {
@@ -326,6 +322,8 @@ export const getUserProfile = async (
       __v: user?.__v,
       lastLogin: user?.lastLogin,
       isProfileComplete,
+      missingProfileFields: profileCompleteness.missingFields,
+      profileCompletionPercentage: profileCompleteness.completionPercentage,
     };
 
     sendSuccess(res, response, "User profile retrieved successfully");

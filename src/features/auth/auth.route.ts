@@ -10,6 +10,7 @@ import {
   sendSuccess,
   sendInternalServerError,
 } from "../../utils/apiResponse.js";
+import { checkProfileCompleteness } from "../../utils/profile.utils.js";
 
 const router = express.Router();
 
@@ -38,6 +39,9 @@ router.get("/me", protect, async (req, res) => {
         message: "User not found",
       });
     }
+
+    // Check profile completeness
+    const profileCompleteness = checkProfileCompleteness(user);
 
     // Fetch all related data in parallel for better performance
     const [
@@ -281,6 +285,9 @@ router.get("/me", protect, async (req, res) => {
       },
       activities: formattedActivities,
       contributedProjects: formattedContributedProjects,
+      isProfileComplete: profileCompleteness.isComplete,
+      missingProfileFields: profileCompleteness.missingFields,
+      profileCompletionPercentage: profileCompleteness.completionPercentage,
     };
 
     sendSuccess(res, response, "User profile retrieved successfully");
