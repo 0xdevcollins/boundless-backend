@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import Reaction from "../../models/reaction.model";
-import Comment from "../../models/comment.model";
+import Reaction from "../../models/reaction.model.js";
+import Comment from "../../models/comment.model.js";
 import mongoose from "mongoose";
 
 // Add a reaction to a comment

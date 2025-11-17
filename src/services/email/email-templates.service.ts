@@ -1,5 +1,5 @@
-import { EmailTemplate } from "../../features/notifications/notification.service";
-import EmailTemplateUtils from "../../utils/email-template.utils";
+import { EmailTemplate } from "../../features/notifications/notification.service.js";
+import EmailTemplateUtils from "../../utils/email-template.utils.js";
 
 export class EmailTemplatesService {
   /**

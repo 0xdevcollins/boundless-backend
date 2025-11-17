@@ -1,15 +1,15 @@
 import { Request, Response } from "express";
 import { body, validationResult } from "express-validator";
-import NewsletterService from "./newsletter.service";
+import NewsletterService from "./newsletter.service.js";
 import {
   sendCreated,
   sendBadRequest,
   sendError,
-} from "../../utils/apiResponse";
+} from "../../utils/apiResponse.js";
 import {
   detectSourceFromRequest,
   SOURCE_CONFIGS,
-} from "../../utils/sourceDetector.utils";
+} from "../../utils/sourceDetector.utils.js";
 
 /**
  * @route   POST /api/newsletter/subscribe

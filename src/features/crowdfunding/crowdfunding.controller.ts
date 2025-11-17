@@ -3,9 +3,9 @@ import Project, {
   IProject,
   ProjectStatus,
   ProjectType,
-} from "../../models/project.model";
-import Crowdfund, { CrowdfundStatus } from "../../models/crowdfund.model";
-import User from "../../models/user.model";
+} from "../../models/project.model.js";
+import Crowdfund, { CrowdfundStatus } from "../../models/crowdfund.model.js";
+import User from "../../models/user.model.js";
 import mongoose from "mongoose";
 import {
   sendSuccess,
@@ -14,29 +14,29 @@ import {
   sendInternalServerError,
   sendUnauthorized,
   checkResource,
-} from "../../utils/apiResponse";
-import { CROWDFUNDING_STAKEHOLDERS } from "../../constants/stakeholders.constants";
-import { TeamInvitationService } from "../../features/team-invitations/team-invitation.service";
+} from "../../utils/apiResponse.js";
+import { CROWDFUNDING_STAKEHOLDERS } from "../../constants/stakeholders.constants.js";
+import { TeamInvitationService } from "../../features/team-invitations/team-invitation.service.js";
 import {
   createProjectFundedActivity,
   createProjectCreatedActivity,
-} from "../../utils/activity.utils";
+} from "../../utils/activity.utils.js";
 import {
   VOTING_PERIOD_DAYS,
   FUNDING_PERIOD_DAYS,
   VOTE_THRESHOLD,
   USER_SELECT_FIELDS,
-} from "./crowdfunding.constants";
+} from "./crowdfunding.constants.js";
 import {
   populateProjectUserData,
   populateVotingData,
-} from "./crowdfunding.helpers";
+} from "./crowdfunding.helpers.js";
 import {
   validateMilestones,
   validateTeamMembers,
   validateSocialLinks,
   validateUrls,
-} from "./crowdfunding.validators";
+} from "./crowdfunding.validators.js";
 import {
   sendProjectCreatedNotifications,
   sendProjectUpdatedNotifications,
@@ -44,7 +44,7 @@ import {
   sendProjectFundingNotifications,
   sendProjectApprovedNotifications,
   sendProjectRejectedNotifications,
-} from "./crowdfunding.notifications";
+} from "./crowdfunding.notifications.js";
 
 export const createCrowdfundingProject = async (
   req: Request,

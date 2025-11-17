@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { validationResult, body, ValidationChain } from "express-validator";
 import { RequestHandler } from "express";
-import { sendValidationError } from "../utils/apiResponse";
+import { sendValidationError } from "../utils/apiResponse.js";
 
 export const validateRequestMarkdown = (
   req: Request,

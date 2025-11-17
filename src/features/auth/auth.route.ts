@@ -1,12 +1,16 @@
 import express from "express";
-import { protect } from "../../middleware/better-auth.middleware";
-import User from "../../models/user.model";
-import Project from "../../models/project.model";
-import Organization from "../../models/organization.model";
-import Follow from "../../models/follow.model";
-import Activity from "../../models/activity.model";
-import Comment from "../../models/comment.model";
-import { sendSuccess, sendInternalServerError } from "../../utils/apiResponse";
+import { protect } from "../../middleware/better-auth.middleware.js";
+import User from "../../models/user.model.js";
+import Project from "../../models/project.model.js";
+import Organization from "../../models/organization.model.js";
+import Follow from "../../models/follow.model.js";
+import Activity from "../../models/activity.model.js";
+import Comment from "../../models/comment.model.js";
+import {
+  sendSuccess,
+  sendInternalServerError,
+} from "../../utils/apiResponse.js";
+import { checkProfileCompleteness } from "../../utils/profile.utils.js";
 
 const router = express.Router();
 
@@ -35,6 +39,9 @@ router.get("/me", protect, async (req, res) => {
         message: "User not found",
       });
     }
+
+    // Check profile completeness
+    const profileCompleteness = checkProfileCompleteness(user);
 
     // Fetch all related data in parallel for better performance
     const [
@@ -278,6 +285,9 @@ router.get("/me", protect, async (req, res) => {
       },
       activities: formattedActivities,
       contributedProjects: formattedContributedProjects,
+      isProfileComplete: profileCompleteness.isComplete,
+      missingProfileFields: profileCompleteness.missingFields,
+      profileCompletionPercentage: profileCompleteness.completionPercentage,
     };
 
     sendSuccess(res, response, "User profile retrieved successfully");

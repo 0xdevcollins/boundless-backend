@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { BlogController } from "./blog.controller";
-import { validateRequestMarkdown } from "../../middleware/validateRequest";
-import { protect } from "../../middleware/better-auth.middleware";
-import { roleMiddleware } from "../../middleware/better-auth.middleware";
-import { blogAdminRateLimit } from "../../middleware/blogRateLimit";
+import { BlogController } from "./blog.controller.js";
+import { validateRequestMarkdown } from "../../middleware/validateRequest.js";
+import { protect } from "../../middleware/better-auth.middleware.js";
+import { roleMiddleware } from "../../middleware/better-auth.middleware.js";
+import { blogAdminRateLimit } from "../../middleware/blogRateLimit.js";
 import {
   analyticsValidation,
   blogIdValidation,
@@ -11,7 +11,7 @@ import {
   deleteBlogValidation,
   listBlogsValidation,
   updateBlogValidation,
-} from "../../utils/blog.validation.util";
+} from "../../utils/blog.validation.util.js";
 
 const router = Router();
 

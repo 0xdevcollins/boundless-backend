@@ -1,4 +1,4 @@
-import "./models";
+import "./models/index.js";
 import express, {
   type Application,
   Request,
@@ -14,17 +14,17 @@ import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import { toNodeHandler } from "better-auth/node";
 
-import connectDB from "./config/db";
-import { setupSwagger } from "./config/swagger";
-import { sendError } from "./utils/apiResponse";
-import { authMiddleware } from "./utils/jwt.utils";
-import { checkDatabaseHealth, getDatabaseStatus } from "./utils/db.utils";
-import { auth } from "./lib/auth";
+import connectDB from "./config/db.js";
+import { setupSwagger } from "./config/swagger.js";
+import { sendError } from "./utils/apiResponse.js";
+import { authMiddleware } from "./utils/jwt.utils.js";
+import { checkDatabaseHealth, getDatabaseStatus } from "./utils/db.utils.js";
+import { auth } from "./lib/auth.js";
 
-import { config } from "./config/main.config";
+import { config } from "./config/main.config.js";
 
 // Centralized route registry
-import routes from "./routes";
+import routes from "./routes/index.js";
 
 dotenv.config();
 
@@ -48,11 +48,15 @@ app.set("trust proxy", 1);
 
 // Middlewares
 // Configure CORS before other middleware
+// Note: Better Auth handles CORS for /api/auth/* routes via trustedOrigins
+// This CORS config is for other API routes
 const allowedOrigins = [
-  "http://localhost:3000",
-  // "https://staging.boundlessfi.xyz",
-  // "https://staging.boundless.xyz",
-  "https://www.boundlessfi.xyz", // Keep both variants for compatibility
+  "https://boundlessfi.xyz",
+  "https://www.boundlessfi.xyz",
+  "https://staging.boundlessfi.xyz",
+  "https://www.staging.boundlessfi.xyz",
+  "http://localhost:3000", // For local frontend development
+  "http://localhost:8000", // For local development
 ];
 
 app.use(
@@ -67,8 +71,15 @@ app.use(
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        console.warn(`CORS blocked origin: ${origin}`);
-        callback(new Error("Not allowed by CORS"));
+        // Log blocked origins for debugging (only in development)
+        if (config.NODE_ENV !== "production") {
+          console.warn(
+            `CORS blocked origin: ${origin}. Allowed origins:`,
+            allowedOrigins,
+          );
+        }
+        // Return false to prevent CORS headers from being set
+        callback(null, false);
       }
     },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -78,10 +89,14 @@ app.use(
       "X-Requested-With",
       "Accept",
       "Origin",
+      "Cookie",
+      "Set-Cookie",
     ],
+    exposedHeaders: ["Set-Cookie"],
     credentials: true,
-    preflightContinue: false,
+    preflightContinue: false, // CORS middleware handles preflight, don't continue
     optionsSuccessStatus: 204,
+    maxAge: 86400, // 24 hours - cache preflight requests
   }),
 );
 

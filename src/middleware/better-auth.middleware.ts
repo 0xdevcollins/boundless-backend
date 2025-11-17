@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { fromNodeHeaders } from "better-auth/node";
-import { auth } from "../lib/auth";
-import User, { IUser } from "../models/user.model";
-import { updateUserLastLogin } from "../lib/auth-sync";
+import { auth } from "../lib/auth.js";
+import User, { IUser } from "../models/user.model.js";
+import { updateUserLastLogin } from "../lib/auth-sync.js";
 
 declare global {
   namespace Express {
@@ -119,5 +119,5 @@ export const roleMiddleware = (roles: string[]) => {
 };
 
 // Export admin middleware for convenience
-import { UserRole } from "../models/user.model";
+import { UserRole } from "../models/user.model.js";
 export const admin = roleMiddleware([UserRole.ADMIN]);

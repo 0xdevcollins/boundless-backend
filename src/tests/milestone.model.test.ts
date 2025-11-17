@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import Milestone from "../models/milestone.model";
+import Milestone from "../models/milestone.model.js";
 
 // Simple unit tests without database - more reliable and faster
 describe("Milestone Model - Unit Tests", () => {

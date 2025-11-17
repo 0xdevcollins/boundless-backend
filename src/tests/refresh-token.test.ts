@@ -1,7 +1,7 @@
 import request from "supertest";
-import app from "../app";
-import User from "../models/user.model";
-import { generateTokens, verifyRefreshToken } from "../utils/jwt.utils";
+import app from "../app.js";
+import User from "../models/user.model.js";
+import { generateTokens, verifyRefreshToken } from "../utils/jwt.utils.js";
 import jwt from "jsonwebtoken";
 
 describe("Refresh Token Tests", () => {

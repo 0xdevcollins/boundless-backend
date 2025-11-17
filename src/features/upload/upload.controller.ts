@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import cloudinaryService from "../../services/storage/cloudinary.service";
+import cloudinaryService from "../../services/storage/cloudinary.service.js";
 import multer from "multer";
 
 const storage = multer.memoryStorage();

@@ -1,10 +1,10 @@
 import request from "supertest";
-import app from "../app";
+import app from "../app.js";
 import mongoose, { Types } from "mongoose";
-import User, { UserRole, UserStatus, IUser } from "../models/user.model";
-import Campaign, { ICampaign } from "../models/campaign.model";
-import Funding from "../models/funding.model";
-import { TestUserFactory, cleanupTestData } from "./testHelpers";
+import User, { UserRole, UserStatus, IUser } from "../models/user.model.js";
+import Campaign, { ICampaign } from "../models/campaign.model.js";
+import Funding from "../models/funding.model.js";
+import { TestUserFactory, cleanupTestData } from "./testHelpers.js";
 
 describe("POST /api/campaigns/:id/back", () => {
   let userToken: string;

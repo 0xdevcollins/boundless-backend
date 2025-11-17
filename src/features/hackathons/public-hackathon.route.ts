@@ -4,14 +4,14 @@ import {
   getHackathonsList,
   getHackathonParticipants,
   getHackathonSubmissions,
-} from "./public-hackathon.controller";
-import { validateRequest } from "../../middleware/validateRequest";
-import { slugValidation } from "../../utils/blog.validation.util";
+} from "./public-hackathon.controller.js";
+import { validateRequest } from "../../middleware/validateRequest.js";
+import { slugValidation } from "../../utils/blog.validation.util.js";
 import {
   publicHackathonListValidation,
   publicHackathonParticipantsValidation,
   publicHackathonSubmissionsValidation,
-} from "../../utils/hackathon.validation.util";
+} from "../../utils/hackathon.validation.util.js";
 
 const router = Router();
 

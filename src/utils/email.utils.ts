@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { config } from "../config/main.config";
+import { config } from "../config/main.config.js";
 import { randomBytes } from "crypto";
 
 const transporter = nodemailer.createTransport({

@@ -1,6 +1,6 @@
 import { Request } from "express";
 import { fromNodeHeaders } from "better-auth/node";
-import { auth } from "./auth";
+import { auth } from "./auth.js";
 
 /**
  * Get session from Express request

@@ -1,12 +1,12 @@
 import mongoose from "mongoose";
-import User from "../models/user.model";
-import { TeamInvitationService } from "../features/team-invitations/team-invitation.service";
+import User from "../models/user.model.js";
+import { TeamInvitationService } from "../features/team-invitations/team-invitation.service.js";
 import {
   createDefaultUserSettings,
   createDefaultUserProfile,
-} from "../features/auth/auth.helpers";
-import { sendEmail } from "../utils/email.utils";
-import EmailTemplatesService from "../services/email/email-templates.service";
+} from "../features/auth/auth.helpers.js";
+import { sendEmail } from "../utils/email.utils.js";
+import EmailTemplatesService from "../services/email/email-templates.service.js";
 
 interface SyncOptions {
   invitationToken?: string;

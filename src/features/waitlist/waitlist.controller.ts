@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { body, validationResult } from "express-validator";
-import WaitlistService, { CreateWaitlistData } from "./waitlist.service";
+import WaitlistService, { CreateWaitlistData } from "./waitlist.service.js";
 import {
   sendCreated,
   sendSuccess,
@@ -8,11 +8,11 @@ import {
   sendBadRequest,
   sendNotFound,
   sendInternalServerError,
-} from "../../utils/apiResponse";
+} from "../../utils/apiResponse.js";
 import {
   detectSourceWithContext,
   SOURCE_CONFIGS,
-} from "../../utils/sourceDetector.utils";
+} from "../../utils/sourceDetector.utils.js";
 
 /**
  * @route   POST /api/waitlist/subscribe

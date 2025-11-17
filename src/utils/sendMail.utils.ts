@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
-import { config } from "../config/main.config";
-import { NotificationType } from "../models/notification.model";
+import { config } from "../config/main.config.js";
+import { NotificationType } from "../models/notification.model.js";
 
 interface EmailTemplate {
   type: NotificationType;

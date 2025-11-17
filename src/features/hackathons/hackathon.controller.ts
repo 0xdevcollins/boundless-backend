@@ -14,7 +14,7 @@
  */
 
 // Re-export helper types
-export type { AuthenticatedRequest } from "./hackathon.helpers";
+export type { AuthenticatedRequest } from "./hackathon.helpers.js";
 
 // Re-export draft controllers
 export {
@@ -23,7 +23,7 @@ export {
   getDraft,
   getDrafts,
   previewDraft,
-} from "./hackathon-draft.controller";
+} from "./hackathon-draft.controller.js";
 
 // Re-export CRUD controllers
 export {
@@ -31,26 +31,26 @@ export {
   updateHackathon,
   getHackathon,
   getHackathons,
-} from "./hackathon-crud.controller";
+} from "./hackathon-crud.controller.js";
 
 // Re-export analytics controllers
 export {
   getHackathonStatistics,
   getHackathonAnalytics,
-} from "./hackathon-analytics.controller";
+} from "./hackathon-analytics.controller.js";
 
 // Re-export participant controllers
-export { getParticipants } from "./hackathon-participants.controller";
+export { getParticipants } from "./hackathon-participants.controller.js";
 
 // Re-export review controllers
 export {
   shortlistSubmission,
   disqualifySubmission,
-} from "./hackathon-review.controller";
+} from "./hackathon-review.controller.js";
 
 // Re-export judging controllers
 export {
   getJudgingSubmissions,
   submitGrade,
   getSubmissionScores,
-} from "./hackathon-judging.controller";
+} from "./hackathon-judging.controller.js";

@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import Campaign from "../models/campaign.model";
-import Milestone from "../models/milestone.model";
+import Campaign from "../models/campaign.model.js";
+import Milestone from "../models/milestone.model.js";
 // Mock the config to use test database
 jest.mock("../config", () => ({
   config: {

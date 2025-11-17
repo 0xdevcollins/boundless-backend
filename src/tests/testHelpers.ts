@@ -1,9 +1,9 @@
 import request from "supertest";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
-import app from "../app";
-import User, { UserRole, UserStatus } from "../models/user.model";
-import { generateTokens } from "../utils/jwt.utils";
+import app from "../app.js";
+import User, { UserRole, UserStatus } from "../models/user.model.js";
+import { generateTokens } from "../utils/jwt.utils.js";
 
 export interface TestUser {
   user: any;

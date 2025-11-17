@@ -1,6 +1,6 @@
 import request from "supertest";
-import app from "../app";
-import NewsletterSubscriber from "../models/newsletter.model";
+import app from "../app.js";
+import NewsletterSubscriber from "../models/newsletter.model.js";
 
 describe("Newsletter Subscription API", () => {
   beforeAll(async () => {

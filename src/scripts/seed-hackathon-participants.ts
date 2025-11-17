@@ -1,11 +1,11 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
-import HackathonParticipant from "../models/hackathon-participant.model";
-import HackathonSubmissionComment from "../models/hackathon-submission-comment.model";
-import HackathonSubmissionVote from "../models/hackathon-submission-vote.model";
-import Hackathon from "../models/hackathon.model";
-import User from "../models/user.model";
-import Organization from "../models/organization.model";
+import HackathonParticipant from "../models/hackathon-participant.model.js";
+import HackathonSubmissionComment from "../models/hackathon-submission-comment.model.js";
+import HackathonSubmissionVote from "../models/hackathon-submission-vote.model.js";
+import Hackathon from "../models/hackathon.model.js";
+import User from "../models/user.model.js";
+import Organization from "../models/organization.model.js";
 
 dotenv.config();
 

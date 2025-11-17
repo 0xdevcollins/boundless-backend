@@ -1,13 +1,16 @@
 import { Router } from "express";
-import { PublicBlogController } from "./public-blog.controller";
-import { validateRequestMarkdown } from "../../middleware/validateRequest";
-import { blogRateLimit, searchRateLimit } from "../../middleware/blogRateLimit";
+import { PublicBlogController } from "./public-blog.controller.js";
+import { validateRequestMarkdown } from "../../middleware/validateRequest.js";
+import {
+  blogRateLimit,
+  searchRateLimit,
+} from "../../middleware/blogRateLimit.js";
 import {
   publicBlogListValidation,
   publicBlogSearchValidation,
   slugValidation,
   relatedPostsValidation,
-} from "../../utils/blog.validation.util";
+} from "../../utils/blog.validation.util.js";
 
 const router = Router();
 

@@ -1,4 +1,4 @@
-import Activity, { ActivityType } from "../models/activity.model";
+import Activity, { ActivityType } from "../models/activity.model.js";
 import mongoose from "mongoose";
 
 interface CreateActivityParams {

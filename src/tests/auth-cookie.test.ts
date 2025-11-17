@@ -1,6 +1,6 @@
 import request from "supertest";
-import app from "../app";
-import { createTestUser, cleanupTestData } from "./testHelpers";
+import app from "../app.js";
+import { createTestUser, cleanupTestData } from "./testHelpers.js";
 
 describe("Auth with Cookies and Bearer Tokens", () => {
   let testUser: any;

@@ -7,11 +7,11 @@ module.exports = {
       exec_mode: 'fork',
       env: {
         NODE_ENV: 'production',
-        PORT: 8800
+        PORT: 8880
       },
       env_production: {
         NODE_ENV: 'production',
-        PORT: 8800
+        PORT: 8880
       },  
       // Logging
       log_file: './logs/combined.log',
@@ -43,7 +43,7 @@ module.exports = {
       ref: 'origin/main',
       repo: 'git@github.com:0xdevcollins/boundless-backend.git',
       path: '/home/bound-api/htdocs/api.boundlessfi.xyz',
-      'post-deploy': 'npm install --production && pm2 reload ecosystem.config.js --env production'
+      'post-deploy': 'npm install --production && pm2 reload ecosystem.config.cjs --env production'
     }
   }
 };

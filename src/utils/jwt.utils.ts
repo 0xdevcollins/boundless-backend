@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
-import User, { IUser, UserRole } from "../models/user.model";
+import User, { IUser, UserRole } from "../models/user.model.js";
 
 // Always read the JWT secret from process.env at runtime
 const getJwtSecret = () => process.env.JWT_SECRET || "fallback_secret";

@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
-import Comment, { IComment } from "../../models/comment.model";
-import { extractMentions, validateContent } from "../../utils/comment.utils";
+import Comment, { IComment } from "../../models/comment.model.js";
+import { extractMentions, validateContent } from "../../utils/comment.utils.js";
 import mongoose, { SortOrder } from "mongoose";
-import { checkSpam } from "../../utils/moderation.utils";
+import { checkSpam } from "../../utils/moderation.utils.js";
 import { ParsedQs } from "qs";
 
 export const createComment = async (

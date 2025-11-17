@@ -3,8 +3,8 @@ import {
   HackathonCategory,
   ParticipantType,
   VenueType,
-} from "../../models/hackathon.model";
-import { isValidStellarAddress } from "../../utils/wallet";
+} from "../../models/hackathon.model.js";
+import { isValidStellarAddress } from "../../utils/wallet.js";
 
 export const orgIdParam: ValidationChain = param("orgId")
   .isMongoId()

@@ -3,11 +3,11 @@ import mongoose from "mongoose";
 import TeamInvitation, {
   TeamInvitationStatus,
   ITeamInvitation,
-} from "../../models/team-invitation.model";
-import User from "../../models/user.model";
-import Project from "../../models/project.model";
-import { sendEmail } from "../../utils/email.utils";
-import EmailTemplatesService from "../../services/email/email-templates.service";
+} from "../../models/team-invitation.model.js";
+import User from "../../models/user.model.js";
+import Project from "../../models/project.model.js";
+import { sendEmail } from "../../utils/email.utils.js";
+import EmailTemplatesService from "../../services/email/email-templates.service.js";
 
 export interface CreateTeamInvitationData {
   projectId: string;

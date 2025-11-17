@@ -2,8 +2,8 @@ import Project, {
   IProject,
   ProjectStatus,
   type ProjectType,
-} from "../../models/project.model";
-import Crowdfund, { CrowdfundStatus } from "../../models/crowdfund.model";
+} from "../../models/project.model.js";
+import Crowdfund, { CrowdfundStatus } from "../../models/crowdfund.model.js";
 import mongoose from "mongoose";
 
 export interface ProjectIdeaStats {

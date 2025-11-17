@@ -1,9 +1,9 @@
 import { Request, Response } from "express";
-import User from "../../models/user.model";
-import { uploadToCloudinary } from "../../utils/user.upload";
-import { IUser } from "../../models/user.model";
+import User from "../../models/user.model.js";
+import { uploadToCloudinary } from "../../utils/user.upload.js";
+import { IUser } from "../../models/user.model.js";
 import mongoose from "mongoose";
-import Activity from "../../models/activity.model";
+import Activity from "../../models/activity.model.js";
 import {
   sendSuccess,
   sendNotFound,
@@ -12,17 +12,18 @@ import {
   sendInternalServerError,
   sendConflict,
   checkResource,
-} from "../../utils/apiResponse";
-import Project from "../../models/project.model";
-import Notification from "../../models/notification.model";
-import Badge from "../../models/badge.model";
-import Follow from "../../models/follow.model";
-import Organization from "../../models/organization.model";
-import Comment from "../../models/comment.model";
+} from "../../utils/apiResponse.js";
+import Project from "../../models/project.model.js";
+import Notification from "../../models/notification.model.js";
+import Badge from "../../models/badge.model.js";
+import Follow from "../../models/follow.model.js";
+import Organization from "../../models/organization.model.js";
+import Comment from "../../models/comment.model.js";
 import {
   createProfileUpdatedActivity,
   createLoginActivity,
-} from "../../utils/activity.utils";
+} from "../../utils/activity.utils.js";
+import { checkProfileCompleteness } from "../../utils/profile.utils.js";
 
 // Extend the Express Request type to include our custom properties
 interface AuthenticatedRequest extends Request {
@@ -165,13 +166,8 @@ export const getUserProfile = async (
     ]);
 
     // Check if profile is complete
-    const isProfileComplete = !!(
-      user?.profile.firstName &&
-      user?.profile.lastName &&
-      user?.profile.username &&
-      user?.profile.bio &&
-      user?.profile.avatar
-    );
+    const profileCompleteness = checkProfileCompleteness(user);
+    const isProfileComplete = profileCompleteness.isComplete;
 
     // Format projects data
     const formattedProjects = projects.map((project) => {
@@ -326,6 +322,8 @@ export const getUserProfile = async (
       __v: user?.__v,
       lastLogin: user?.lastLogin,
       isProfileComplete,
+      missingProfileFields: profileCompleteness.missingFields,
+      profileCompletionPercentage: profileCompleteness.completionPercentage,
     };
 
     sendSuccess(res, response, "User profile retrieved successfully");

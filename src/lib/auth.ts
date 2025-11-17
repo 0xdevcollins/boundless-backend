@@ -4,10 +4,10 @@ import { emailOTP } from "better-auth/plugins";
 import { createAuthMiddleware } from "better-auth/api";
 import { MongoClient } from "mongodb";
 import mongoose from "mongoose";
-import { config } from "../config/main.config";
-import { sendEmail } from "../utils/email.utils";
-import EmailTemplatesService from "../services/email/email-templates.service";
-import { syncBetterAuthUser } from "./auth-sync";
+import { config } from "../config/main.config.js";
+import { sendEmail } from "../utils/email.utils.js";
+import EmailTemplatesService from "../services/email/email-templates.service.js";
+import { syncBetterAuthUser } from "./auth-sync.js";
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 // Create a separate MongoClient for Better Auth
@@ -24,12 +24,7 @@ export const auth = betterAuth({
     usePlural: true, // Use plural collection names (users) to match backend Mongoose model
   }),
   // baseURL should be the backend server URL, not frontend
-  baseURL:
-    process.env.BETTER_AUTH_URL ||
-    process.env.BASE_URL ||
-    (process.env.NODE_ENV === "production"
-      ? "https://staging.boundlessfi.xyz"
-      : "http://localhost:8000"),
+  baseURL: "https://api.boundlessfi.xyz",
   // basePath: "/api/auth",
   emailAndPassword: {
     enabled: true,
@@ -212,9 +207,19 @@ export const auth = betterAuth({
       if (ctx.path === "/email-otp/verify-email") {
         await syncBetterAuthUser(user.id, user.email);
         // Update user verification status
-        const { updateUserVerificationStatus } = await import("./auth-sync");
+        const { updateUserVerificationStatus } = await import("./auth-sync.js");
         await updateUserVerificationStatus(user.email, true);
       }
     }),
   },
+  // trustedOrigins must be at the top level (not inside advanced)
+  // Must include exactly the origins your browser uses (protocol, hostname, and port must all match)
+  trustedOrigins: [
+    "https://boundlessfi.xyz",
+    "https://www.boundlessfi.xyz",
+    "https://staging.boundlessfi.xyz",
+    "https://www.staging.boundlessfi.xyz",
+    "http://localhost:3000",
+    "http://localhost:8000", // For local development
+  ],
 });

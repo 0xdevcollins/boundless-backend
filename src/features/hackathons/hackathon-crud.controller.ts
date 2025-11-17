@@ -3,8 +3,8 @@ import mongoose from "mongoose";
 import Hackathon, {
   HackathonStatus,
   IHackathon,
-} from "../../models/hackathon.model";
-import Organization from "../../models/organization.model";
+} from "../../models/hackathon.model.js";
+import Organization from "../../models/organization.model.js";
 import {
   sendSuccess,
   sendError,
@@ -14,14 +14,14 @@ import {
   sendBadRequest,
   sendCreated,
   sendInternalServerError,
-} from "../../utils/apiResponse";
+} from "../../utils/apiResponse.js";
 import {
   AuthenticatedRequest,
   canManageHackathons,
   transformRequestBody,
   validatePublishRequirements,
-} from "./hackathon.helpers";
-import { generateHackathonSlug } from "../../utils/hackathon.utils";
+} from "./hackathon.helpers.js";
+import { generateHackathonSlug } from "../../utils/hackathon.utils.js";
 
 /**
  * @swagger

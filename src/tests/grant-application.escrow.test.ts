@@ -1,7 +1,7 @@
 import request from "supertest";
-import app from "../app";
+import app from "../app.js";
 import mongoose from "mongoose";
-import Project, { ProjectType } from "../models/project.model";
+import Project, { ProjectType } from "../models/project.model.js";
 
 // Mock authentication middleware
 jest.mock("../middleware/auth", () => ({

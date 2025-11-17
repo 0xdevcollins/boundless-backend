@@ -1,10 +1,13 @@
 import request from "supertest";
 import mongoose from "mongoose";
-import app from "../app";
-import User from "../models/user.model";
-import Project, { ProjectStatus, ProjectType } from "../models/project.model";
-import ProjectComment from "../models/project-comment.model";
-import { TestUserFactory, cleanupTestData } from "./testHelpers";
+import app from "../app.js";
+import User from "../models/user.model.js";
+import Project, {
+  ProjectStatus,
+  ProjectType,
+} from "../models/project.model.js";
+import ProjectComment from "../models/project-comment.model.js";
+import { TestUserFactory, cleanupTestData } from "./testHelpers.js";
 
 describe("Project Comment API", () => {
   let testUser: any;

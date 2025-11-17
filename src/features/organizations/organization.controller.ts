@@ -4,10 +4,10 @@ import Organization, {
   CustomPermissions,
   IOrganization,
   PermissionValue,
-} from "../../models/organization.model";
-import User from "../../models/user.model";
-import Hackathon from "../../models/hackathon.model";
-import Grant from "../../models/grant.model";
+} from "../../models/organization.model.js";
+import User from "../../models/user.model.js";
+import Hackathon from "../../models/hackathon.model.js";
+import Grant from "../../models/grant.model.js";
 import {
   sendSuccess,
   sendError,
@@ -17,12 +17,12 @@ import {
   sendBadRequest,
   sendCreated,
   sendInternalServerError,
-} from "../../utils/apiResponse";
+} from "../../utils/apiResponse.js";
 import mongoose from "mongoose";
-import sendMail from "../../utils/sendMail.utils";
-import { config } from "../../config/main.config";
-import getUserRole, { checkPermission } from "../../utils/getUserRole";
-import { DEFAULT_PERMISSIONS } from "../../types/permission";
+import sendMail from "../../utils/sendMail.utils.js";
+import { config } from "../../config/main.config.js";
+import getUserRole, { checkPermission } from "../../utils/getUserRole.js";
+import { DEFAULT_PERMISSIONS } from "../../types/permission.js";
 
 const checkProfileCompletion = (org: IOrganization): boolean => {
   // Check if all required profile fields are filled

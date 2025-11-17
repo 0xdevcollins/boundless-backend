@@ -4,10 +4,10 @@ import {
   IHackathon,
   ParticipantType,
   VenueType,
-} from "../../models/hackathon.model";
-import Organization from "../../models/organization.model";
-import { checkPermission } from "../../utils/getUserRole";
-import { isValidStellarAddress } from "../../utils/wallet";
+} from "../../models/hackathon.model.js";
+import Organization from "../../models/organization.model.js";
+import { checkPermission } from "../../utils/getUserRole.js";
+import { isValidStellarAddress } from "../../utils/wallet.js";
 
 export interface AuthenticatedRequest extends Request {
   user: any;

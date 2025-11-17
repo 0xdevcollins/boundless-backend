@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import Milestone from "../../models/milestone.model";
-import Campaign from "../../models/campaign.model";
+import Milestone from "../../models/milestone.model.js";
+import Campaign from "../../models/campaign.model.js";
 // Blockchain operations removed - frontend handles all transactions
 
 type UserRoleAssignment = {

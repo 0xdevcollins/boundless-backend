@@ -1,11 +1,11 @@
 import request from "supertest";
-import app from "../app";
+import app from "../app.js";
 import mongoose from "mongoose";
-import User, { UserRole, UserStatus } from "../models/user.model";
-import Project, { ProjectStatus } from "../models/project.model";
-import Campaign from "../models/campaign.model";
-import Milestone from "../models/milestone.model";
-import { TestUserFactory, cleanupTestData } from "./testHelpers";
+import User, { UserRole, UserStatus } from "../models/user.model.js";
+import Project, { ProjectStatus } from "../models/project.model.js";
+import Campaign from "../models/campaign.model.js";
+import Milestone from "../models/milestone.model.js";
+import { TestUserFactory, cleanupTestData } from "./testHelpers.js";
 
 describe("POST /api/campaigns", () => {
   let creatorToken: string;

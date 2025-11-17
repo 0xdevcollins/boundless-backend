@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import Blog from "../../models/blog";
-import BlogCategory from "../../models/blog.category";
+import Blog from "../../models/blog.js";
+import BlogCategory from "../../models/blog.category.js";
 import mongoose from "mongoose";
 import {
   CreateBlogRequest,
@@ -10,8 +10,8 @@ import {
   AnalyticsQuery,
   PaginatedBlogResponse,
   BlogAnalytics,
-} from "../../types/blog";
-import { resourceChecker } from "../../utils/resource-checker.util";
+} from "../../types/blog.js";
+import { resourceChecker } from "../../utils/resource-checker.util.js";
 
 export class BlogController {
   static async getAllBlogs(req: Request, res: Response): Promise<void> {

@@ -1,10 +1,13 @@
 import request from "supertest";
 import mongoose from "mongoose";
-import app from "../app";
-import User from "../models/user.model";
-import Project, { ProjectStatus, ProjectType } from "../models/project.model";
-import Crowdfund, { CrowdfundStatus } from "../models/crowdfund.model";
-import { TestUserFactory, cleanupTestData } from "./testHelpers";
+import app from "../app.js";
+import User from "../models/user.model.js";
+import Project, {
+  ProjectStatus,
+  ProjectType,
+} from "../models/project.model.js";
+import Crowdfund, { CrowdfundStatus } from "../models/crowdfund.model.js";
+import { TestUserFactory, cleanupTestData } from "./testHelpers.js";
 
 describe("Project Idea Endpoints", () => {
   let userToken: string;

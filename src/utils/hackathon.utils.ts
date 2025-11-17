@@ -1,5 +1,5 @@
-import Hackathon from "../models/hackathon.model";
-import { generateSlug } from "./blog.utils";
+import Hackathon from "../models/hackathon.model.js";
+import { generateSlug } from "./blog.utils.js";
 
 /**
  * Check if a hackathon slug already exists

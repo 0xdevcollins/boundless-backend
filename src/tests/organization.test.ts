@@ -1,8 +1,8 @@
 import request from "supertest";
-import app from "../app";
+import app from "../app.js";
 import mongoose from "mongoose";
-import User from "../models/user.model";
-import Organization from "../models/organization.model";
+import User from "../models/user.model.js";
+import Organization from "../models/organization.model.js";
 
 describe("Organization API", () => {
   let authToken: string;

@@ -6,9 +6,9 @@ import {
   updateProjectIdea,
   deleteProjectIdea,
   approveProject,
-} from "./project-idea.controller";
-import { protect, admin } from "../../middleware/better-auth.middleware";
-import { validateRequest } from "../../middleware/validateRequest";
+} from "./project-idea.controller.js";
+import { protect, admin } from "../../middleware/better-auth.middleware.js";
+import { validateRequest } from "../../middleware/validateRequest.js";
 import { body, query, param } from "express-validator";
 
 const router = express.Router();

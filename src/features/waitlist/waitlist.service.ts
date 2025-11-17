@@ -3,15 +3,15 @@ import mongoose from "mongoose";
 import Waitlist, {
   IWaitlist,
   WaitlistStatus,
-} from "../../models/waitlist.model";
-import { sendEmail } from "../../utils/email.utils";
-import { config } from "../../config";
+} from "../../models/waitlist.model.js";
+import { sendEmail } from "../../utils/email.utils.js";
+import { config } from "../../config/main.config.js";
 import {
   loadEmailTemplate,
   getWaitlistTemplatePath,
   generatePlainTextFromTemplate,
   EmailTemplateVariables,
-} from "../../utils/emailTemplate.utils";
+} from "../../utils/emailTemplate.utils.js";
 
 export interface CreateWaitlistData {
   email: string;
