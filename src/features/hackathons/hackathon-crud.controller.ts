@@ -185,7 +185,9 @@ export const publishHackathon = async (
             emailTemplate: EmailTemplatesService.getTemplate(
               "hackathon-published",
               {
-                hackathonId: hackathon._id.toString(),
+                hackathonId: (
+                  hackathon._id as mongoose.Types.ObjectId
+                ).toString(),
                 hackathonName: hackathon.title || "Hackathon",
                 hackathonSlug: hackathon.slug,
                 organizationId: orgId,
@@ -217,7 +219,9 @@ export const publishHackathon = async (
           emailTemplate: EmailTemplatesService.getTemplate(
             "hackathon-published",
             {
-              hackathonId: hackathon._id.toString(),
+              hackathonId: (
+                hackathon._id as mongoose.Types.ObjectId
+              ).toString(),
               hackathonName: hackathon.title || "Hackathon",
               hackathonSlug: hackathon.slug,
               organizationId: orgId,
@@ -379,7 +383,9 @@ export const updateHackathon = async (
                         ? "hackathon-cancelled"
                         : "hackathon-updated",
                   {
-                    hackathonId: hackathon._id.toString(),
+                    hackathonId: (
+                      hackathon._id as mongoose.Types.ObjectId
+                    ).toString(),
                     hackathonName: hackathon.title || "Hackathon",
                     hackathonSlug: hackathon.slug,
                     organizationId: orgId,
@@ -391,7 +397,9 @@ export const updateHackathon = async (
                   },
                 )
               : EmailTemplatesService.getTemplate("hackathon-updated", {
-                  hackathonId: hackathon._id.toString(),
+                  hackathonId: (
+                    hackathon._id as mongoose.Types.ObjectId
+                  ).toString(),
                   hackathonName: hackathon.title || "Hackathon",
                   hackathonSlug: hackathon.slug,
                   changes,

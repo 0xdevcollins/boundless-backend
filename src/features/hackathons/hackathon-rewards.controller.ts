@@ -600,7 +600,9 @@ export const announceWinners = async (
         const participantUser = participant.userId as any;
         if (!participantUser) continue;
 
-        const isWinner = winnerParticipantIds.has(participant._id.toString());
+        const isWinner = winnerParticipantIds.has(
+          (participant._id as mongoose.Types.ObjectId).toString(),
+        );
 
         await NotificationService.sendSingleNotification(
           {
@@ -628,7 +630,9 @@ export const announceWinners = async (
             emailTemplate: EmailTemplatesService.getTemplate(
               "hackathon-winners-announced",
               {
-                hackathonId: hackathon._id.toString(),
+                hackathonId: (
+                  hackathon._id as mongoose.Types.ObjectId
+                ).toString(),
                 hackathonName: hackathon.title || "Hackathon",
                 hackathonSlug: hackathon.slug,
                 isWinner,
@@ -668,7 +672,9 @@ export const announceWinners = async (
           emailTemplate: EmailTemplatesService.getTemplate(
             "hackathon-winners-announced",
             {
-              hackathonId: hackathon._id.toString(),
+              hackathonId: (
+                hackathon._id as mongoose.Types.ObjectId
+              ).toString(),
               hackathonName: hackathon.title || "Hackathon",
               hackathonSlug: hackathon.slug,
               isWinner: false,

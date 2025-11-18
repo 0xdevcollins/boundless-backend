@@ -150,7 +150,9 @@ export const shortlistSubmission = async (
             emailTemplate: EmailTemplatesService.getTemplate(
               "hackathon-submission-shortlisted",
               {
-                hackathonId: hackathon._id.toString(),
+                hackathonId: (
+                  hackathon._id as mongoose.Types.ObjectId
+                ).toString(),
                 hackathonName: hackathon.title || "Hackathon",
                 hackathonSlug: hackathon.slug,
                 unsubscribeUrl: `${baseUrl}/unsubscribe?email=${encodeURIComponent(participantUser.email)}`,
@@ -394,7 +396,9 @@ export const disqualifySubmission = async (
             emailTemplate: EmailTemplatesService.getTemplate(
               "hackathon-submission-disqualified",
               {
-                hackathonId: hackathon._id.toString(),
+                hackathonId: (
+                  hackathon._id as mongoose.Types.ObjectId
+                ).toString(),
                 hackathonName: hackathon.title || "Hackathon",
                 hackathonSlug: hackathon.slug,
                 reason: participant.submission.disqualificationReason,
