@@ -6,17 +6,26 @@ type MarkAsReadBody = { ids: string[]; all?: boolean };
 const getNotifications = async (req: Request, res: Response) => {
   try {
     const userId = req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
     const { page = 1, limit = 10 } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);
 
+    // Query using the nested userId.type field
+    const query = { "userId.type": userId };
+
     const notifications = await notificationModel
-      .find({ userId })
+      .find(query)
       .skip(skip)
       .limit(Number(limit))
       .sort({ createdAt: -1 });
 
-    const total = await notificationModel.countDocuments();
+    // Count only the user's notifications
+    const total = await notificationModel.countDocuments(query);
 
     res.status(200).json({
       data: notifications,
@@ -33,15 +42,33 @@ const getNotifications = async (req: Request, res: Response) => {
 const markAsRead = async (req: Request, res: Response) => {
   try {
     const userId = req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
     const { ids, all }: MarkAsReadBody = req.body;
 
+    // Query using the nested userId.type field
+    const userQuery = { "userId.type": userId };
+
     if (all) {
-      await notificationModel.updateMany({ userId }, { read: true });
+      await notificationModel.updateMany(userQuery, {
+        read: true,
+        readAt: new Date(),
+      });
     } else if (ids && ids.length > 0) {
       await notificationModel.updateMany(
-        { _id: { $in: ids }, userId },
-        { read: true },
+        {
+          _id: { $in: ids },
+          ...userQuery, // Ensure user can only mark their own notifications as read
+        },
+        { read: true, readAt: new Date() },
       );
+    } else {
+      return res
+        .status(400)
+        .json({ message: "Either 'ids' or 'all' must be provided" });
     }
 
     res.status(200).json({ message: "Notifications marked as read" });

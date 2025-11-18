@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
-import { emailOTP } from "better-auth/plugins";
+import { emailOTP, lastLoginMethod, oneTap } from "better-auth/plugins";
 import { createAuthMiddleware } from "better-auth/api";
 import { MongoClient } from "mongodb";
 import mongoose from "mongoose";
@@ -103,6 +103,14 @@ export const auth = betterAuth({
     },
   },
   plugins: [
+    lastLoginMethod({
+      // Store in database for persistent tracking and analytics
+      // Set to false to use cookie-only storage (default)
+      storeInDatabase: true,
+      // Cookie expires in 30 days (default)
+      maxAge: 60 * 60 * 24 * 30,
+    }),
+    oneTap(),
     emailOTP({
       overrideDefaultEmailVerification: true,
       async sendVerificationOTP({ email, otp, type }) {
@@ -239,5 +247,6 @@ export const auth = betterAuth({
     "https://api.boundlessfi.xyz", // Add this for production API
     "http://localhost:3000",
     "http://localhost:8000", // For local development
+    "http://192.168.1.187:3000",
   ],
 });

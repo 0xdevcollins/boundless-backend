@@ -42,6 +42,38 @@ export enum NotificationType {
   PASSWORD_CHANGED = "PASSWORD_CHANGED",
   EMAIL_CHANGED = "EMAIL_CHANGED",
   SECURITY_ALERT = "SECURITY_ALERT",
+
+  // Organization Notifications
+  ORGANIZATION_CREATED = "ORGANIZATION_CREATED",
+  ORGANIZATION_UPDATED = "ORGANIZATION_UPDATED",
+  ORGANIZATION_DELETED = "ORGANIZATION_DELETED",
+  ORGANIZATION_INVITE_SENT = "ORGANIZATION_INVITE_SENT",
+  ORGANIZATION_INVITE_ACCEPTED = "ORGANIZATION_INVITE_ACCEPTED",
+  ORGANIZATION_MEMBER_ADDED = "ORGANIZATION_MEMBER_ADDED",
+  ORGANIZATION_MEMBER_REMOVED = "ORGANIZATION_MEMBER_REMOVED",
+  ORGANIZATION_ROLE_CHANGED = "ORGANIZATION_ROLE_CHANGED",
+
+  // Hackathon Notifications
+  HACKATHON_CREATED = "HACKATHON_CREATED",
+  HACKATHON_UPDATED = "HACKATHON_UPDATED",
+  HACKATHON_STATUS_CHANGED = "HACKATHON_STATUS_CHANGED",
+  HACKATHON_PUBLISHED = "HACKATHON_PUBLISHED",
+  HACKATHON_ACTIVE = "HACKATHON_ACTIVE",
+  HACKATHON_COMPLETED = "HACKATHON_COMPLETED",
+  HACKATHON_CANCELLED = "HACKATHON_CANCELLED",
+  HACKATHON_REGISTERED = "HACKATHON_REGISTERED",
+  HACKATHON_SUBMISSION_SUBMITTED = "HACKATHON_SUBMISSION_SUBMITTED",
+  HACKATHON_SUBMISSION_SHORTLISTED = "HACKATHON_SUBMISSION_SHORTLISTED",
+  HACKATHON_SUBMISSION_DISQUALIFIED = "HACKATHON_SUBMISSION_DISQUALIFIED",
+  HACKATHON_WINNERS_ANNOUNCED = "HACKATHON_WINNERS_ANNOUNCED",
+  HACKATHON_DEADLINE_APPROACHING = "HACKATHON_DEADLINE_APPROACHING",
+
+  // Team Invitation Notifications
+  TEAM_INVITATION_SENT = "TEAM_INVITATION_SENT",
+  TEAM_INVITATION_ACCEPTED = "TEAM_INVITATION_ACCEPTED",
+  TEAM_INVITATION_DECLINED = "TEAM_INVITATION_DECLINED",
+  TEAM_INVITATION_EXPIRED = "TEAM_INVITATION_EXPIRED",
+  TEAM_INVITATION_CANCELLED = "TEAM_INVITATION_CANCELLED",
 }
 
 export interface INotification extends Document {
@@ -57,8 +89,21 @@ export interface INotification extends Document {
     projectId?: mongoose.Types.ObjectId;
     commentId?: mongoose.Types.ObjectId;
     milestoneId?: mongoose.Types.ObjectId;
+    organizationId?: mongoose.Types.ObjectId;
+    hackathonId?: mongoose.Types.ObjectId;
+    teamInvitationId?: mongoose.Types.ObjectId;
     amount?: number;
     transactionHash?: string;
+    organizationName?: string;
+    hackathonName?: string;
+    projectName?: string;
+    memberEmail?: string;
+    role?: string;
+    submissionStatus?: string;
+    deadlineType?: string;
+    oldStatus?: string;
+    newStatus?: string;
+    [key: string]: any;
   };
   read: boolean;
   readAt?: Date;
@@ -83,8 +128,20 @@ const NotificationSchema = new Schema<INotification>(
       projectId: { type: Schema.Types.ObjectId, ref: "Project" },
       commentId: { type: Schema.Types.ObjectId, ref: "Comment" },
       milestoneId: { type: Schema.Types.ObjectId },
+      organizationId: { type: Schema.Types.ObjectId, ref: "Organization" },
+      hackathonId: { type: Schema.Types.ObjectId, ref: "Hackathon" },
+      teamInvitationId: { type: Schema.Types.ObjectId, ref: "TeamInvitation" },
       amount: { type: Number },
       transactionHash: { type: String },
+      organizationName: { type: String },
+      hackathonName: { type: String },
+      projectName: { type: String },
+      memberEmail: { type: String },
+      role: { type: String },
+      submissionStatus: { type: String },
+      deadlineType: { type: String },
+      oldStatus: { type: String },
+      newStatus: { type: String },
     },
     read: { type: Boolean, default: false },
     readAt: { type: Date },

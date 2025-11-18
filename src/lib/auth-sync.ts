@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import crypto from "crypto";
 import User from "../models/user.model.js";
 import { TeamInvitationService } from "../features/team-invitations/team-invitation.service.js";
 import {
@@ -14,6 +15,85 @@ interface SyncOptions {
   lastName?: string;
   avatar?: string;
   // Note: username is always derived from email to prevent issues
+}
+
+/**
+ * Generate a secure placeholder password for OAuth users
+ * This password is never used for authentication (Better Auth handles OAuth)
+ * It's only required to satisfy the User model schema requirements
+ */
+function generateOAuthPlaceholderPassword(): string {
+  // Generate a secure random password that will never be used
+  // Using crypto for cryptographically secure random generation
+  const randomBytes = crypto.randomBytes(32);
+  const timestamp = Date.now();
+  const randomString = randomBytes.toString("hex");
+  return `OAUTH_PLACEHOLDER_${timestamp}_${randomString}`;
+}
+
+/**
+ * Extract and normalize name parts from OAuth provider data
+ * Handles edge cases like single names, multiple spaces, etc.
+ */
+function extractNameParts(
+  providedName: string | undefined,
+  email: string,
+): { firstName: string; lastName: string } {
+  // If name is provided, try to split it intelligently
+  if (providedName && providedName.trim()) {
+    const nameParts = providedName
+      .trim()
+      .split(/\s+/)
+      .filter((part) => part);
+
+    if (nameParts.length === 0) {
+      // Empty after trimming, fall back to email
+      return extractNameFromEmail(email);
+    } else if (nameParts.length === 1) {
+      // Single name provided
+      return {
+        firstName: nameParts[0],
+        lastName: "User", // Default for single names
+      };
+    } else {
+      // Multiple parts: first part is firstName, rest is lastName
+      return {
+        firstName: nameParts[0],
+        lastName: nameParts.slice(1).join(" "),
+      };
+    }
+  }
+
+  // No name provided, extract from email
+  return extractNameFromEmail(email);
+}
+
+/**
+ * Extract name parts from email address as fallback
+ */
+function extractNameFromEmail(email: string): {
+  firstName: string;
+  lastName: string;
+} {
+  const emailPrefix = email.split("@")[0];
+  const parts = emailPrefix.split(".").filter((part) => part);
+
+  if (parts.length === 0) {
+    return {
+      firstName: "User",
+      lastName: "User",
+    };
+  } else if (parts.length === 1) {
+    return {
+      firstName: parts[0] || "User",
+      lastName: "User",
+    };
+  } else {
+    return {
+      firstName: parts[0] || "User",
+      lastName: parts.slice(1).join(" ") || "User",
+    };
+  }
 }
 
 /**
@@ -70,28 +150,53 @@ export async function syncBetterAuthUser(
     let user = await User.findOne({ email: email.toLowerCase() });
 
     if (!user) {
-      // Extract name parts from email if not provided
-      const firstName =
-        options.firstName ||
-        email.split("@")[0].split(".")[0] ||
-        email.split("@")[0];
-      const lastName =
-        options.lastName ||
-        email.split("@")[0].split(".").slice(1).join(" ") ||
-        "";
+      // Extract name parts intelligently from OAuth data or email
+      let firstName: string;
+      let lastName: string;
+
+      // If both firstName and lastName are provided separately, use them directly
+      if (options.firstName?.trim() && options.lastName?.trim()) {
+        firstName = options.firstName.trim();
+        lastName = options.lastName.trim();
+      } else if (options.firstName?.trim() || options.lastName?.trim()) {
+        // If only one is provided, try to extract the other from the provided name or email
+        const combinedName =
+          `${options.firstName || ""} ${options.lastName || ""}`.trim();
+        const extracted = extractNameParts(combinedName, email);
+        firstName = options.firstName?.trim() || extracted.firstName;
+        lastName = options.lastName?.trim() || extracted.lastName;
+      } else {
+        // No name provided, extract from email
+        const extracted = extractNameParts(undefined, email);
+        firstName = extracted.firstName;
+        lastName = extracted.lastName;
+      }
+
+      // Ensure both names are non-empty (User model requires them)
+      const safeFirstName = (firstName || "User").trim() || "User";
+      const safeLastName = (lastName || "User").trim() || "User";
 
       // Generate a unique username from email (always from email to prevent issues)
       const username = await generateUniqueUsername(email.toLowerCase());
 
+      // Generate secure placeholder password for OAuth users
+      // This password will never be used for authentication (Better Auth handles OAuth)
+      // It's only required to satisfy the User model schema
+      const oauthPlaceholderPassword = generateOAuthPlaceholderPassword();
+
+      // Ensure password is a valid non-empty string
+      const finalPassword =
+        oauthPlaceholderPassword || generateOAuthPlaceholderPassword();
+
       // Create new user in our User model
       user = new User({
         email: email.toLowerCase(),
-        // Password is not stored in User model when using Better Auth
-        // It's managed by Better Auth in the account table
-        password: "", // Empty password since Better Auth handles it
+        // OAuth users don't use password for authentication (Better Auth handles it)
+        // But User model requires a non-empty password, so we use a secure placeholder
+        password: finalPassword,
         profile: createDefaultUserProfile(
-          firstName,
-          lastName,
+          safeFirstName,
+          safeLastName,
           username,
           options.avatar || "",
         ),
@@ -102,6 +207,23 @@ export async function syncBetterAuthUser(
           invitationToken: options.invitationToken,
         }),
       });
+
+      // Defensive check: ensure password is set and valid before saving
+      // This is critical - the password must be a non-empty string
+      if (
+        !user.password ||
+        typeof user.password !== "string" ||
+        user.password.trim() === ""
+      ) {
+        const newPassword = generateOAuthPlaceholderPassword();
+        user.set("password", newPassword); // Use set() to ensure it's properly set
+        user.markModified("password"); // Explicitly mark as modified
+      }
+
+      // Final validation: ensure password exists before save
+      if (!user.password) {
+        throw new Error("Password is required but was not set for OAuth user");
+      }
 
       try {
         await user.save();
@@ -124,6 +246,18 @@ export async function syncBetterAuthUser(
       // Update existing user if needed
       let needsSave = false;
 
+      // Ensure password is set (OAuth users created by Better Auth might not have one)
+      if (
+        !user.password ||
+        typeof user.password !== "string" ||
+        user.password.trim() === ""
+      ) {
+        const newPassword = generateOAuthPlaceholderPassword();
+        user.set("password", newPassword); // Use set() to ensure it's properly set
+        user.markModified("password"); // Explicitly mark as modified
+        needsSave = true;
+      }
+
       // Ensure username is set (fix for users with null/empty username)
       // Always derive from email to prevent issues
       if (!user.profile.username || user.profile.username.trim() === "") {
@@ -135,13 +269,31 @@ export async function syncBetterAuthUser(
         user.profile.avatar = options.avatar;
         needsSave = true;
       }
+
       // Update name if provided and not set
-      if (options.firstName && !user.profile.firstName) {
-        user.profile.firstName = options.firstName;
+      // Ensure firstName is never empty
+      if (options.firstName?.trim() && !user.profile.firstName?.trim()) {
+        user.profile.firstName = options.firstName.trim();
         needsSave = true;
       }
-      if (options.lastName && !user.profile.lastName) {
-        user.profile.lastName = options.lastName;
+
+      // Ensure lastName is never empty - set it if missing or empty
+      if (options.lastName?.trim()) {
+        // Update if provided
+        if (!user.profile.lastName?.trim()) {
+          user.profile.lastName = options.lastName.trim();
+          needsSave = true;
+        }
+      } else if (
+        !user.profile.lastName ||
+        user.profile.lastName.trim() === ""
+      ) {
+        // If lastName is missing or empty, set a default
+        // Try to extract from email or use "User" as fallback
+        const emailPrefix = user.email.split("@")[0];
+        const emailParts = emailPrefix.split(".").filter((part) => part);
+        user.profile.lastName =
+          emailParts.length > 1 ? emailParts.slice(1).join(" ") : "User";
         needsSave = true;
       }
 
@@ -174,6 +326,18 @@ export async function syncBetterAuthUser(
 
         // Clear invitation token from user
         user.invitationToken = undefined;
+
+        // Ensure password is set before saving (defensive check)
+        if (
+          !user.password ||
+          typeof user.password !== "string" ||
+          user.password.trim() === ""
+        ) {
+          const newPassword = generateOAuthPlaceholderPassword();
+          user.set("password", newPassword); // Use set() to ensure it's properly set
+          user.markModified("password"); // Explicitly mark as modified
+        }
+
         await user.save();
 
         return {

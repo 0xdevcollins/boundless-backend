@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import mongoose from "mongoose";
 import Hackathon from "../../models/hackathon.model.js";
 import HackathonParticipant from "../../models/hackathon-participant.model.js";
+import User from "../../models/user.model.js";
+import Organization from "../../models/organization.model.js";
 import {
   sendSuccess,
   sendError,
@@ -17,6 +19,10 @@ import {
   validateStellarAddress,
   mapRankToPrizeAmount,
 } from "./hackathon.helpers.js";
+import NotificationService from "../notifications/notification.service.js";
+import EmailTemplatesService from "../../services/email/email-templates.service.js";
+import { NotificationType } from "../../models/notification.model.js";
+import { config } from "../../config/main.config.js";
 
 /**
  * @swagger
@@ -566,6 +572,120 @@ export const announceWinners = async (
     }
 
     await hackathon.save();
+
+    // Send notifications to all participants
+    try {
+      const frontendUrl =
+        process.env.FRONTEND_URL ||
+        config.cors.origin ||
+        "https://boundlessfi.xyz";
+      const baseUrl = Array.isArray(frontendUrl) ? frontendUrl[0] : frontendUrl;
+      const winnerParticipantIds = new Set(
+        winners.map((w: any) => w.submissionId.toString()),
+      );
+
+      // Get all participants for this hackathon
+      const allParticipants = await HackathonParticipant.find({
+        hackathonId: new mongoose.Types.ObjectId(hackathonId),
+        organizationId: new mongoose.Types.ObjectId(orgId),
+      })
+        .populate(
+          "userId",
+          "email profile.firstName profile.lastName settings.notifications",
+        )
+        .select("userId");
+
+      // Notify all participants
+      for (const participant of allParticipants) {
+        const participantUser = participant.userId as any;
+        if (!participantUser) continue;
+
+        const isWinner = winnerParticipantIds.has(participant._id.toString());
+
+        await NotificationService.sendSingleNotification(
+          {
+            userId: participantUser._id,
+            email: participantUser.email,
+            name:
+              `${participantUser.profile?.firstName || ""} ${participantUser.profile?.lastName || ""}`.trim() ||
+              participantUser.email,
+            preferences: participantUser.settings?.notifications,
+          },
+          {
+            type: NotificationType.HACKATHON_WINNERS_ANNOUNCED,
+            title: isWinner
+              ? `🏆 You won ${hackathon.title || "Hackathon"}!`
+              : `Winners announced for ${hackathon.title || "Hackathon"}`,
+            message: isWinner
+              ? `Congratulations! You are a winner of "${hackathon.title || "Hackathon"}"!`
+              : `The winners for "${hackathon.title || "Hackathon"}" have been announced.`,
+            data: {
+              hackathonId: hackathon._id,
+              hackathonName: hackathon.title || "Hackathon",
+              hackathonSlug: hackathon.slug,
+              isWinner,
+            },
+            emailTemplate: EmailTemplatesService.getTemplate(
+              "hackathon-winners-announced",
+              {
+                hackathonId: hackathon._id.toString(),
+                hackathonName: hackathon.title || "Hackathon",
+                hackathonSlug: hackathon.slug,
+                isWinner,
+                unsubscribeUrl: `${baseUrl}/unsubscribe?email=${encodeURIComponent(participantUser.email)}`,
+              },
+            ),
+          },
+        );
+      }
+
+      // Notify organization members
+      const allMembers = [organization.owner, ...organization.members];
+
+      const memberUsers = await User.find({
+        email: { $in: allMembers },
+      }).select(
+        "email profile.firstName profile.lastName settings.notifications",
+      );
+
+      await NotificationService.notifyTeamMembers(
+        memberUsers.map((member) => ({
+          userId: member._id,
+          email: member.email,
+          name:
+            `${member.profile?.firstName || ""} ${member.profile?.lastName || ""}`.trim() ||
+            member.email,
+        })),
+        {
+          type: NotificationType.HACKATHON_WINNERS_ANNOUNCED,
+          title: `Winners announced for ${hackathon.title || "Hackathon"}`,
+          message: `The winners for "${hackathon.title || "Hackathon"}" have been announced.`,
+          data: {
+            hackathonId: hackathon._id,
+            hackathonName: hackathon.title || "Hackathon",
+            hackathonSlug: hackathon.slug,
+          },
+          emailTemplate: EmailTemplatesService.getTemplate(
+            "hackathon-winners-announced",
+            {
+              hackathonId: hackathon._id.toString(),
+              hackathonName: hackathon.title || "Hackathon",
+              hackathonSlug: hackathon.slug,
+              isWinner: false,
+              unsubscribeUrl: undefined,
+            },
+          ),
+          sendEmail: false, // Only in-app for organization members
+          sendInApp: true,
+        },
+      );
+    } catch (notificationError) {
+      console.error(
+        "Error sending winners announcement notifications:",
+        notificationError,
+      );
+      // Don't fail the whole operation if notification fails
+    }
 
     sendSuccess(
       res,

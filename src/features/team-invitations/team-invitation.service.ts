@@ -75,6 +75,129 @@ export class TeamInvitationService {
       // Send invitation email
       await this.sendInvitationEmail(invitation, existingUser);
 
+      // Send notifications
+      try {
+        const NotificationService = (
+          await import("../notifications/notification.service.js")
+        ).default;
+        const EmailTemplatesService = (
+          await import("../../services/email/email-templates.service.js")
+        ).default;
+        const { NotificationType } = await import(
+          "../../models/notification.model.js"
+        );
+        const { config } = await import("../../config/main.config.js");
+        const frontendUrl =
+          process.env.FRONTEND_URL ||
+          config.cors.origin ||
+          "https://boundlessfi.xyz";
+        const baseUrl = Array.isArray(frontendUrl)
+          ? frontendUrl[0]
+          : frontendUrl;
+
+        // Get project details
+        const Project = (await import("../../models/project.model.js")).default;
+        const project = await Project.findById(data.projectId).select(
+          "title creator",
+        );
+        const projectName = (project as any)?.title || "a project";
+
+        // Get inviter details
+        const User = (await import("../../models/user.model.js")).default;
+        const inviter = await User.findById(data.invitedBy).select(
+          "email profile.firstName profile.lastName",
+        );
+        const inviterName = inviter
+          ? `${inviter.profile?.firstName || ""} ${inviter.profile?.lastName || ""}`.trim() ||
+            inviter.email
+          : "Someone";
+
+        // Notify invited user (if registered)
+        if (existingUser) {
+          await NotificationService.sendSingleNotification(
+            {
+              userId: existingUser._id,
+              email: existingUser.email,
+              name:
+                `${existingUser.profile?.firstName || ""} ${existingUser.profile?.lastName || ""}`.trim() ||
+                existingUser.email,
+              preferences: existingUser.settings?.notifications,
+            },
+            {
+              type: NotificationType.TEAM_INVITATION_SENT,
+              title: `Invited to join ${projectName}`,
+              message: `${inviterName} has invited you to join the team for "${projectName}"`,
+              data: {
+                teamInvitationId: invitation._id,
+                projectId: new (
+                  await import("mongoose")
+                ).default.Types.ObjectId(data.projectId),
+                projectName,
+                role: invitation.role,
+              },
+              emailTemplate: EmailTemplatesService.getTemplate(
+                "team-invitation-sent",
+                {
+                  projectId: data.projectId,
+                  projectName,
+                  inviterName,
+                  role: invitation.role,
+                  token: invitation.token,
+                  acceptUrl: `${baseUrl}/team-invitations/${invitation.token}/accept`,
+                  unsubscribeUrl: `${baseUrl}/unsubscribe?email=${encodeURIComponent(existingUser.email)}`,
+                },
+              ),
+              sendEmail: false, // Email already sent above
+              sendInApp: true,
+            },
+          );
+        }
+
+        // Notify project creator (if not the inviter)
+        if (project && (project as any).creator) {
+          const creatorId = (project as any).creator.toString();
+          const inviterId = data.invitedBy.toString();
+          if (creatorId !== inviterId) {
+            const creator = await User.findById(creatorId).select(
+              "email profile.firstName profile.lastName settings.notifications",
+            );
+            if (creator) {
+              await NotificationService.sendSingleNotification(
+                {
+                  userId: creator._id,
+                  email: creator.email,
+                  name:
+                    `${creator.profile?.firstName || ""} ${creator.profile?.lastName || ""}`.trim() ||
+                    creator.email,
+                  preferences: creator.settings?.notifications,
+                },
+                {
+                  type: NotificationType.TEAM_INVITATION_SENT,
+                  title: `Team invitation sent for ${projectName}`,
+                  message: `${inviterName} has invited ${data.email} to join the team for "${projectName}"`,
+                  data: {
+                    teamInvitationId: invitation._id,
+                    projectId: new (
+                      await import("mongoose")
+                    ).default.Types.ObjectId(data.projectId),
+                    projectName,
+                    memberEmail: data.email,
+                  },
+                  sendEmail: false,
+                  sendInApp: true,
+                },
+              );
+            }
+          }
+        }
+      } catch (notificationError) {
+        console.error(
+          "Error sending team invitation notifications:",
+          notificationError,
+        );
+        // Don't fail the whole operation if notification fails
+      }
+
       return {
         invitation,
         isNewUser: !existingUser,
@@ -226,6 +349,177 @@ export class TeamInvitationService {
         }
       }
 
+      // Send notifications
+      try {
+        const NotificationService = (
+          await import("../notifications/notification.service.js")
+        ).default;
+        const EmailTemplatesService = (
+          await import("../../services/email/email-templates.service.js")
+        ).default;
+        const { NotificationType } = await import(
+          "../../models/notification.model.js"
+        );
+        const { config } = await import("../../config/main.config.js");
+        const frontendUrl =
+          process.env.FRONTEND_URL ||
+          config.cors.origin ||
+          "https://boundlessfi.xyz";
+        const baseUrl = Array.isArray(frontendUrl)
+          ? frontendUrl[0]
+          : frontendUrl;
+
+        const projectName = (project as any)?.title || "a project";
+        const User = (await import("../../models/user.model.js")).default;
+
+        // Get accepted user details
+        let acceptedUser = null;
+        let memberName = invitation.email;
+        let memberEmail = invitation.email;
+        if (userId) {
+          acceptedUser = await User.findById(userId).select(
+            "email profile.firstName profile.lastName settings.notifications",
+          );
+          if (acceptedUser) {
+            memberName =
+              `${acceptedUser.profile?.firstName || ""} ${acceptedUser.profile?.lastName || ""}`.trim() ||
+              acceptedUser.email;
+            memberEmail = acceptedUser.email;
+          }
+        }
+
+        // Notify the accepted user
+        if (acceptedUser) {
+          await NotificationService.sendSingleNotification(
+            {
+              userId: acceptedUser._id,
+              email: acceptedUser.email,
+              name: memberName,
+              preferences: acceptedUser.settings?.notifications,
+            },
+            {
+              type: NotificationType.TEAM_INVITATION_ACCEPTED,
+              title: `You've joined ${projectName}`,
+              message: `You have successfully joined the team for "${projectName}"`,
+              data: {
+                teamInvitationId: invitation._id,
+                projectId: new mongoose.Types.ObjectId(
+                  invitation.projectId.toString(),
+                ),
+                projectName,
+                role: invitation.role,
+              },
+              emailTemplate: EmailTemplatesService.getTemplate(
+                "team-invitation-accepted",
+                {
+                  projectId: invitation.projectId.toString(),
+                  projectName,
+                  memberName,
+                  memberEmail,
+                  unsubscribeUrl: `${baseUrl}/unsubscribe?email=${encodeURIComponent(acceptedUser.email)}`,
+                },
+              ),
+            },
+          );
+        }
+
+        // Notify project creator and team members
+        if (project && (project as any).creator) {
+          const creator = await User.findById((project as any).creator).select(
+            "email profile.firstName profile.lastName settings.notifications",
+          );
+
+          if (creator) {
+            await NotificationService.sendSingleNotification(
+              {
+                userId: creator._id,
+                email: creator.email,
+                name:
+                  `${creator.profile?.firstName || ""} ${creator.profile?.lastName || ""}`.trim() ||
+                  creator.email,
+                preferences: creator.settings?.notifications,
+              },
+              {
+                type: NotificationType.TEAM_INVITATION_ACCEPTED,
+                title: `New team member joined ${projectName}`,
+                message: `${memberName} (${memberEmail}) has accepted the invitation and joined the team for "${projectName}"`,
+                data: {
+                  teamInvitationId: invitation._id,
+                  projectId: new mongoose.Types.ObjectId(
+                    invitation.projectId.toString(),
+                  ),
+                  projectName,
+                  memberEmail,
+                  memberName,
+                },
+                emailTemplate: EmailTemplatesService.getTemplate(
+                  "team-invitation-accepted",
+                  {
+                    projectId: invitation.projectId.toString(),
+                    projectName,
+                    memberName,
+                    memberEmail,
+                    unsubscribeUrl: `${baseUrl}/unsubscribe?email=${encodeURIComponent(creator.email)}`,
+                  },
+                ),
+              },
+            );
+          }
+
+          // Notify other team members
+          if (project.team && Array.isArray(project.team)) {
+            const teamMemberIds = project.team
+              .map((member: any) => member.userId?.toString())
+              .filter(
+                (id: string) =>
+                  id &&
+                  id !== userId &&
+                  id !== (project as any).creator?.toString(),
+              );
+
+            if (teamMemberIds.length > 0) {
+              const teamMembers = await User.find({
+                _id: { $in: teamMemberIds },
+              }).select(
+                "email profile.firstName profile.lastName settings.notifications",
+              );
+
+              await NotificationService.notifyTeamMembers(
+                teamMembers.map((member) => ({
+                  userId: member._id,
+                  email: member.email,
+                  name:
+                    `${member.profile?.firstName || ""} ${member.profile?.lastName || ""}`.trim() ||
+                    member.email,
+                })),
+                {
+                  type: NotificationType.TEAM_INVITATION_ACCEPTED,
+                  title: `New team member joined ${projectName}`,
+                  message: `${memberName} has joined the team for "${projectName}"`,
+                  data: {
+                    teamInvitationId: invitation._id,
+                    projectId: new mongoose.Types.ObjectId(
+                      invitation.projectId.toString(),
+                    ),
+                    projectName,
+                    memberEmail,
+                    memberName,
+                  },
+                  sendEmail: false,
+                  sendInApp: true,
+                },
+              );
+            }
+          }
+        }
+      } catch (notificationError) {
+        console.error(
+          "Error sending team invitation accepted notifications:",
+          notificationError,
+        );
+        // Don't fail the whole operation if notification fails
+      }
+
       return { invitation, project };
     } catch (error) {
       console.error("Error accepting team invitation:", error);
@@ -249,6 +543,83 @@ export class TeamInvitationService {
       }
 
       await (invitation as any).decline();
+
+      // Send notifications
+      try {
+        const NotificationService = (
+          await import("../notifications/notification.service.js")
+        ).default;
+        const EmailTemplatesService = (
+          await import("../../services/email/email-templates.service.js")
+        ).default;
+        const { NotificationType } = await import(
+          "../../models/notification.model.js"
+        );
+        const { config } = await import("../../config/main.config.js");
+        const frontendUrl =
+          process.env.FRONTEND_URL ||
+          config.cors.origin ||
+          "https://boundlessfi.xyz";
+        const baseUrl = Array.isArray(frontendUrl)
+          ? frontendUrl[0]
+          : frontendUrl;
+
+        const Project = (await import("../../models/project.model.js")).default;
+        const project = await Project.findById(invitation.projectId).select(
+          "title creator",
+        );
+        const projectName = (project as any)?.title || "a project";
+
+        // Notify project creator
+        if (project && (project as any).creator) {
+          const User = (await import("../../models/user.model.js")).default;
+          const creator = await User.findById((project as any).creator).select(
+            "email profile.firstName profile.lastName settings.notifications",
+          );
+
+          if (creator) {
+            await NotificationService.sendSingleNotification(
+              {
+                userId: creator._id,
+                email: creator.email,
+                name:
+                  `${creator.profile?.firstName || ""} ${creator.profile?.lastName || ""}`.trim() ||
+                  creator.email,
+                preferences: creator.settings?.notifications,
+              },
+              {
+                type: NotificationType.TEAM_INVITATION_DECLINED,
+                title: `Team invitation declined for ${projectName}`,
+                message: `${invitation.email} has declined the invitation to join the team for "${projectName}"`,
+                data: {
+                  teamInvitationId: invitation._id,
+                  projectId: new mongoose.Types.ObjectId(
+                    invitation.projectId.toString(),
+                  ),
+                  projectName,
+                  memberEmail: invitation.email,
+                },
+                emailTemplate: EmailTemplatesService.getTemplate(
+                  "team-invitation-declined",
+                  {
+                    projectId: invitation.projectId.toString(),
+                    projectName,
+                    memberEmail: invitation.email,
+                    unsubscribeUrl: `${baseUrl}/unsubscribe?email=${encodeURIComponent(creator.email)}`,
+                  },
+                ),
+              },
+            );
+          }
+        }
+      } catch (notificationError) {
+        console.error(
+          "Error sending team invitation declined notifications:",
+          notificationError,
+        );
+        // Don't fail the whole operation if notification fails
+      }
+
       return invitation;
     } catch (error) {
       console.error("Error declining team invitation:", error);
@@ -328,6 +699,82 @@ export class TeamInvitationService {
       invitation.status = TeamInvitationStatus.DECLINED;
       invitation.declinedAt = new Date();
       await invitation.save();
+
+      // Send notifications
+      try {
+        const NotificationService = (
+          await import("../notifications/notification.service.js")
+        ).default;
+        const EmailTemplatesService = (
+          await import("../../services/email/email-templates.service.js")
+        ).default;
+        const { NotificationType } = await import(
+          "../../models/notification.model.js"
+        );
+        const { config } = await import("../../config/main.config.js");
+        const frontendUrl =
+          process.env.FRONTEND_URL ||
+          config.cors.origin ||
+          "https://boundlessfi.xyz";
+        const baseUrl = Array.isArray(frontendUrl)
+          ? frontendUrl[0]
+          : frontendUrl;
+
+        const Project = (await import("../../models/project.model.js")).default;
+        const project = await Project.findById(invitation.projectId).select(
+          "title",
+        );
+        const projectName = (project as any)?.title || "a project";
+
+        // Notify invited user (if registered)
+        if (invitation.invitedUser) {
+          const User = (await import("../../models/user.model.js")).default;
+          const invitedUser = await User.findById(
+            invitation.invitedUser,
+          ).select(
+            "email profile.firstName profile.lastName settings.notifications",
+          );
+
+          if (invitedUser) {
+            await NotificationService.sendSingleNotification(
+              {
+                userId: invitedUser._id,
+                email: invitedUser.email,
+                name:
+                  `${invitedUser.profile?.firstName || ""} ${invitedUser.profile?.lastName || ""}`.trim() ||
+                  invitedUser.email,
+                preferences: invitedUser.settings?.notifications,
+              },
+              {
+                type: NotificationType.TEAM_INVITATION_CANCELLED,
+                title: `Team invitation cancelled for ${projectName}`,
+                message: `The team invitation for "${projectName}" has been cancelled.`,
+                data: {
+                  teamInvitationId: invitation._id,
+                  projectId: new mongoose.Types.ObjectId(
+                    invitation.projectId.toString(),
+                  ),
+                  projectName,
+                },
+                emailTemplate: EmailTemplatesService.getTemplate(
+                  "team-invitation-cancelled",
+                  {
+                    projectId: invitation.projectId.toString(),
+                    projectName,
+                    unsubscribeUrl: `${baseUrl}/unsubscribe?email=${encodeURIComponent(invitedUser.email)}`,
+                  },
+                ),
+              },
+            );
+          }
+        }
+      } catch (notificationError) {
+        console.error(
+          "Error sending team invitation cancelled notifications:",
+          notificationError,
+        );
+        // Don't fail the whole operation if notification fails
+      }
 
       return invitation;
     } catch (error) {

@@ -26,6 +26,45 @@ export class EmailTemplatesService {
         this.getTeamInvitationExistingUserTemplate(data),
       "team-invitation-new-user": () =>
         this.getTeamInvitationNewUserTemplate(data),
+      "organization-created": () => this.getOrganizationCreatedTemplate(data),
+      "organization-updated": () => this.getOrganizationUpdatedTemplate(data),
+      "organization-deleted": () => this.getOrganizationDeletedTemplate(data),
+      "organization-invite-sent": () =>
+        this.getOrganizationInviteSentTemplate(data),
+      "organization-invite-accepted": () =>
+        this.getOrganizationInviteAcceptedTemplate(data),
+      "organization-member-added": () =>
+        this.getOrganizationMemberAddedTemplate(data),
+      "organization-member-removed": () =>
+        this.getOrganizationMemberRemovedTemplate(data),
+      "organization-role-changed": () =>
+        this.getOrganizationRoleChangedTemplate(data),
+      "hackathon-created": () => this.getHackathonCreatedTemplate(data),
+      "hackathon-updated": () => this.getHackathonUpdatedTemplate(data),
+      "hackathon-published": () => this.getHackathonPublishedTemplate(data),
+      "hackathon-active": () => this.getHackathonActiveTemplate(data),
+      "hackathon-completed": () => this.getHackathonCompletedTemplate(data),
+      "hackathon-cancelled": () => this.getHackathonCancelledTemplate(data),
+      "hackathon-registered": () => this.getHackathonRegisteredTemplate(data),
+      "hackathon-submission-submitted": () =>
+        this.getHackathonSubmissionSubmittedTemplate(data),
+      "hackathon-submission-shortlisted": () =>
+        this.getHackathonSubmissionShortlistedTemplate(data),
+      "hackathon-submission-disqualified": () =>
+        this.getHackathonSubmissionDisqualifiedTemplate(data),
+      "hackathon-winners-announced": () =>
+        this.getHackathonWinnersAnnouncedTemplate(data),
+      "hackathon-deadline-approaching": () =>
+        this.getHackathonDeadlineApproachingTemplate(data),
+      "team-invitation-sent": () => this.getTeamInvitationSentTemplate(data),
+      "team-invitation-accepted": () =>
+        this.getTeamInvitationAcceptedTemplate(data),
+      "team-invitation-declined": () =>
+        this.getTeamInvitationDeclinedTemplate(data),
+      "team-invitation-expired": () =>
+        this.getTeamInvitationExpiredTemplate(data),
+      "team-invitation-cancelled": () =>
+        this.getTeamInvitationCancelledTemplate(data),
     };
 
     const templateFunction = templates[templateType];
@@ -698,6 +737,652 @@ export class EmailTemplatesService {
           </div>
         </div>
       `,
+    };
+  }
+
+  /**
+   * Organization Created Template
+   */
+  private static getOrganizationCreatedTemplate(data: any): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `🎉 Your organization ${data.organizationName || "Organization"} has been created!`,
+      priority: "high",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Organization Created",
+        preheaderText: "Your organization is ready to use",
+        headline: "Organization Created Successfully!",
+        bodyText1: `Congratulations! Your organization <b>${data.organizationName || "Organization"}</b> has been successfully created.`,
+        bodyText2:
+          "You can now start inviting members, creating hackathons, and managing grants.",
+        ctaUrl: `${frontendUrl}/organizations/${data.organizationId}`,
+        ctaText: "View Organization",
+        disclaimerText:
+          "You are the owner of this organization and have full administrative access.",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Organization Updated Template
+   */
+  private static getOrganizationUpdatedTemplate(data: any): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `Organization ${data.organizationName || "Organization"} has been updated`,
+      priority: "normal",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Organization Updated",
+        preheaderText: "Your organization profile has been updated",
+        headline: "📝 Organization Updated",
+        bodyText1: `The organization <b>${data.organizationName || "Organization"}</b> has been updated.`,
+        bodyText2: data.changes
+          ? `Changes made: ${data.changes}`
+          : "The organization profile or settings have been modified.",
+        ctaUrl: `${frontendUrl}/organizations/${data.organizationId}`,
+        ctaText: "View Organization",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Organization Deleted Template
+   */
+  private static getOrganizationDeletedTemplate(data: any): EmailTemplate {
+    return {
+      subject: `⚠️ Organization ${data.organizationName || "Organization"} has been deleted`,
+      priority: "high",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Organization Deleted",
+        preheaderText: "Your organization has been deleted",
+        headline: "⚠️ Organization Deleted",
+        bodyText1: `The organization <b>${data.organizationName || "Organization"}</b> has been permanently deleted.`,
+        bodyText2:
+          "All associated data, including hackathons and grants, have been removed.",
+        disclaimerText:
+          "This action cannot be undone. If this was done in error, please contact support immediately.",
+        privacyUrl: `${process.env.FRONTEND_URL || "https://boundlessfi.xyz"}/privacy`,
+        termsUrl: `${process.env.FRONTEND_URL || "https://boundlessfi.xyz"}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Organization Invite Sent Template
+   */
+  private static getOrganizationInviteSentTemplate(data: any): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    const acceptUrl =
+      data.acceptUrl ||
+      `${frontendUrl}/organizations/${data.organizationId}/invite/accept`;
+    return {
+      subject: `You've been invited to join ${data.organizationName || "an organization"}`,
+      priority: "normal",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Organization Invitation",
+        preheaderText: `You've been invited to join ${data.organizationName}`,
+        headline: "You've been invited!",
+        bodyText1: `You have been invited to join <b>${data.organizationName || "an organization"}</b> on Boundless.`,
+        bodyText2: data.inviterName
+          ? `${data.inviterName} has invited you to become a member.`
+          : "Accept the invitation to start collaborating with the team.",
+        ctaUrl: acceptUrl,
+        ctaText: "Accept Invitation",
+        disclaimerText:
+          "If you did not expect this invitation, you can safely ignore this email.",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Organization Invite Accepted Template
+   */
+  private static getOrganizationInviteAcceptedTemplate(
+    data: any,
+  ): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `${data.memberName || "A new member"} has joined ${data.organizationName || "your organization"}`,
+      priority: "normal",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "New Member Joined",
+        preheaderText: `${data.memberName || "Someone"} has joined your organization`,
+        headline: "New Member Joined!",
+        bodyText1: `${data.memberName || "A new member"} (${data.memberEmail || ""}) has accepted the invitation and joined <b>${data.organizationName || "your organization"}</b>.`,
+        bodyText2:
+          "They now have access to the organization and can participate in activities.",
+        ctaUrl: `${frontendUrl}/organizations/${data.organizationId}/settings/members`,
+        ctaText: "View Members",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Organization Member Added Template
+   */
+  private static getOrganizationMemberAddedTemplate(data: any): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `You've been added to ${data.organizationName || "an organization"}`,
+      priority: "normal",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Added to Organization",
+        preheaderText: `You're now a member of ${data.organizationName}`,
+        headline: "Welcome to the team!",
+        bodyText1: `You have been added as a member of <b>${data.organizationName || "an organization"}</b> on Boundless.`,
+        bodyText2:
+          "You can now access the organization and participate in its activities.",
+        ctaUrl: `${frontendUrl}/organizations/${data.organizationId}`,
+        ctaText: "View Organization",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Organization Member Removed Template
+   */
+  private static getOrganizationMemberRemovedTemplate(
+    data: any,
+  ): EmailTemplate {
+    return {
+      subject: `You've been removed from ${data.organizationName || "an organization"}`,
+      priority: "normal",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Removed from Organization",
+        preheaderText: "You've been removed from an organization",
+        headline: "Membership Removed",
+        bodyText1: `You have been removed as a member of <b>${data.organizationName || "an organization"}</b> on Boundless.`,
+        bodyText2:
+          "You no longer have access to this organization or its resources.",
+        disclaimerText:
+          "If you believe this was done in error, please contact the organization owner.",
+        privacyUrl: `${process.env.FRONTEND_URL || "https://boundlessfi.xyz"}/privacy`,
+        termsUrl: `${process.env.FRONTEND_URL || "https://boundlessfi.xyz"}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Organization Role Changed Template
+   */
+  private static getOrganizationRoleChangedTemplate(data: any): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    const roleChangeMessage =
+      data.newRole === "owner"
+        ? "You are now the owner of this organization."
+        : data.newRole === "admin"
+          ? "You have been promoted to administrator."
+          : data.newRole === "member"
+            ? "You have been changed to a regular member."
+            : `Your role has been changed to ${data.newRole}.`;
+
+    return {
+      subject: `Your role in ${data.organizationName || "an organization"} has been changed`,
+      priority: "normal",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Role Changed",
+        preheaderText: `Your role in ${data.organizationName} has been updated`,
+        headline: "Role Updated",
+        bodyText1: `Your role in <b>${data.organizationName || "an organization"}</b> has been changed.`,
+        bodyText2: roleChangeMessage,
+        bodyText3: data.oldRole
+          ? `Previous role: ${data.oldRole} → New role: ${data.newRole || "member"}`
+          : undefined,
+        ctaUrl: `${frontendUrl}/organizations/${data.organizationId}`,
+        ctaText: "View Organization",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Hackathon Created Template
+   */
+  private static getHackathonCreatedTemplate(data: any): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `Hackathon "${data.hackathonName || "Hackathon"}" created`,
+      priority: "normal",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Hackathon Created",
+        preheaderText: "A new hackathon has been created",
+        headline: "Hackathon Created",
+        bodyText1: `A new hackathon <b>${data.hackathonName || "Hackathon"}</b> has been created.`,
+        bodyText2:
+          "The hackathon is currently in draft status and will be published soon.",
+        ctaUrl: `${frontendUrl}/organizations/${data.organizationId}/hackathons/${data.hackathonId}`,
+        ctaText: "View Hackathon",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Hackathon Updated Template
+   */
+  private static getHackathonUpdatedTemplate(data: any): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `Hackathon "${data.hackathonName || "Hackathon"}" updated`,
+      priority: "normal",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Hackathon Updated",
+        preheaderText: "Hackathon details have been updated",
+        headline: "Hackathon Updated",
+        bodyText1: `The hackathon <b>${data.hackathonName || "Hackathon"}</b> has been updated.`,
+        bodyText2: data.changes
+          ? `Changes made: ${data.changes}`
+          : "The hackathon details or settings have been modified.",
+        ctaUrl: `${frontendUrl}/hackathons/${data.hackathonSlug || data.hackathonId}`,
+        ctaText: "View Hackathon",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Hackathon Published Template
+   */
+  private static getHackathonPublishedTemplate(data: any): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `🎉 Hackathon "${data.hackathonName || "Hackathon"}" is now live!`,
+      priority: "high",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Hackathon Published",
+        preheaderText: "A new hackathon is now live",
+        headline: "🎉 Hackathon is Live!",
+        bodyText1: `The hackathon <b>${data.hackathonName || "Hackathon"}</b> has been published and is now live!`,
+        bodyText2:
+          "Participants can now register and start working on their projects.",
+        ctaUrl: `${frontendUrl}/hackathons/${data.hackathonSlug || data.hackathonId}`,
+        ctaText: "View Hackathon",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Hackathon Active Template
+   */
+  private static getHackathonActiveTemplate(data: any): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `🚀 Hackathon "${data.hackathonName || "Hackathon"}" is now active!`,
+      priority: "high",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Hackathon Active",
+        preheaderText: "The hackathon has started",
+        headline: "🚀 Hackathon is Active!",
+        bodyText1: `The hackathon <b>${data.hackathonName || "Hackathon"}</b> is now active and participants can start submitting their projects.`,
+        bodyText2: data.startDate
+          ? `The hackathon started on ${new Date(data.startDate).toLocaleDateString()}.`
+          : "Start working on your project now!",
+        ctaUrl: `${frontendUrl}/hackathons/${data.hackathonSlug || data.hackathonId}`,
+        ctaText: "View Hackathon",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Hackathon Completed Template
+   */
+  private static getHackathonCompletedTemplate(data: any): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `✅ Hackathon "${data.hackathonName || "Hackathon"}" has been completed`,
+      priority: "normal",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Hackathon Completed",
+        preheaderText: "The hackathon has ended",
+        headline: "✅ Hackathon Completed",
+        bodyText1: `The hackathon <b>${data.hackathonName || "Hackathon"}</b> has been completed.`,
+        bodyText2:
+          "Thank you for participating! Winners will be announced soon.",
+        ctaUrl: `${frontendUrl}/hackathons/${data.hackathonSlug || data.hackathonId}`,
+        ctaText: "View Hackathon",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Hackathon Cancelled Template
+   */
+  private static getHackathonCancelledTemplate(data: any): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `⚠️ Hackathon "${data.hackathonName || "Hackathon"}" has been cancelled`,
+      priority: "high",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Hackathon Cancelled",
+        preheaderText: "The hackathon has been cancelled",
+        headline: "⚠️ Hackathon Cancelled",
+        bodyText1: `The hackathon <b>${data.hackathonName || "Hackathon"}</b> has been cancelled.`,
+        bodyText2:
+          data.reason || "We apologize for any inconvenience this may cause.",
+        disclaimerText:
+          "If you have any questions, please contact the organization.",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Hackathon Registered Template
+   */
+  private static getHackathonRegisteredTemplate(data: any): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `✅ You've registered for "${data.hackathonName || "Hackathon"}"`,
+      priority: "normal",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Hackathon Registration",
+        preheaderText: "You've successfully registered for a hackathon",
+        headline: "Registration Confirmed!",
+        bodyText1: `You have successfully registered for <b>${data.hackathonName || "Hackathon"}</b>.`,
+        bodyText2:
+          "You can now start working on your project and submit it before the deadline.",
+        ctaUrl: `${frontendUrl}/hackathons/${data.hackathonSlug || data.hackathonId}`,
+        ctaText: "View Hackathon",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Hackathon Submission Submitted Template
+   */
+  private static getHackathonSubmissionSubmittedTemplate(
+    data: any,
+  ): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `✅ Your submission for "${data.hackathonName || "Hackathon"}" has been received`,
+      priority: "normal",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Submission Received",
+        preheaderText: "Your hackathon submission has been received",
+        headline: "Submission Received!",
+        bodyText1: `Your submission for <b>${data.hackathonName || "Hackathon"}</b> has been successfully received.`,
+        bodyText2:
+          "Your submission is now under review. You'll be notified when the results are available.",
+        ctaUrl: `${frontendUrl}/hackathons/${data.hackathonSlug || data.hackathonId}`,
+        ctaText: "View Submission",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Hackathon Submission Shortlisted Template
+   */
+  private static getHackathonSubmissionShortlistedTemplate(
+    data: any,
+  ): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `🎉 Your submission for "${data.hackathonName || "Hackathon"}" has been shortlisted!`,
+      priority: "high",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Submission Shortlisted",
+        preheaderText: "Congratulations! Your submission has been shortlisted",
+        headline: "🎉 Submission Shortlisted!",
+        bodyText1: `Congratulations! Your submission for <b>${data.hackathonName || "Hackathon"}</b> has been shortlisted.`,
+        bodyText2: "Your project is now in the final judging phase. Good luck!",
+        ctaUrl: `${frontendUrl}/hackathons/${data.hackathonSlug || data.hackathonId}`,
+        ctaText: "View Submission",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Hackathon Submission Disqualified Template
+   */
+  private static getHackathonSubmissionDisqualifiedTemplate(
+    data: any,
+  ): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `⚠️ Your submission for "${data.hackathonName || "Hackathon"}" has been disqualified`,
+      priority: "normal",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Submission Disqualified",
+        preheaderText: "Your submission has been disqualified",
+        headline: "Submission Disqualified",
+        bodyText1: `Your submission for <b>${data.hackathonName || "Hackathon"}</b> has been disqualified.`,
+        bodyText2:
+          data.reason || "Please review the hackathon rules and requirements.",
+        disclaimerText:
+          "If you have any questions, please contact the organization.",
+        ctaUrl: `${frontendUrl}/hackathons/${data.hackathonSlug || data.hackathonId}`,
+        ctaText: "View Submission",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Hackathon Winners Announced Template
+   */
+  private static getHackathonWinnersAnnouncedTemplate(
+    data: any,
+  ): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `🏆 Winners announced for "${data.hackathonName || "Hackathon"}"`,
+      priority: "high",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Winners Announced",
+        preheaderText: "The hackathon winners have been announced",
+        headline: "🏆 Winners Announced!",
+        bodyText1: `The winners for <b>${data.hackathonName || "Hackathon"}</b> have been announced!`,
+        bodyText2: data.isWinner
+          ? "Congratulations! You are among the winners!"
+          : "Check out the winning projects and see who took home the prizes.",
+        ctaUrl: `${frontendUrl}/hackathons/${data.hackathonSlug || data.hackathonId}/winners`,
+        ctaText: "View Winners",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Hackathon Deadline Approaching Template
+   */
+  private static getHackathonDeadlineApproachingTemplate(
+    data: any,
+  ): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    const deadlineType =
+      data.deadlineType === "submission"
+        ? "submission deadline"
+        : data.deadlineType === "judging"
+          ? "judging date"
+          : "deadline";
+    return {
+      subject: `⏰ Reminder: ${deadlineType} approaching for "${data.hackathonName || "Hackathon"}"`,
+      priority: "normal",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Deadline Reminder",
+        preheaderText: `The ${deadlineType} is approaching`,
+        headline: `⏰ ${deadlineType.charAt(0).toUpperCase() + deadlineType.slice(1)} Approaching`,
+        bodyText1: `The ${deadlineType} for <b>${data.hackathonName || "Hackathon"}</b> is approaching.`,
+        bodyText2: data.deadlineDate
+          ? `The ${deadlineType} is on ${new Date(data.deadlineDate).toLocaleDateString()}.`
+          : "Make sure to complete your submission on time.",
+        ctaUrl: `${frontendUrl}/hackathons/${data.hackathonSlug || data.hackathonId}`,
+        ctaText: "View Hackathon",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Team Invitation Sent Template
+   */
+  private static getTeamInvitationSentTemplate(data: any): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    const acceptUrl =
+      data.acceptUrl || `${frontendUrl}/team-invitations/${data.token}/accept`;
+    return {
+      subject: `You've been invited to join "${data.projectName || "a project"}" team`,
+      priority: "normal",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Team Invitation",
+        preheaderText: `You've been invited to join ${data.projectName}`,
+        headline: "You've been invited!",
+        bodyText1: `You have been invited to join the team for <b>${data.projectName || "a project"}</b> on Boundless.`,
+        bodyText2: data.inviterName
+          ? `${data.inviterName} has invited you to join as ${data.role || "a team member"}.`
+          : `You've been invited to join as ${data.role || "a team member"}.`,
+        ctaUrl: acceptUrl,
+        ctaText: "Accept Invitation",
+        disclaimerText:
+          "If you did not expect this invitation, you can safely ignore this email.",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Team Invitation Accepted Template
+   */
+  private static getTeamInvitationAcceptedTemplate(data: any): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `${data.memberName || "Someone"} has joined "${data.projectName || "your project"}" team`,
+      priority: "normal",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Team Member Joined",
+        preheaderText: `${data.memberName || "Someone"} has joined your team`,
+        headline: "New Team Member!",
+        bodyText1: `${data.memberName || "A new member"} (${data.memberEmail || ""}) has accepted the invitation and joined the team for <b>${data.projectName || "your project"}</b>.`,
+        bodyText2: "They can now collaborate on the project with you.",
+        ctaUrl: `${frontendUrl}/projects/${data.projectId}`,
+        ctaText: "View Project",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Team Invitation Declined Template
+   */
+  private static getTeamInvitationDeclinedTemplate(data: any): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `Team invitation declined for "${data.projectName || "your project"}"`,
+      priority: "normal",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Invitation Declined",
+        preheaderText: "A team invitation has been declined",
+        headline: "Invitation Declined",
+        bodyText1: `${data.memberEmail || "The invited user"} has declined the invitation to join <b>${data.projectName || "your project"}</b>.`,
+        bodyText2: "You can invite other team members if needed.",
+        ctaUrl: `${frontendUrl}/projects/${data.projectId}`,
+        ctaText: "View Project",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Team Invitation Expired Template
+   */
+  private static getTeamInvitationExpiredTemplate(data: any): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `Team invitation expired for "${data.projectName || "a project"}"`,
+      priority: "normal",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Invitation Expired",
+        preheaderText: "A team invitation has expired",
+        headline: "Invitation Expired",
+        bodyText1: `The team invitation for <b>${data.projectName || "a project"}</b> has expired.`,
+        bodyText2:
+          "If you still want to join, please request a new invitation from the project creator.",
+        ctaUrl: `${frontendUrl}/projects/${data.projectId}`,
+        ctaText: "View Project",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Team Invitation Cancelled Template
+   */
+  private static getTeamInvitationCancelledTemplate(data: any): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `Team invitation cancelled for "${data.projectName || "a project"}"`,
+      priority: "normal",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Invitation Cancelled",
+        preheaderText: "A team invitation has been cancelled",
+        headline: "Invitation Cancelled",
+        bodyText1: `The team invitation for <b>${data.projectName || "a project"}</b> has been cancelled by the project creator.`,
+        bodyText2:
+          "If you have any questions, please contact the project creator.",
+        ctaUrl: `${frontendUrl}/projects/${data.projectId}`,
+        ctaText: "View Project",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
     };
   }
 }
