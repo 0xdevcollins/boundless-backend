@@ -31,7 +31,10 @@ router.get("/me", protect, async (req, res) => {
     }
 
     // Get user with all necessary data
-    const user = await User.findById(userId).select("-password");
+    const user = await User.findOne({
+      _id: userId,
+      deleted: { $ne: true },
+    }).select("-password");
 
     if (!user) {
       return res.status(404).json({
@@ -68,32 +71,35 @@ router.get("/me", protect, async (req, res) => {
         .limit(50)
         .lean(),
 
-      // Get user's organizations
+      // Get user's organizations (exclude archived)
       Organization.find({
         $or: [{ members: user.email }, { owner: user.email }],
+        archived: { $ne: true },
       })
         .select(
           "_id name logo tagline about links members owner hackathons grants isProfileComplete pendingInvites createdAt updatedAt",
         )
         .lean(),
 
-      // Get following users
+      // Get following users (exclude deleted)
       Follow.find({ follower: userId, status: "ACTIVE" })
         .populate({
           path: "following",
           select:
             "_id email profile.firstName profile.lastName profile.username profile.avatar",
+          match: { deleted: { $ne: true } },
         })
         .sort({ followedAt: -1 })
         .limit(100)
         .lean(),
 
-      // Get followers
+      // Get followers (exclude deleted)
       Follow.find({ following: userId, status: "ACTIVE" })
         .populate({
           path: "follower",
           select:
             "_id email profile.firstName profile.lastName profile.username profile.avatar",
+          match: { deleted: { $ne: true } },
         })
         .sort({ followedAt: -1 })
         .limit(100)

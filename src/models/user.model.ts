@@ -105,6 +105,9 @@ export interface IUser extends Document {
     contributedAt: Date;
   }>;
   lastLogin: Date;
+  deleted: boolean;
+  deletedAt?: Date;
+  deletedReason?: string;
   comparePassword(enteredPassword: string): Promise<boolean>;
 }
 
@@ -221,6 +224,17 @@ const userSchema = new Schema<IUser>(
       },
     ],
     lastLogin: { type: Date },
+    deleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+    },
+    deletedReason: {
+      type: String,
+    },
   },
   { timestamps: true },
 );
@@ -303,9 +317,13 @@ userSchema.index(
     sparse: true,
     partialFilterExpression: {
       "profile.username": { $type: "string", $ne: "" },
+      deleted: { $ne: true },
     },
   },
 );
+
+// Index for excluding deleted users in queries
+userSchema.index({ deleted: 1 });
 
 export default (mongoose.models.User as mongoose.Model<IUser>) ||
   mongoose.model<IUser>("User", userSchema);

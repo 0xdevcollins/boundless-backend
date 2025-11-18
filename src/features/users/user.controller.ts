@@ -24,6 +24,7 @@ import {
   createLoginActivity,
 } from "../../utils/activity.utils.js";
 import { checkProfileCompleteness } from "../../utils/profile.utils.js";
+import { UserDeletionService } from "../../services/user-deletion.service.js";
 
 // Extend the Express Request type to include our custom properties
 interface AuthenticatedRequest extends Request {
@@ -67,8 +68,11 @@ export const getUserProfile = async (
 
     const userId = req.user._id;
 
-    // Get user with all necessary data
-    const user = await User.findById(userId).select("-password");
+    // Get user with all necessary data (exclude deleted users)
+    const user = await User.findOne({
+      _id: userId,
+      deleted: { $ne: true },
+    }).select("-password");
 
     if (checkResource(res, !user, "User not found", 404)) {
       return;
@@ -93,30 +97,33 @@ export const getUserProfile = async (
       })
       .lean();
 
-    // Get user's organizations
+    // Get user's organizations (exclude archived)
     const userOrganizations = await Organization.find({
       $or: [{ members: user?.email }, { owner: user?.email }],
+      archived: { $ne: true },
     })
       .select(
         "_id name logo tagline about isProfileComplete owner members hackathons grants createdAt",
       )
       .lean();
 
-    // Get following users
+    // Get following users (exclude deleted)
     const following = await Follow.find({ follower: userId, status: "ACTIVE" })
       .populate({
         path: "following",
         select: "profile firstName lastName username avatar bio",
+        match: { deleted: { $ne: true } },
       })
       .sort({ followedAt: -1 })
       .limit(10)
       .lean();
 
-    // Get followers
+    // Get followers (exclude deleted)
     const followers = await Follow.find({ following: userId, status: "ACTIVE" })
       .populate({
         path: "follower",
         select: "profile firstName lastName username avatar bio",
+        match: { deleted: { $ne: true } },
       })
       .sort({ followedAt: -1 })
       .limit(10)
@@ -521,7 +528,10 @@ export const getUserSettings = async (
       return;
     }
 
-    const user = await User.findById(req.user._id).select("settings");
+    const user = await User.findOne({
+      _id: req.user._id,
+      deleted: { $ne: true },
+    }).select("settings");
 
     if (checkResource(res, !user, "User not found", 404)) {
       return;
@@ -593,7 +603,10 @@ export const updateUserSecurity = async (
 
     const { currentPassword, newPassword, twoFactorEnabled, twoFactorCode } =
       req.body;
-    const user = await User.findById(req.user._id);
+    const user = await User.findOne({
+      _id: req.user._id,
+      deleted: { $ne: true },
+    });
 
     if (checkResource(res, !user, "User not found", 404)) {
       return;
@@ -885,3 +898,52 @@ export const updateUserSecurity = async (
 //     sendInternalServerError(res, `${error}`);
 //   }
 // };
+
+/**
+ * @desc    Delete user account (soft delete with cascade cleanup)
+ * @route   DELETE /api/users/account
+ * @access  Private
+ */
+export const deleteUserAccount = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const user = (req as AuthenticatedRequest).user;
+
+    if (!user) {
+      sendUnauthorized(res, "Not authorized");
+      return;
+    }
+
+    // Check if user is already deleted
+    const userRecord = await User.findById(user._id);
+    if (!userRecord) {
+      sendNotFound(res, "User not found");
+      return;
+    }
+
+    if (userRecord.deleted) {
+      sendBadRequest(res, "Account is already deleted");
+      return;
+    }
+
+    const { reason } = req.body;
+
+    // Delete user and all related data
+    await UserDeletionService.deleteUser(
+      user._id,
+      user.email,
+      reason || "User requested account deletion",
+    );
+
+    sendSuccess(res, null, "Account deleted successfully");
+  } catch (error) {
+    console.error("Delete user account error:", error);
+    sendInternalServerError(
+      res,
+      "Failed to delete account",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};

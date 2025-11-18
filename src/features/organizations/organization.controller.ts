@@ -23,6 +23,9 @@ import sendMail from "../../utils/sendMail.utils.js";
 import { config } from "../../config/main.config.js";
 import getUserRole, { checkPermission } from "../../utils/getUserRole.js";
 import { DEFAULT_PERMISSIONS } from "../../types/permission.js";
+import NotificationService from "../notifications/notification.service.js";
+import EmailTemplatesService from "../../services/email/email-templates.service.js";
+import { NotificationType } from "../../models/notification.model.js";
 
 const checkProfileCompletion = (org: IOrganization): boolean => {
   // Check if all required profile fields are filled
@@ -183,6 +186,50 @@ export const createOrganization = async (
       owner: user.email,
       members: [user.email],
     });
+
+    // Send notification to the creator
+    try {
+      const frontendUrl =
+        process.env.FRONTEND_URL ||
+        config.cors.origin ||
+        "https://boundlessfi.xyz";
+      const baseUrl = Array.isArray(frontendUrl) ? frontendUrl[0] : frontendUrl;
+      const ownerName =
+        `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
+        user.email;
+
+      await NotificationService.sendSingleNotification(
+        {
+          userId: user._id,
+          email: user.email,
+          name: ownerName,
+          preferences: user.settings?.notifications,
+        },
+        {
+          type: NotificationType.ORGANIZATION_CREATED,
+          title: `Organization "${organization.name}" created`,
+          message: `Your organization ${organization.name} has been successfully created.`,
+          data: {
+            organizationId: organization._id,
+            organizationName: organization.name,
+          },
+          emailTemplate: EmailTemplatesService.getTemplate(
+            "organization-created",
+            {
+              organizationId: organization._id.toString(),
+              organizationName: organization.name,
+              unsubscribeUrl: `${baseUrl}/unsubscribe?email=${encodeURIComponent(user.email)}`,
+            },
+          ),
+        },
+      );
+    } catch (notificationError) {
+      console.error(
+        "Error sending organization created notification:",
+        notificationError,
+      );
+      // Don't fail the whole operation if notification fails
+    }
 
     sendCreated(res, organization, "Organization created successfully");
   } catch (error: any) {
@@ -595,6 +642,69 @@ export const updateOrganizationProfile = async (
       updatedOrganization!.isProfileComplete = isComplete;
     }
 
+    // Send notification to organization members about profile update
+    try {
+      const frontendUrl =
+        process.env.FRONTEND_URL ||
+        config.cors.origin ||
+        "https://boundlessfi.xyz";
+      const baseUrl = Array.isArray(frontendUrl) ? frontendUrl[0] : frontendUrl;
+      const actorName =
+        `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
+        user.email;
+      const changes = Object.keys(updateData).join(", ");
+
+      // Notify all members (excluding the actor)
+      const allMembers = [organization.owner, ...organization.members].filter(
+        (email) => email !== user.email,
+      );
+
+      if (allMembers.length > 0) {
+        const memberUsers = await User.find({
+          email: { $in: allMembers },
+        }).select(
+          "email profile.firstName profile.lastName settings.notifications",
+        );
+
+        await NotificationService.notifyTeamMembers(
+          memberUsers.map((member) => ({
+            userId: member._id,
+            email: member.email,
+            name:
+              `${member.profile?.firstName || ""} ${member.profile?.lastName || ""}`.trim() ||
+              member.email,
+          })),
+          {
+            type: NotificationType.ORGANIZATION_UPDATED,
+            title: `${organization.name} profile updated`,
+            message: `${actorName} has updated the organization profile`,
+            data: {
+              organizationId: new mongoose.Types.ObjectId(id),
+              organizationName: organization.name,
+              changes,
+            },
+            emailTemplate: EmailTemplatesService.getTemplate(
+              "organization-updated",
+              {
+                organizationId: id,
+                organizationName: organization.name,
+                changes,
+                unsubscribeUrl: undefined, // Will be set per recipient
+              },
+            ),
+            sendEmail: false, // Only in-app for profile updates
+            sendInApp: true,
+          },
+        );
+      }
+    } catch (notificationError) {
+      console.error(
+        "Error sending profile update notifications:",
+        notificationError,
+      );
+      // Don't fail the whole operation if notification fails
+    }
+
     sendSuccess(res, updatedOrganization, "Profile updated successfully");
   } catch (error) {
     console.error("Update organization profile error:", error);
@@ -712,6 +822,60 @@ export const updateOrganizationLinks = async (
         isProfileComplete: isComplete,
       });
       updatedOrganization!.isProfileComplete = isComplete;
+    }
+
+    // Send notification to organization members about links update
+    try {
+      const frontendUrl =
+        process.env.FRONTEND_URL ||
+        config.cors.origin ||
+        "https://boundlessfi.xyz";
+      const baseUrl = Array.isArray(frontendUrl) ? frontendUrl[0] : frontendUrl;
+      const actorName =
+        `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
+        user.email;
+      const changes = Object.keys(updateData).join(", ");
+
+      // Notify all members (excluding the actor)
+      const allMembers = [organization.owner, ...organization.members].filter(
+        (email) => email !== user.email,
+      );
+
+      if (allMembers.length > 0) {
+        const memberUsers = await User.find({
+          email: { $in: allMembers },
+        }).select(
+          "email profile.firstName profile.lastName settings.notifications",
+        );
+
+        await NotificationService.notifyTeamMembers(
+          memberUsers.map((member) => ({
+            userId: member._id,
+            email: member.email,
+            name:
+              `${member.profile?.firstName || ""} ${member.profile?.lastName || ""}`.trim() ||
+              member.email,
+          })),
+          {
+            type: NotificationType.ORGANIZATION_UPDATED,
+            title: `${organization.name} links updated`,
+            message: `${actorName} has updated the organization links`,
+            data: {
+              organizationId: new mongoose.Types.ObjectId(id),
+              organizationName: organization.name,
+              changes,
+            },
+            sendEmail: false, // Only in-app for links updates
+            sendInApp: true,
+          },
+        );
+      }
+    } catch (notificationError) {
+      console.error(
+        "Error sending links update notifications:",
+        notificationError,
+      );
+      // Don't fail the whole operation if notification fails
     }
 
     sendSuccess(res, updatedOrganization, "Links updated successfully");
@@ -848,6 +1012,174 @@ export const updateOrganizationMembers = async (
         isProfileComplete: isComplete,
       });
       updatedOrganization!.isProfileComplete = isComplete;
+    }
+
+    // Send notifications
+    try {
+      const frontendUrl =
+        process.env.FRONTEND_URL ||
+        config.cors.origin ||
+        "https://boundlessfi.xyz";
+      const baseUrl = Array.isArray(frontendUrl) ? frontendUrl[0] : frontendUrl;
+      const actorName =
+        `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
+        user.email;
+
+      if (action === "add") {
+        // Notify the added member
+        const addedUser = await User.findOne({ email }).select(
+          "email profile.firstName profile.lastName settings.notifications",
+        );
+
+        if (addedUser) {
+          await NotificationService.sendSingleNotification(
+            {
+              userId: addedUser._id,
+              email: addedUser.email,
+              name:
+                `${addedUser.profile?.firstName || ""} ${addedUser.profile?.lastName || ""}`.trim() ||
+                addedUser.email,
+              preferences: addedUser.settings?.notifications,
+            },
+            {
+              type: NotificationType.ORGANIZATION_MEMBER_ADDED,
+              title: `Added to ${organization.name}`,
+              message: `You have been added as a member of "${organization.name}" by ${actorName}`,
+              data: {
+                organizationId: new mongoose.Types.ObjectId(id),
+                organizationName: organization.name,
+                memberEmail: email,
+              },
+              emailTemplate: EmailTemplatesService.getTemplate(
+                "organization-member-added",
+                {
+                  organizationId: id,
+                  organizationName: organization.name,
+                  unsubscribeUrl: `${baseUrl}/unsubscribe?email=${encodeURIComponent(email)}`,
+                },
+              ),
+            },
+          );
+        }
+
+        // Notify organization admins (excluding the actor)
+        const allAdmins = [
+          organization.owner,
+          ...(organization.admins || []),
+        ].filter(
+          (adminEmail) => adminEmail !== user.email && adminEmail !== email,
+        );
+
+        if (allAdmins.length > 0) {
+          const adminUsers = await User.find({
+            email: { $in: allAdmins },
+          }).select(
+            "email profile.firstName profile.lastName settings.notifications",
+          );
+
+          await NotificationService.notifyTeamMembers(
+            adminUsers.map((admin) => ({
+              userId: admin._id,
+              email: admin.email,
+              name:
+                `${admin.profile?.firstName || ""} ${admin.profile?.lastName || ""}`.trim() ||
+                admin.email,
+            })),
+            {
+              type: NotificationType.ORGANIZATION_MEMBER_ADDED,
+              title: `New member added to ${organization.name}`,
+              message: `${actorName} has added ${email} as a member of "${organization.name}"`,
+              data: {
+                organizationId: new mongoose.Types.ObjectId(id),
+                organizationName: organization.name,
+                memberEmail: email,
+              },
+              sendEmail: false,
+              sendInApp: true,
+            },
+          );
+        }
+      } else if (action === "remove") {
+        // Notify the removed member
+        const removedUser = await User.findOne({ email }).select(
+          "email profile.firstName profile.lastName settings.notifications",
+        );
+
+        if (removedUser) {
+          await NotificationService.sendSingleNotification(
+            {
+              userId: removedUser._id,
+              email: removedUser.email,
+              name:
+                `${removedUser.profile?.firstName || ""} ${removedUser.profile?.lastName || ""}`.trim() ||
+                removedUser.email,
+              preferences: removedUser.settings?.notifications,
+            },
+            {
+              type: NotificationType.ORGANIZATION_MEMBER_REMOVED,
+              title: `Removed from ${organization.name}`,
+              message: `You have been removed as a member of "${organization.name}" by ${actorName}`,
+              data: {
+                organizationId: new mongoose.Types.ObjectId(id),
+                organizationName: organization.name,
+                memberEmail: email,
+              },
+              emailTemplate: EmailTemplatesService.getTemplate(
+                "organization-member-removed",
+                {
+                  organizationId: id,
+                  organizationName: organization.name,
+                  unsubscribeUrl: `${baseUrl}/unsubscribe?email=${encodeURIComponent(email)}`,
+                },
+              ),
+            },
+          );
+        }
+
+        // Notify organization admins (excluding the actor)
+        const allAdmins = [
+          organization.owner,
+          ...(organization.admins || []),
+        ].filter(
+          (adminEmail) => adminEmail !== user.email && adminEmail !== email,
+        );
+
+        if (allAdmins.length > 0) {
+          const adminUsers = await User.find({
+            email: { $in: allAdmins },
+          }).select(
+            "email profile.firstName profile.lastName settings.notifications",
+          );
+
+          await NotificationService.notifyTeamMembers(
+            adminUsers.map((admin) => ({
+              userId: admin._id,
+              email: admin.email,
+              name:
+                `${admin.profile?.firstName || ""} ${admin.profile?.lastName || ""}`.trim() ||
+                admin.email,
+            })),
+            {
+              type: NotificationType.ORGANIZATION_MEMBER_REMOVED,
+              title: `Member removed from ${organization.name}`,
+              message: `${actorName} has removed ${email} from "${organization.name}"`,
+              data: {
+                organizationId: new mongoose.Types.ObjectId(id),
+                organizationName: organization.name,
+                memberEmail: email,
+              },
+              sendEmail: false,
+              sendInApp: true,
+            },
+          );
+        }
+      }
+    } catch (notificationError) {
+      console.error(
+        "Error sending member update notifications:",
+        notificationError,
+      );
+      // Don't fail the whole operation if notification fails
     }
 
     sendSuccess(res, updatedOrganization, `Member ${action}ed successfully`);
@@ -998,6 +1330,288 @@ export const transferOwnership = async (
  *       404:
  *         description: Organization not found
  */
+/**
+ * @swagger
+ * /api/organizations/{id}/archive:
+ *   post:
+ *     summary: Archive organization
+ *     description: Archive organization (soft delete) - owner and admins only
+ *     tags: [Organizations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Organization ID
+ *     responses:
+ *       200:
+ *         description: Organization archived successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Only owner and admins can archive
+ *       404:
+ *         description: Organization not found
+ */
+export const archiveOrganization = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const user = (req as AuthenticatedRequest).user;
+
+    if (!user) {
+      sendError(res, "Authentication required", 401);
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      sendBadRequest(res, "Invalid organization ID");
+      return;
+    }
+
+    const organization = await Organization.findById(id);
+
+    if (!organization) {
+      sendNotFound(res, "Organization not found");
+      return;
+    }
+
+    // Check if already archived
+    if (organization.archived) {
+      sendBadRequest(res, "Organization is already archived");
+      return;
+    }
+
+    // Only owner and admins can archive
+    const isOwner = organization.owner === user.email;
+    const isAdmin = organization.admins?.includes(user.email) || false;
+
+    if (!isOwner && !isAdmin) {
+      sendForbidden(
+        res,
+        "Only the owner and admins can archive the organization",
+      );
+      return;
+    }
+
+    // Archive the organization
+    organization.archived = true;
+    organization.archivedAt = new Date();
+    organization.archivedBy = user.email;
+    await organization.save();
+
+    // Send notifications to all members
+    try {
+      const frontendUrl =
+        process.env.FRONTEND_URL ||
+        config.cors.origin ||
+        "https://boundlessfi.xyz";
+      const baseUrl = Array.isArray(frontendUrl) ? frontendUrl[0] : frontendUrl;
+      const archiverName =
+        `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
+        user.email;
+
+      // Notify all members (including owner)
+      const allMembers = [organization.owner, ...organization.members];
+
+      const memberUsers = await User.find({
+        email: { $in: allMembers },
+      }).select(
+        "email profile.firstName profile.lastName settings.notifications",
+      );
+
+      await NotificationService.notifyTeamMembers(
+        memberUsers.map((member) => ({
+          userId: member._id,
+          email: member.email,
+          name:
+            `${member.profile?.firstName || ""} ${member.profile?.lastName || ""}`.trim() ||
+            member.email,
+        })),
+        {
+          type: NotificationType.ORGANIZATION_ARCHIVED,
+          title: `${organization.name} has been archived`,
+          message: `${archiverName} has archived the organization "${organization.name}"`,
+          data: {
+            organizationId: new mongoose.Types.ObjectId(id),
+            organizationName: organization.name,
+            archivedBy: user.email,
+          },
+          emailTemplate: EmailTemplatesService.getTemplate(
+            "organization-archived",
+            {
+              organizationId: id,
+              organizationName: organization.name,
+              archivedBy: archiverName,
+              unsubscribeUrl: undefined, // Will be set per recipient
+            },
+          ),
+        },
+      );
+    } catch (notificationError) {
+      console.error("Error sending archive notifications:", notificationError);
+      // Don't fail the whole operation if notification fails
+    }
+
+    sendSuccess(res, organization, "Organization archived successfully");
+  } catch (error) {
+    console.error("Archive organization error:", error);
+    sendInternalServerError(
+      res,
+      "Failed to archive organization",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};
+
+/**
+ * @swagger
+ * /api/organizations/{id}/unarchive:
+ *   post:
+ *     summary: Unarchive organization
+ *     description: Unarchive organization (restore) - owner and admins only
+ *     tags: [Organizations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Organization ID
+ *     responses:
+ *       200:
+ *         description: Organization unarchived successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Only owner and admins can unarchive
+ *       404:
+ *         description: Organization not found
+ */
+export const unarchiveOrganization = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const user = (req as AuthenticatedRequest).user;
+
+    if (!user) {
+      sendError(res, "Authentication required", 401);
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      sendBadRequest(res, "Invalid organization ID");
+      return;
+    }
+
+    // Allow finding archived organizations for archive/unarchive operations
+    const organization = await Organization.findById(id);
+
+    if (!organization) {
+      sendNotFound(res, "Organization not found");
+      return;
+    }
+
+    // Check if already unarchived
+    if (!organization.archived) {
+      sendBadRequest(res, "Organization is not archived");
+      return;
+    }
+
+    // Only owner and admins can unarchive
+    const isOwner = organization.owner === user.email;
+    const isAdmin = organization.admins?.includes(user.email) || false;
+
+    if (!isOwner && !isAdmin) {
+      sendForbidden(
+        res,
+        "Only the owner and admins can unarchive the organization",
+      );
+      return;
+    }
+
+    // Unarchive the organization
+    organization.archived = false;
+    organization.archivedAt = undefined;
+    organization.archivedBy = undefined;
+    await organization.save();
+
+    // Send notifications to all members
+    try {
+      const frontendUrl =
+        process.env.FRONTEND_URL ||
+        config.cors.origin ||
+        "https://boundlessfi.xyz";
+      const baseUrl = Array.isArray(frontendUrl) ? frontendUrl[0] : frontendUrl;
+      const unarchiverName =
+        `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
+        user.email;
+
+      // Notify all members (including owner)
+      const allMembers = [organization.owner, ...organization.members];
+
+      const memberUsers = await User.find({
+        email: { $in: allMembers },
+      }).select(
+        "email profile.firstName profile.lastName settings.notifications",
+      );
+
+      await NotificationService.notifyTeamMembers(
+        memberUsers.map((member) => ({
+          userId: member._id,
+          email: member.email,
+          name:
+            `${member.profile?.firstName || ""} ${member.profile?.lastName || ""}`.trim() ||
+            member.email,
+        })),
+        {
+          type: NotificationType.ORGANIZATION_UNARCHIVED,
+          title: `${organization.name} has been restored`,
+          message: `${unarchiverName} has unarchived the organization "${organization.name}"`,
+          data: {
+            organizationId: new mongoose.Types.ObjectId(id),
+            organizationName: organization.name,
+            archivedBy: user.email,
+          },
+          emailTemplate: EmailTemplatesService.getTemplate(
+            "organization-unarchived",
+            {
+              organizationId: id,
+              organizationName: organization.name,
+              archivedBy: unarchiverName,
+              unsubscribeUrl: undefined, // Will be set per recipient
+            },
+          ),
+        },
+      );
+    } catch (notificationError) {
+      console.error(
+        "Error sending unarchive notifications:",
+        notificationError,
+      );
+      // Don't fail the whole operation if notification fails
+    }
+
+    sendSuccess(res, organization, "Organization unarchived successfully");
+  } catch (error) {
+    console.error("Unarchive organization error:", error);
+    sendInternalServerError(
+      res,
+      "Failed to unarchive organization",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};
+
 export const deleteOrganization = async (
   req: Request,
   res: Response,
@@ -1027,6 +1641,57 @@ export const deleteOrganization = async (
     if (organization.owner !== user.email) {
       sendForbidden(res, "Only the owner can delete the organization");
       return;
+    }
+
+    // Send notifications to all members before deletion
+    try {
+      const frontendUrl =
+        process.env.FRONTEND_URL ||
+        config.cors.origin ||
+        "https://boundlessfi.xyz";
+      const baseUrl = Array.isArray(frontendUrl) ? frontendUrl[0] : frontendUrl;
+      const ownerName =
+        `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
+        user.email;
+
+      // Notify all members (including owner)
+      const allMembers = [organization.owner, ...organization.members];
+
+      const memberUsers = await User.find({
+        email: { $in: allMembers },
+      }).select(
+        "email profile.firstName profile.lastName settings.notifications",
+      );
+
+      await NotificationService.notifyTeamMembers(
+        memberUsers.map((member) => ({
+          userId: member._id,
+          email: member.email,
+          name:
+            `${member.profile?.firstName || ""} ${member.profile?.lastName || ""}`.trim() ||
+            member.email,
+        })),
+        {
+          type: NotificationType.ORGANIZATION_DELETED,
+          title: `${organization.name} has been deleted`,
+          message: `${ownerName} has deleted the organization "${organization.name}"`,
+          data: {
+            organizationId: new mongoose.Types.ObjectId(id),
+            organizationName: organization.name,
+          },
+          emailTemplate: EmailTemplatesService.getTemplate(
+            "organization-deleted",
+            {
+              organizationId: id,
+              organizationName: organization.name,
+              unsubscribeUrl: undefined, // Will be set per recipient
+            },
+          ),
+        },
+      );
+    } catch (notificationError) {
+      console.error("Error sending delete notifications:", notificationError);
+      // Don't fail the whole operation if notification fails
     }
 
     await Organization.findByIdAndDelete(id);
@@ -1200,6 +1865,57 @@ export const sendInvite = async (
           `.trim(),
         });
         sentToRegistered.push(e);
+
+        // Send in-app notification to invited user
+        try {
+          const invitedUser = existingUsers.find(
+            (u) => u.email.toLowerCase() === e.toLowerCase(),
+          );
+          if (invitedUser) {
+            const inviterName =
+              `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
+              user.email;
+            await NotificationService.sendSingleNotification(
+              {
+                userId: invitedUser._id,
+                email: invitedUser.email,
+                name:
+                  `${invitedUser.profile?.firstName || ""} ${invitedUser.profile?.lastName || ""}`.trim() ||
+                  invitedUser.email,
+                preferences: invitedUser.settings?.notifications,
+              },
+              {
+                type: NotificationType.ORGANIZATION_INVITE_SENT,
+                title: `Invited to join ${organization.name}`,
+                message: `${inviterName} has invited you to join "${organization.name}"`,
+                data: {
+                  organizationId: new mongoose.Types.ObjectId(id),
+                  organizationName: organization.name,
+                  inviterName,
+                  acceptUrl,
+                },
+                emailTemplate: EmailTemplatesService.getTemplate(
+                  "organization-invite-sent",
+                  {
+                    organizationId: id,
+                    organizationName: organization.name,
+                    inviterName,
+                    acceptUrl,
+                    unsubscribeUrl: `${baseUrl}/unsubscribe?email=${encodeURIComponent(e)}`,
+                  },
+                ),
+                sendEmail: false, // Email already sent above
+                sendInApp: true,
+              },
+            );
+          }
+        } catch (notificationError) {
+          console.error(
+            `Error sending notification to ${e}:`,
+            notificationError,
+          );
+          // Don't fail the whole operation if notification fails
+        }
       } catch (err: any) {
         failed.push({ email: e, error: err?.message || "send failed" });
       }
@@ -1227,6 +1943,51 @@ export const sendInvite = async (
       } catch (err: any) {
         failed.push({ email: e, error: err?.message || "send failed" });
       }
+    }
+
+    // Send notification to organization owner/admins about invites sent
+    try {
+      const inviterName =
+        `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
+        user.email;
+      const allAdmins = [
+        organization.owner,
+        ...(organization.admins || []),
+      ].filter((email) => email !== user.email); // Don't notify the inviter
+
+      if (allAdmins.length > 0 && toInvite.length > 0) {
+        const adminUsers = await User.find({
+          email: { $in: allAdmins },
+        }).select(
+          "email profile.firstName profile.lastName settings.notifications",
+        );
+
+        await NotificationService.notifyTeamMembers(
+          adminUsers.map((admin) => ({
+            userId: admin._id,
+            email: admin.email,
+            name:
+              `${admin.profile?.firstName || ""} ${admin.profile?.lastName || ""}`.trim() ||
+              admin.email,
+          })),
+          {
+            type: NotificationType.ORGANIZATION_INVITE_SENT,
+            title: `Invitations sent to ${toInvite.length} user${toInvite.length > 1 ? "s" : ""}`,
+            message: `${inviterName} has invited ${toInvite.length} user${toInvite.length > 1 ? "s" : ""} to join "${organization.name}"`,
+            data: {
+              organizationId: new mongoose.Types.ObjectId(id),
+              organizationName: organization.name,
+              inviterName,
+              inviteCount: toInvite.length,
+            },
+            sendEmail: false, // Only in-app notification for admins
+            sendInApp: true,
+          },
+        );
+      }
+    } catch (notificationError) {
+      console.error("Error sending admin notifications:", notificationError);
+      // Don't fail the whole operation if notification fails
     }
 
     sendSuccess(
@@ -1328,6 +2089,96 @@ export const acceptInvite = async (
         isProfileComplete: isComplete,
       });
       updatedOrganization!.isProfileComplete = isComplete;
+    }
+
+    // Send notifications
+    try {
+      const memberName =
+        `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
+        user.email;
+      const frontendUrl =
+        process.env.FRONTEND_URL ||
+        config.cors.origin ||
+        "https://boundlessfi.xyz";
+      const baseUrl = Array.isArray(frontendUrl) ? frontendUrl[0] : frontendUrl;
+
+      // Notify the new member
+      await NotificationService.sendSingleNotification(
+        {
+          userId: user._id,
+          email: user.email,
+          name: memberName,
+          preferences: user.settings?.notifications,
+        },
+        {
+          type: NotificationType.ORGANIZATION_INVITE_ACCEPTED,
+          title: `Welcome to ${organization.name}!`,
+          message: `You have successfully joined "${organization.name}"`,
+          data: {
+            organizationId: new mongoose.Types.ObjectId(id),
+            organizationName: organization.name,
+          },
+          emailTemplate: EmailTemplatesService.getTemplate(
+            "organization-member-added",
+            {
+              organizationId: id,
+              organizationName: organization.name,
+              unsubscribeUrl: `${baseUrl}/unsubscribe?email=${encodeURIComponent(user.email)}`,
+            },
+          ),
+        },
+      );
+
+      // Notify organization owner and admins
+      const allAdmins = [
+        organization.owner,
+        ...(organization.admins || []),
+      ].filter((email) => email !== user.email); // Don't notify the new member
+
+      if (allAdmins.length > 0) {
+        const adminUsers = await User.find({
+          email: { $in: allAdmins },
+        }).select(
+          "email profile.firstName profile.lastName settings.notifications",
+        );
+
+        await NotificationService.notifyTeamMembers(
+          adminUsers.map((admin) => ({
+            userId: admin._id,
+            email: admin.email,
+            name:
+              `${admin.profile?.firstName || ""} ${admin.profile?.lastName || ""}`.trim() ||
+              admin.email,
+          })),
+          {
+            type: NotificationType.ORGANIZATION_INVITE_ACCEPTED,
+            title: `New member joined ${organization.name}`,
+            message: `${memberName} (${user.email}) has accepted the invitation and joined "${organization.name}"`,
+            data: {
+              organizationId: new mongoose.Types.ObjectId(id),
+              organizationName: organization.name,
+              memberEmail: user.email,
+              memberName,
+            },
+            emailTemplate: EmailTemplatesService.getTemplate(
+              "organization-invite-accepted",
+              {
+                organizationId: id,
+                organizationName: organization.name,
+                memberEmail: user.email,
+                memberName,
+                unsubscribeUrl: undefined, // Will be set per recipient
+              },
+            ),
+          },
+        );
+      }
+    } catch (notificationError) {
+      console.error(
+        "Error sending accept invite notifications:",
+        notificationError,
+      );
+      // Don't fail the whole operation if notification fails
     }
 
     sendSuccess(res, updatedOrganization, "Invite accepted successfully");
@@ -1734,6 +2585,67 @@ export const assignRole = async (
         { $pull: { admins: email } },
         { new: true, runValidators: true },
       );
+    }
+
+    // Send notifications for role changes
+    try {
+      const frontendUrl =
+        process.env.FRONTEND_URL ||
+        config.cors.origin ||
+        "https://boundlessfi.xyz";
+      const baseUrl = Array.isArray(frontendUrl) ? frontendUrl[0] : frontendUrl;
+      const actorName =
+        `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
+        user.email;
+      const targetEmail = email;
+      const oldRole = action === "promote" ? "member" : "admin";
+      const newRole = action === "promote" ? "admin" : "member";
+
+      // Notify the user whose role changed
+      const targetUser = await User.findOne({ email: targetEmail }).select(
+        "email profile.firstName profile.lastName settings.notifications",
+      );
+
+      if (targetUser) {
+        await NotificationService.sendSingleNotification(
+          {
+            userId: targetUser._id,
+            email: targetUser.email,
+            name:
+              `${targetUser.profile?.firstName || ""} ${targetUser.profile?.lastName || ""}`.trim() ||
+              targetUser.email,
+            preferences: targetUser.settings?.notifications,
+          },
+          {
+            type: NotificationType.ORGANIZATION_ROLE_CHANGED,
+            title: `Role changed in ${organization.name}`,
+            message: `${actorName} has changed your role in "${organization.name}" from ${oldRole} to ${newRole}`,
+            data: {
+              organizationId: new mongoose.Types.ObjectId(id),
+              organizationName: organization.name,
+              oldRole,
+              newRole,
+              memberEmail: targetEmail,
+            },
+            emailTemplate: EmailTemplatesService.getTemplate(
+              "organization-role-changed",
+              {
+                organizationId: id,
+                organizationName: organization.name,
+                oldRole,
+                newRole,
+                unsubscribeUrl: `${baseUrl}/unsubscribe?email=${encodeURIComponent(targetEmail)}`,
+              },
+            ),
+          },
+        );
+      }
+    } catch (notificationError) {
+      console.error(
+        "Error sending role change notifications:",
+        notificationError,
+      );
+      // Don't fail the whole operation if notification fails
     }
 
     sendSuccess(

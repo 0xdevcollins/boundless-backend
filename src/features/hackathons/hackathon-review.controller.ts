@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import mongoose from "mongoose";
 import Hackathon from "../../models/hackathon.model.js";
 import HackathonParticipant from "../../models/hackathon-participant.model.js";
+import User from "../../models/user.model.js";
+import Organization from "../../models/organization.model.js";
 import {
   sendSuccess,
   sendError,
@@ -14,6 +16,10 @@ import {
   AuthenticatedRequest,
   canManageHackathons,
 } from "./hackathon.helpers.js";
+import NotificationService from "../notifications/notification.service.js";
+import EmailTemplatesService from "../../services/email/email-templates.service.js";
+import { NotificationType } from "../../models/notification.model.js";
+import { config } from "../../config/main.config.js";
 
 /**
  * @swagger
@@ -109,6 +115,56 @@ export const shortlistSubmission = async (
     }
 
     await participant.save();
+
+    // Send notification to participant about status change
+    try {
+      const frontendUrl =
+        process.env.FRONTEND_URL ||
+        config.cors.origin ||
+        "https://boundlessfi.xyz";
+      const baseUrl = Array.isArray(frontendUrl) ? frontendUrl[0] : frontendUrl;
+      const participantUser = await User.findById(participant.userId).select(
+        "email profile.firstName profile.lastName settings.notifications",
+      );
+
+      if (participantUser && participant.submission.status === "shortlisted") {
+        await NotificationService.sendSingleNotification(
+          {
+            userId: participantUser._id,
+            email: participantUser.email,
+            name:
+              `${participantUser.profile?.firstName || ""} ${participantUser.profile?.lastName || ""}`.trim() ||
+              participantUser.email,
+            preferences: participantUser.settings?.notifications,
+          },
+          {
+            type: NotificationType.HACKATHON_SUBMISSION_SHORTLISTED,
+            title: `Submission shortlisted for ${hackathon.title || "Hackathon"}`,
+            message: `Your submission for "${hackathon.title || "Hackathon"}" has been shortlisted!`,
+            data: {
+              hackathonId: hackathon._id,
+              hackathonName: hackathon.title || "Hackathon",
+              hackathonSlug: hackathon.slug,
+              submissionStatus: "shortlisted",
+            },
+            emailTemplate: EmailTemplatesService.getTemplate(
+              "hackathon-submission-shortlisted",
+              {
+                hackathonId: (
+                  hackathon._id as mongoose.Types.ObjectId
+                ).toString(),
+                hackathonName: hackathon.title || "Hackathon",
+                hackathonSlug: hackathon.slug,
+                unsubscribeUrl: `${baseUrl}/unsubscribe?email=${encodeURIComponent(participantUser.email)}`,
+              },
+            ),
+          },
+        );
+      }
+    } catch (notificationError) {
+      console.error("Error sending shortlist notification:", notificationError);
+      // Don't fail the whole operation if notification fails
+    }
 
     // Populate user data for response
     await participant.populate({
@@ -305,6 +361,60 @@ export const disqualifySubmission = async (
     }
 
     await participant.save();
+
+    // Send notification to participant about disqualification
+    try {
+      const frontendUrl =
+        process.env.FRONTEND_URL ||
+        config.cors.origin ||
+        "https://boundlessfi.xyz";
+      const baseUrl = Array.isArray(frontendUrl) ? frontendUrl[0] : frontendUrl;
+      const participantUser = await User.findById(participant.userId).select(
+        "email profile.firstName profile.lastName settings.notifications",
+      );
+
+      if (participantUser && participant.submission.status === "disqualified") {
+        await NotificationService.sendSingleNotification(
+          {
+            userId: participantUser._id,
+            email: participantUser.email,
+            name:
+              `${participantUser.profile?.firstName || ""} ${participantUser.profile?.lastName || ""}`.trim() ||
+              participantUser.email,
+            preferences: participantUser.settings?.notifications,
+          },
+          {
+            type: NotificationType.HACKATHON_SUBMISSION_DISQUALIFIED,
+            title: `Submission disqualified for ${hackathon.title || "Hackathon"}`,
+            message: `Your submission for "${hackathon.title || "Hackathon"}" has been disqualified.`,
+            data: {
+              hackathonId: hackathon._id,
+              hackathonName: hackathon.title || "Hackathon",
+              hackathonSlug: hackathon.slug,
+              submissionStatus: "disqualified",
+            },
+            emailTemplate: EmailTemplatesService.getTemplate(
+              "hackathon-submission-disqualified",
+              {
+                hackathonId: (
+                  hackathon._id as mongoose.Types.ObjectId
+                ).toString(),
+                hackathonName: hackathon.title || "Hackathon",
+                hackathonSlug: hackathon.slug,
+                reason: participant.submission.disqualificationReason,
+                unsubscribeUrl: `${baseUrl}/unsubscribe?email=${encodeURIComponent(participantUser.email)}`,
+              },
+            ),
+          },
+        );
+      }
+    } catch (notificationError) {
+      console.error(
+        "Error sending disqualification notification:",
+        notificationError,
+      );
+      // Don't fail the whole operation if notification fails
+    }
 
     // Populate user data for response
     await participant.populate({

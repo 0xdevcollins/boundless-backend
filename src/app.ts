@@ -57,6 +57,7 @@ const allowedOrigins = [
   "https://www.staging.boundlessfi.xyz",
   "http://localhost:3000", // For local frontend development
   "http://localhost:8000", // For local development
+  "http://192.168.1.187:3000",
 ];
 
 app.use(

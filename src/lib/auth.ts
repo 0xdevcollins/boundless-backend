@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
-import { emailOTP } from "better-auth/plugins";
+import { emailOTP, lastLoginMethod, oneTap } from "better-auth/plugins";
 import { createAuthMiddleware } from "better-auth/api";
 import { MongoClient } from "mongodb";
 import mongoose from "mongoose";
@@ -24,7 +24,7 @@ export const auth = betterAuth({
     usePlural: true, // Use plural collection names (users) to match backend Mongoose model
   }),
   // baseURL should be the backend server URL, not frontend
-  baseURL: "https://api.boundlessfi.xyz",
+  baseURL: process.env.BETTER_AUTH_URL || "https://api.boundlessfi.xyz",
   // basePath: "/api/auth",
   emailAndPassword: {
     enabled: true,
@@ -80,13 +80,37 @@ export const auth = betterAuth({
     google: {
       clientId: config.GOOGLE_CLIENT_ID,
       clientSecret: config.GOOGLE_CLIENT_SECRET,
+      // Optional: Always ask user to select an account (useful for multi-account users)
+      // Uncomment to enable:
+      // prompt: "select_account",
+
+      // Optional: Always get refresh token (required for offline access to Google APIs)
+      // Note: Google only issues refresh token on first consent. To get a new refresh token,
+      // users must revoke app access in their Google account settings, then re-authorize.
+      // Uncomment both lines to enable:
+      accessType: "offline",
+      prompt: "select_account consent", // Required with accessType: "offline"
     },
     github: {
       clientId: config.GITHUB_CLIENT_ID,
       clientSecret: config.GITHUB_CLIENT_SECRET,
     },
   },
+  advanced: {
+    defaultCookieAttributes: {
+      sameSite: "none",
+      secure: true,
+    },
+  },
   plugins: [
+    lastLoginMethod({
+      // Store in database for persistent tracking and analytics
+      // Set to false to use cookie-only storage (default)
+      storeInDatabase: true,
+      // Cookie expires in 30 days (default)
+      maxAge: 60 * 60 * 24 * 30,
+    }),
+    oneTap(),
     emailOTP({
       overrideDefaultEmailVerification: true,
       async sendVerificationOTP({ email, otp, type }) {
@@ -219,7 +243,10 @@ export const auth = betterAuth({
     "https://www.boundlessfi.xyz",
     "https://staging.boundlessfi.xyz",
     "https://www.staging.boundlessfi.xyz",
+    "https://staging-api.boundlessfi.xyz", // Add this for staging API
+    "https://api.boundlessfi.xyz", // Add this for production API
     "http://localhost:3000",
     "http://localhost:8000", // For local development
+    "http://192.168.1.187:3000",
   ],
 });

@@ -14,7 +14,7 @@ export interface EmailTemplateData {
   emailSubtitle: string;
   emailDescription?: string;
   preheaderText: string;
-  disclaimerText: string;
+  disclaimerText?: string;
   showOtpCode?: boolean;
   otpCode?: string;
   showCtaButton?: boolean;
@@ -23,14 +23,20 @@ export interface EmailTemplateData {
   showAdditionalInfo?: boolean;
   additionalInfo?: string;
   // Social links
-  twitterUrl: string;
-  linkedinUrl: string;
-  githubUrl: string;
+  twitterUrl?: string;
+  linkedinUrl?: string;
+  githubUrl?: string;
   // Company info
-  companyAddress: string;
-  privacyUrl: string;
-  termsUrl: string;
-  unsubscribeUrl: string;
+  companyAddress?: string;
+  privacyUrl?: string;
+  termsUrl?: string;
+  unsubscribeUrl?: string;
+  // Reusable template fields
+  headline?: string;
+  bodyText1?: string;
+  bodyText2?: string;
+  bodyText3?: string;
+  ctaText?: string;
 }
 
 export class EmailTemplateUtils {
@@ -241,6 +247,44 @@ export class EmailTemplateUtils {
     };
 
     return this.replaceVariables(template, data);
+  }
+
+  /**
+   * Generate email using the reusable index.html template
+   */
+  static generateEmail(data: {
+    emailTitle: string;
+    preheaderText: string;
+    headline: string;
+    bodyText1?: string;
+    bodyText2?: string;
+    bodyText3?: string;
+    ctaUrl?: string;
+    ctaText?: string;
+    disclaimerText?: string;
+    privacyUrl?: string;
+    termsUrl?: string;
+    unsubscribeUrl?: string;
+  }): string {
+    const template = this.loadTemplate("index");
+
+    const templateData: EmailTemplateData = {
+      emailTitle: data.emailTitle,
+      emailSubtitle: "", // Not used in index template
+      preheaderText: data.preheaderText,
+      disclaimerText: data.disclaimerText || "",
+      headline: data.headline,
+      bodyText1: data.bodyText1 || "",
+      bodyText2: data.bodyText2 || "",
+      bodyText3: data.bodyText3 || "",
+      ctaUrl: data.ctaUrl || "",
+      ctaText: data.ctaText || "",
+      privacyUrl: data.privacyUrl || "https://boundlessfi.xyz/privacy",
+      termsUrl: data.termsUrl || "https://boundlessfi.xyz/terms",
+      unsubscribeUrl: data.unsubscribeUrl || "",
+    };
+
+    return this.replaceVariables(template, templateData);
   }
 
   /**

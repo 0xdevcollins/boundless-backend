@@ -9,6 +9,7 @@ import {
   getUserSettings,
   updateUserSettings,
   updateUserSecurity,
+  deleteUserAccount,
   // getDashboardOverview,
 } from "./user.controller.js";
 import { protect } from "../../middleware/better-auth.middleware.js";
@@ -67,6 +68,14 @@ router.put(
   "/security",
   asyncHandler(protect),
   asyncHandler(updateUserSecurity),
+);
+
+// Account deletion route
+// @ts-ignore
+router.delete(
+  "/account",
+  asyncHandler(protect),
+  asyncHandler(deleteUserAccount),
 );
 
 // Dashboard route
