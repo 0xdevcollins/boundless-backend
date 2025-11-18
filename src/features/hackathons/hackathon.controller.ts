@@ -31,6 +31,7 @@ export {
   updateHackathon,
   getHackathon,
   getHackathons,
+  deleteHackathon,
 } from "./hackathon-crud.controller.js";
 
 // Re-export analytics controllers

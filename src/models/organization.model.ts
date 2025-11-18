@@ -20,6 +20,7 @@ export interface CustomPermissions {
   comment_discussions: RolePermissions;
   access_submissions: RolePermissions;
   delete_organization: RolePermissions;
+  archive_organization: RolePermissions;
 }
 
 export interface IOrganization extends Document {
@@ -42,6 +43,9 @@ export interface IOrganization extends Document {
   isProfileComplete: boolean;
   pendingInvites: string[];
   customPermissions?: CustomPermissions;
+  archived: boolean;
+  archivedAt?: Date;
+  archivedBy?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -146,6 +150,24 @@ const OrganizationSchema = new Schema<IOrganization>(
       type: Schema.Types.Mixed,
       default: undefined,
     },
+    archived: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    archivedAt: {
+      type: Date,
+    },
+    archivedBy: {
+      type: String,
+      validate: {
+        validator: function (email: string) {
+          if (!email) return true; // Optional field
+          return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        },
+        message: "Invalid email format",
+      },
+    },
   },
   { timestamps: true },
 );
@@ -155,6 +177,7 @@ OrganizationSchema.index({ name: 1 });
 OrganizationSchema.index({ members: 1 });
 OrganizationSchema.index({ owner: 1 });
 OrganizationSchema.index({ admins: 1 });
+OrganizationSchema.index({ archived: 1 }); // Already added in field definition, but explicit for clarity
 
 // Pre-save middleware to ensure admins are also in members array
 OrganizationSchema.pre("save", function (next) {

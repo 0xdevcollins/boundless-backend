@@ -33,8 +33,11 @@ export const protect = async (
       return;
     }
 
-    // Get or sync user from our User model
-    let user = await User.findOne({ email: session.user.email });
+    // Get or sync user from our User model (exclude deleted users)
+    let user = await User.findOne({
+      email: session.user.email,
+      deleted: { $ne: true },
+    });
 
     if (!user) {
       // User exists in Better Auth but not in our User model
@@ -76,8 +79,11 @@ export const optionalAuth = async (
     });
 
     if (session && session.user) {
-      // Get user from our User model
-      const user = await User.findOne({ email: session.user.email });
+      // Get user from our User model (exclude deleted users)
+      const user = await User.findOne({
+        email: session.user.email,
+        deleted: { $ne: true },
+      });
 
       if (user) {
         req.user = user;

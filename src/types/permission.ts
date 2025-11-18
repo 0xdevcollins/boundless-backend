@@ -51,4 +51,9 @@ export const DEFAULT_PERMISSIONS: CustomPermissions = {
     admin: false,
     member: false,
   },
+  archive_organization: {
+    owner: true,
+    admin: true,
+    member: false,
+  },
 };

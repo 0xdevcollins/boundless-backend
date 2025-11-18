@@ -1330,6 +1330,288 @@ export const transferOwnership = async (
  *       404:
  *         description: Organization not found
  */
+/**
+ * @swagger
+ * /api/organizations/{id}/archive:
+ *   post:
+ *     summary: Archive organization
+ *     description: Archive organization (soft delete) - owner and admins only
+ *     tags: [Organizations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Organization ID
+ *     responses:
+ *       200:
+ *         description: Organization archived successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Only owner and admins can archive
+ *       404:
+ *         description: Organization not found
+ */
+export const archiveOrganization = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const user = (req as AuthenticatedRequest).user;
+
+    if (!user) {
+      sendError(res, "Authentication required", 401);
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      sendBadRequest(res, "Invalid organization ID");
+      return;
+    }
+
+    const organization = await Organization.findById(id);
+
+    if (!organization) {
+      sendNotFound(res, "Organization not found");
+      return;
+    }
+
+    // Check if already archived
+    if (organization.archived) {
+      sendBadRequest(res, "Organization is already archived");
+      return;
+    }
+
+    // Only owner and admins can archive
+    const isOwner = organization.owner === user.email;
+    const isAdmin = organization.admins?.includes(user.email) || false;
+
+    if (!isOwner && !isAdmin) {
+      sendForbidden(
+        res,
+        "Only the owner and admins can archive the organization",
+      );
+      return;
+    }
+
+    // Archive the organization
+    organization.archived = true;
+    organization.archivedAt = new Date();
+    organization.archivedBy = user.email;
+    await organization.save();
+
+    // Send notifications to all members
+    try {
+      const frontendUrl =
+        process.env.FRONTEND_URL ||
+        config.cors.origin ||
+        "https://boundlessfi.xyz";
+      const baseUrl = Array.isArray(frontendUrl) ? frontendUrl[0] : frontendUrl;
+      const archiverName =
+        `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
+        user.email;
+
+      // Notify all members (including owner)
+      const allMembers = [organization.owner, ...organization.members];
+
+      const memberUsers = await User.find({
+        email: { $in: allMembers },
+      }).select(
+        "email profile.firstName profile.lastName settings.notifications",
+      );
+
+      await NotificationService.notifyTeamMembers(
+        memberUsers.map((member) => ({
+          userId: member._id,
+          email: member.email,
+          name:
+            `${member.profile?.firstName || ""} ${member.profile?.lastName || ""}`.trim() ||
+            member.email,
+        })),
+        {
+          type: NotificationType.ORGANIZATION_ARCHIVED,
+          title: `${organization.name} has been archived`,
+          message: `${archiverName} has archived the organization "${organization.name}"`,
+          data: {
+            organizationId: new mongoose.Types.ObjectId(id),
+            organizationName: organization.name,
+            archivedBy: user.email,
+          },
+          emailTemplate: EmailTemplatesService.getTemplate(
+            "organization-archived",
+            {
+              organizationId: id,
+              organizationName: organization.name,
+              archivedBy: archiverName,
+              unsubscribeUrl: undefined, // Will be set per recipient
+            },
+          ),
+        },
+      );
+    } catch (notificationError) {
+      console.error("Error sending archive notifications:", notificationError);
+      // Don't fail the whole operation if notification fails
+    }
+
+    sendSuccess(res, organization, "Organization archived successfully");
+  } catch (error) {
+    console.error("Archive organization error:", error);
+    sendInternalServerError(
+      res,
+      "Failed to archive organization",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};
+
+/**
+ * @swagger
+ * /api/organizations/{id}/unarchive:
+ *   post:
+ *     summary: Unarchive organization
+ *     description: Unarchive organization (restore) - owner and admins only
+ *     tags: [Organizations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Organization ID
+ *     responses:
+ *       200:
+ *         description: Organization unarchived successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Only owner and admins can unarchive
+ *       404:
+ *         description: Organization not found
+ */
+export const unarchiveOrganization = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const user = (req as AuthenticatedRequest).user;
+
+    if (!user) {
+      sendError(res, "Authentication required", 401);
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      sendBadRequest(res, "Invalid organization ID");
+      return;
+    }
+
+    // Allow finding archived organizations for archive/unarchive operations
+    const organization = await Organization.findById(id);
+
+    if (!organization) {
+      sendNotFound(res, "Organization not found");
+      return;
+    }
+
+    // Check if already unarchived
+    if (!organization.archived) {
+      sendBadRequest(res, "Organization is not archived");
+      return;
+    }
+
+    // Only owner and admins can unarchive
+    const isOwner = organization.owner === user.email;
+    const isAdmin = organization.admins?.includes(user.email) || false;
+
+    if (!isOwner && !isAdmin) {
+      sendForbidden(
+        res,
+        "Only the owner and admins can unarchive the organization",
+      );
+      return;
+    }
+
+    // Unarchive the organization
+    organization.archived = false;
+    organization.archivedAt = undefined;
+    organization.archivedBy = undefined;
+    await organization.save();
+
+    // Send notifications to all members
+    try {
+      const frontendUrl =
+        process.env.FRONTEND_URL ||
+        config.cors.origin ||
+        "https://boundlessfi.xyz";
+      const baseUrl = Array.isArray(frontendUrl) ? frontendUrl[0] : frontendUrl;
+      const unarchiverName =
+        `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
+        user.email;
+
+      // Notify all members (including owner)
+      const allMembers = [organization.owner, ...organization.members];
+
+      const memberUsers = await User.find({
+        email: { $in: allMembers },
+      }).select(
+        "email profile.firstName profile.lastName settings.notifications",
+      );
+
+      await NotificationService.notifyTeamMembers(
+        memberUsers.map((member) => ({
+          userId: member._id,
+          email: member.email,
+          name:
+            `${member.profile?.firstName || ""} ${member.profile?.lastName || ""}`.trim() ||
+            member.email,
+        })),
+        {
+          type: NotificationType.ORGANIZATION_UNARCHIVED,
+          title: `${organization.name} has been restored`,
+          message: `${unarchiverName} has unarchived the organization "${organization.name}"`,
+          data: {
+            organizationId: new mongoose.Types.ObjectId(id),
+            organizationName: organization.name,
+            archivedBy: user.email,
+          },
+          emailTemplate: EmailTemplatesService.getTemplate(
+            "organization-unarchived",
+            {
+              organizationId: id,
+              organizationName: organization.name,
+              archivedBy: unarchiverName,
+              unsubscribeUrl: undefined, // Will be set per recipient
+            },
+          ),
+        },
+      );
+    } catch (notificationError) {
+      console.error(
+        "Error sending unarchive notifications:",
+        notificationError,
+      );
+      // Don't fail the whole operation if notification fails
+    }
+
+    sendSuccess(res, organization, "Organization unarchived successfully");
+  } catch (error) {
+    console.error("Unarchive organization error:", error);
+    sendInternalServerError(
+      res,
+      "Failed to unarchive organization",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};
+
 export const deleteOrganization = async (
   req: Request,
   res: Response,

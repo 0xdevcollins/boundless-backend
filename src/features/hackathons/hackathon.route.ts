@@ -10,6 +10,7 @@ import {
   updateHackathon,
   getHackathon,
   getHackathons,
+  deleteHackathon,
   getHackathonStatistics,
   getHackathonAnalytics,
   getParticipants,
@@ -107,6 +108,13 @@ router.get(
   protect,
   validateRequest([orgIdParam]),
   getHackathons,
+);
+
+router.delete(
+  "/:orgId/hackathons/:hackathonId",
+  protect,
+  validateRequest([orgIdParam, hackathonIdParam]),
+  deleteHackathon,
 );
 
 // Statistics and Analytics Routes

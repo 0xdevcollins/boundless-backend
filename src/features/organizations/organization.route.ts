@@ -8,6 +8,8 @@ import {
   updateOrganizationMembers,
   transferOwnership,
   deleteOrganization,
+  archiveOrganization,
+  unarchiveOrganization,
   sendInvite,
   acceptInvite,
   updateOrganizationHackathons,
@@ -162,6 +164,21 @@ router.delete(
   protect,
   validateRequest(deleteOrganizationSchema),
   deleteOrganization,
+);
+
+// Archive routes
+router.post(
+  "/:id/archive",
+  protect,
+  validateRequest(getOrganizationSchema),
+  archiveOrganization,
+);
+
+router.post(
+  "/:id/unarchive",
+  protect,
+  validateRequest(getOrganizationSchema),
+  unarchiveOrganization,
 );
 
 // New routes for invites

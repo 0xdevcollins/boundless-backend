@@ -39,12 +39,16 @@ export class EmailTemplatesService {
         this.getOrganizationMemberRemovedTemplate(data),
       "organization-role-changed": () =>
         this.getOrganizationRoleChangedTemplate(data),
+      "organization-archived": () => this.getOrganizationArchivedTemplate(data),
+      "organization-unarchived": () =>
+        this.getOrganizationUnarchivedTemplate(data),
       "hackathon-created": () => this.getHackathonCreatedTemplate(data),
       "hackathon-updated": () => this.getHackathonUpdatedTemplate(data),
       "hackathon-published": () => this.getHackathonPublishedTemplate(data),
       "hackathon-active": () => this.getHackathonActiveTemplate(data),
       "hackathon-completed": () => this.getHackathonCompletedTemplate(data),
       "hackathon-cancelled": () => this.getHackathonCancelledTemplate(data),
+      "hackathon-deleted": () => this.getHackathonDeletedTemplate(data),
       "hackathon-registered": () => this.getHackathonRegisteredTemplate(data),
       "hackathon-submission-submitted": () =>
         this.getHackathonSubmissionSubmittedTemplate(data),
@@ -1101,6 +1105,34 @@ export class EmailTemplatesService {
   }
 
   /**
+   * Hackathon Deleted Template
+   */
+  private static getHackathonDeletedTemplate(data: any): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `🗑️ Hackathon "${data.hackathonName || "Hackathon"}" has been deleted`,
+      priority: "high",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Hackathon Deleted",
+        preheaderText: "A hackathon has been deleted",
+        headline: "🗑️ Hackathon Deleted",
+        bodyText1: `The hackathon <b>${data.hackathonName || "Hackathon"}</b> has been deleted.`,
+        bodyText2: data.deletedBy
+          ? `This action was performed by ${data.deletedBy}.`
+          : "The hackathon and all associated data have been permanently removed.",
+        bodyText3: data.organizationName
+          ? `This hackathon was organized by ${data.organizationName}.`
+          : "If you have any questions or concerns, please contact the organization directly.",
+        disclaimerText:
+          "If you believe this was done in error, please contact the organization or support.",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
    * Hackathon Registered Template
    */
   private static getHackathonRegisteredTemplate(data: any): EmailTemplate {
@@ -1379,6 +1411,58 @@ export class EmailTemplatesService {
           "If you have any questions, please contact the project creator.",
         ctaUrl: `${frontendUrl}/projects/${data.projectId}`,
         ctaText: "View Project",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Organization Archived Template
+   */
+  private static getOrganizationArchivedTemplate(data: any): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `Organization ${data.organizationName || "Organization"} has been archived`,
+      priority: "high",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Organization Archived",
+        preheaderText: "Your organization has been archived",
+        headline: "Organization Archived",
+        bodyText1: `The organization <b>${data.organizationName || "Organization"}</b> has been archived.`,
+        bodyText2: data.archivedBy
+          ? `This action was performed by ${data.archivedBy}.`
+          : "The organization is now hidden from normal queries but can be restored.",
+        bodyText3:
+          "Archived organizations can be unarchived by owners or admins at any time.",
+        disclaimerText:
+          "If you believe this was done in error, please contact the organization owner or an admin.",
+        privacyUrl: `${frontendUrl}/privacy`,
+        termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Organization Unarchived Template
+   */
+  private static getOrganizationUnarchivedTemplate(data: any): EmailTemplate {
+    const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
+    return {
+      subject: `Organization ${data.organizationName || "Organization"} has been restored`,
+      priority: "normal",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Organization Restored",
+        preheaderText: "Your organization has been unarchived",
+        headline: "Organization Restored",
+        bodyText1: `The organization <b>${data.organizationName || "Organization"}</b> has been unarchived and is now active again.`,
+        bodyText2: data.archivedBy
+          ? `This action was performed by ${data.archivedBy}.`
+          : "The organization is now visible and accessible to all members.",
+        ctaUrl: `${frontendUrl}/organizations/${data.organizationId}`,
+        ctaText: "View Organization",
         privacyUrl: `${frontendUrl}/privacy`,
         termsUrl: `${frontendUrl}/terms`,
         unsubscribeUrl: data.unsubscribeUrl,

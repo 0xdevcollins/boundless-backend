@@ -284,8 +284,8 @@ export const collaborationTabSchema: ValidationChain[] = [
     .withMessage("Each social link must be a valid URL"),
   body("collaboration.sponsorsPartners")
     .optional()
-    .isArray({ min: 1 })
-    .withMessage("At least one sponsor/partner is required"),
+    .isArray()
+    .withMessage("Sponsors/partners must be an array"),
   body("collaboration.sponsorsPartners.*.sponsorName").optional().trim(),
   body("collaboration.sponsorsPartners.*.sponsorLogo")
     .optional()

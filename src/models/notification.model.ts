@@ -47,6 +47,8 @@ export enum NotificationType {
   ORGANIZATION_CREATED = "ORGANIZATION_CREATED",
   ORGANIZATION_UPDATED = "ORGANIZATION_UPDATED",
   ORGANIZATION_DELETED = "ORGANIZATION_DELETED",
+  ORGANIZATION_ARCHIVED = "ORGANIZATION_ARCHIVED",
+  ORGANIZATION_UNARCHIVED = "ORGANIZATION_UNARCHIVED",
   ORGANIZATION_INVITE_SENT = "ORGANIZATION_INVITE_SENT",
   ORGANIZATION_INVITE_ACCEPTED = "ORGANIZATION_INVITE_ACCEPTED",
   ORGANIZATION_MEMBER_ADDED = "ORGANIZATION_MEMBER_ADDED",
@@ -61,6 +63,7 @@ export enum NotificationType {
   HACKATHON_ACTIVE = "HACKATHON_ACTIVE",
   HACKATHON_COMPLETED = "HACKATHON_COMPLETED",
   HACKATHON_CANCELLED = "HACKATHON_CANCELLED",
+  HACKATHON_DELETED = "HACKATHON_DELETED",
   HACKATHON_REGISTERED = "HACKATHON_REGISTERED",
   HACKATHON_SUBMISSION_SUBMITTED = "HACKATHON_SUBMISSION_SUBMITTED",
   HACKATHON_SUBMISSION_SHORTLISTED = "HACKATHON_SUBMISSION_SHORTLISTED",
@@ -99,6 +102,7 @@ export interface INotification extends Document {
     projectName?: string;
     memberEmail?: string;
     role?: string;
+    archivedBy?: string;
     submissionStatus?: string;
     deadlineType?: string;
     oldStatus?: string;
@@ -138,6 +142,7 @@ const NotificationSchema = new Schema<INotification>(
       projectName: { type: String },
       memberEmail: { type: String },
       role: { type: String },
+      archivedBy: { type: String },
       submissionStatus: { type: String },
       deadlineType: { type: String },
       oldStatus: { type: String },
