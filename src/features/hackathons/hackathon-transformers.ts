@@ -170,7 +170,7 @@ export const transformHackathonToFrontend = async (
   }
 
   // Extract subtitle from description
-  const subtitle = hackathon.description?.split(".")[0]?.trim() || "";
+  // const subtitle = hackathon.description?.split(".")[0]?.trim() || "";
 
   // Get organizer name
   const organization =
@@ -198,7 +198,7 @@ export const transformHackathonToFrontend = async (
     id: hackathon._id?.toString() || hackathon.id?.toString() || "",
     slug: hackathon.slug || "",
     title: hackathon.title || "",
-    subtitle,
+    tagline: hackathon.tagline,
     description: hackathon.description || "",
     imageUrl: hackathon.banner || "",
     status,
