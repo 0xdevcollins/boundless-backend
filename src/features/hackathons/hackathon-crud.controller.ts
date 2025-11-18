@@ -709,9 +709,11 @@ export const deleteHackathon = async (
 
           for (const memberUser of memberUsers) {
             const unsubscribeUrl = `${baseUrl}/unsubscribe?email=${encodeURIComponent(memberUser.email)}&token=${memberUser._id}`;
+            const memberName =
+              `${memberUser.profile?.firstName || ""} ${memberUser.profile?.lastName || ""}`.trim() ||
+              memberUser.email;
 
             await NotificationService.sendNotification({
-              userId: memberUser._id,
               type: NotificationType.HACKATHON_DELETED,
               title: "Hackathon Deleted",
               message: `The hackathon "${hackathon.title || "Untitled Hackathon"}" has been deleted by ${deleterName}.`,
@@ -721,6 +723,14 @@ export const deleteHackathon = async (
                 hackathonName: hackathon.title || "Untitled Hackathon",
                 deletedBy: deleterName,
               },
+              recipients: [
+                {
+                  userId: memberUser._id,
+                  email: memberUser.email,
+                  name: memberName,
+                  preferences: memberUser.settings?.notifications,
+                },
+              ],
               emailTemplate: EmailTemplatesService.getTemplate(
                 "hackathon-deleted",
                 {
