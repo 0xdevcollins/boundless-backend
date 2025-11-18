@@ -48,7 +48,7 @@ export interface Hackathon {
   id: string;
   slug: string;
   title: string;
-  subtitle: string;
+  tagline: string;
   description: string;
   imageUrl: string;
   status: "upcoming" | "ongoing" | "ended";

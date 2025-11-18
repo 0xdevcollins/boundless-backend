@@ -72,6 +72,7 @@ export interface IHackathon extends Document {
 
   // Information Tab
   title?: string;
+  tagline?: string;
   banner?: string;
   description?: string;
   categories?: HackathonCategory[];
@@ -263,7 +264,13 @@ const HackathonSchema = new Schema<IHackathon>(
       default: false,
       index: true,
     },
-
+    tagline: {
+      // Add this field
+      type: String,
+      trim: true,
+      minlength: [1, "Tagline is required"],
+      maxlength: [200, "Tagline cannot exceed 200 characters"],
+    },
     // Information Tab
     title: {
       type: String,

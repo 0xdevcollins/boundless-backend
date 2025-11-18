@@ -50,6 +50,8 @@ export const transformRequestBody = (body: any): Partial<IHackathon> => {
       updateData.title = body.information.title;
     if (body.information.banner !== undefined)
       updateData.banner = body.information.banner;
+    if (body.information.tagline !== undefined)
+      updateData.tagline = body.information.tagline;
     if (body.information.description !== undefined)
       updateData.description = body.information.description;
     if (body.information.categories !== undefined)
@@ -165,6 +167,8 @@ export const validatePublishRequirements = (
   if (!hackathon.title || hackathon.title.trim().length < 3)
     errors.push("Title is required and must be at least 3 characters");
   if (!hackathon.banner) errors.push("Banner is required");
+  if (!hackathon.tagline || hackathon.tagline.trim().length < 1)
+    errors.push("Tagline is required");
   if (!hackathon.description || hackathon.description.trim().length < 10)
     errors.push("Description is required and must be at least 10 characters");
   if (
