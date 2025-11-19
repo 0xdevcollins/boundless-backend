@@ -28,6 +28,11 @@ export const informationTabSchema: ValidationChain[] = [
     .optional()
     .isURL()
     .withMessage("Banner must be a valid URL"),
+  body("information.tagline")
+    .optional()
+    .trim()
+    .isLength({ min: 1, max: 200 })
+    .withMessage("Tagline must be between 1 and 200 characters"),
   body("information.description")
     .optional()
     .trim()
@@ -334,6 +339,12 @@ export const publishSchema: ValidationChain[] = [
     .isLength({ min: 3, max: 100 })
     .withMessage("Title must be between 3 and 100 characters"),
   body("information.banner").isURL().withMessage("Banner must be a valid URL"),
+  body("information.tagline")
+    .trim()
+    .notEmpty()
+    .withMessage("Tagline is required")
+    .isLength({ min: 1, max: 200 })
+    .withMessage("Tagline must be between 1 and 200 characters"),
   body("information.description")
     .trim()
     .notEmpty()

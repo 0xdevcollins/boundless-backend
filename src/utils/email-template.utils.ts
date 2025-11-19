@@ -5,7 +5,10 @@ import { dirname } from "path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
+const baseUrl =
+  process.env.NODE_ENV === "development"
+    ? "http://localhost:3000"
+    : "https://boundlessfi.xyz";
 export interface EmailTemplateData {
   emailTitle: string;
   emailSubtitle: string;
@@ -191,7 +194,7 @@ export class EmailTemplateUtils {
         "You're receiving this email because you requested a password reset. If you didn't request this, please ignore this email.",
       showOtpCode: false,
       showCtaButton: true,
-      ctaUrl: `https://boundlessfi.xyz/reset-password?token=${resetToken}`,
+      ctaUrl: `${baseUrl}/auth/reset-password?token=${resetToken}`,
       ctaButtonText: "Reset Password",
       showAdditionalInfo: true,
       additionalInfo:
