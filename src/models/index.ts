@@ -23,3 +23,7 @@ import "./hackathon-participant.model.js";
 import "./hackathon-judging-score.model.js";
 import "./hackathon-submission-comment.model.js";
 import "./hackathon-submission-vote.model.js";
+import "./hackathon-discussion.model.js";
+import "./hackathon-resource.model.js";
+import "./hackathon-team-invitation.model.js";
+import "./hackathon-team-recruitment-post.model.js";

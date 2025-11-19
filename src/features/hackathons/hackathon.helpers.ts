@@ -4,7 +4,9 @@ import {
   IHackathon,
   ParticipantType,
   VenueType,
+  HackathonStatus,
 } from "../../models/hackathon.model.js";
+import Hackathon from "../../models/hackathon.model.js";
 import Organization from "../../models/organization.model.js";
 import { checkPermission } from "../../utils/getUserRole.js";
 import { isValidStellarAddress } from "../../utils/wallet.js";
@@ -344,4 +346,60 @@ export const mapRankToPrizeAmount = (
   });
 
   return matchingTier ? matchingTier.amount : null;
+};
+
+/**
+ * Resolve hackathon by ID or slug
+ * Accepts either MongoDB ObjectId or slug string
+ * Returns hackathon document or null
+ */
+export const resolveHackathonByIdOrSlug = async (
+  hackathonIdOrSlug: string,
+  options?: {
+    includePublishedOnly?: boolean;
+    populate?: string | string[];
+  },
+): Promise<IHackathon | null> => {
+  if (!hackathonIdOrSlug) {
+    return null;
+  }
+
+  // Check if it's a valid MongoDB ObjectId
+  const isObjectId = mongoose.Types.ObjectId.isValid(hackathonIdOrSlug);
+
+  let query: any = {};
+
+  if (isObjectId) {
+    query._id = hackathonIdOrSlug;
+  } else {
+    query.slug = hackathonIdOrSlug;
+  }
+
+  // Optionally filter by published status
+  if (options?.includePublishedOnly) {
+    query.status = {
+      $in: [
+        HackathonStatus.PUBLISHED,
+        HackathonStatus.ACTIVE,
+        HackathonStatus.COMPLETED,
+      ],
+    };
+  }
+
+  let hackathonQuery = Hackathon.findOne(query);
+
+  // Handle population
+  if (options?.populate) {
+    if (Array.isArray(options.populate)) {
+      options.populate.forEach((path) => {
+        hackathonQuery = hackathonQuery.populate(path);
+      });
+    } else {
+      hackathonQuery = hackathonQuery.populate(options.populate);
+    }
+  }
+
+  const hackathon = await hackathonQuery.lean();
+
+  return hackathon as IHackathon | null;
 };
