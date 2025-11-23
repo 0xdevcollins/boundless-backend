@@ -143,86 +143,112 @@ export const calculateHackathonStatus = (
 export const transformHackathonToFrontend = async (
   hackathon: any,
   participantsCount: number,
-): Promise<Hackathon> => {
-  // Calculate total prize pool
-  const totalPrizePool = hackathon.prizeTiers
-    ? hackathon.prizeTiers.reduce(
-        (sum: number, tier: any) => sum + (tier.amount || 0),
-        0,
-      )
-    : 0;
+) => {
+  // Calculate total prize pool from prize tiers
+  const totalPrizePool =
+    hackathon.prizeTiers?.reduce((total: number, tier: any) => {
+      return total + (tier.amount || 0);
+    }, 0) || 0;
 
-  // Handle categories (support both old single category and new array)
-  const categories = hackathon.categories
-    ? Array.isArray(hackathon.categories)
-      ? hackathon.categories
-      : [hackathon.categories]
-    : hackathon.category
-      ? [hackathon.category]
-      : [];
+  // Only include team min/max if participant type is team-related
+  const teamInfo =
+    hackathon.participantType === "team" ||
+    hackathon.participantType === "team_or_individual"
+      ? {
+          teamMin: hackathon.teamMin,
+          teamMax: hackathon.teamMax,
+        }
+      : {};
 
-  // Convert social links to resources array
-  const resources: string[] = [];
-  if (hackathon.telegram) resources.push(hackathon.telegram);
-  if (hackathon.discord) resources.push(hackathon.discord);
-  if (hackathon.socialLinks && Array.isArray(hackathon.socialLinks)) {
-    resources.push(...hackathon.socialLinks);
-  }
+  // Filter judging criteria to remove weights
+  const criteriaWithoutWeights =
+    hackathon.criteria?.map((criterion: any) => ({
+      title: criterion.title,
+      description: criterion.description,
+    })) || [];
 
-  // Extract subtitle from description
-  // const subtitle = hackathon.description?.split(".")[0]?.trim() || "";
-
-  // Get organizer name
-  const organization =
-    hackathon.organizationId && typeof hackathon.organizationId === "object"
-      ? hackathon.organizationId
-      : null;
-  const organizer = organization?.name || "";
-
-  // Calculate status
-  const status = calculateHackathonStatus(hackathon);
-
-  // Transform venue
-  const venue = hackathon.venue
-    ? {
-        type: hackathon.venue.type,
-        country: hackathon.venue.country || undefined,
-        state: hackathon.venue.state || undefined,
-        city: hackathon.venue.city || undefined,
-        venueName: hackathon.venue.venueName || undefined,
-        venueAddress: hackathon.venue.venueAddress || undefined,
-      }
-    : undefined;
+  const filteredPrizeTiers =
+    hackathon.prizeTiers?.map((tier: any) => ({
+      position: tier.position,
+      amount: tier.amount,
+      currency: tier.currency,
+    })) || [];
 
   return {
-    id: hackathon._id?.toString() || hackathon.id?.toString() || "",
-    slug: hackathon.slug || "",
-    title: hackathon.title || "",
+    id: hackathon._id?.toString(),
+    orgId:
+      hackathon.organizationId?._id?.toString() ||
+      hackathon.organizationId?.toString(),
+    slug: hackathon.slug,
+    title: hackathon.title,
     tagline: hackathon.tagline,
-    description: hackathon.description || "",
-    imageUrl: hackathon.banner || "",
-    status,
-    participants: participantsCount,
-    totalPrizePool: totalPrizePool.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }),
-    deadline: hackathon.submissionDeadline
-      ? new Date(hackathon.submissionDeadline).toISOString()
-      : "",
-    categories,
-    startDate: hackathon.startDate
-      ? new Date(hackathon.startDate).toISOString()
-      : "",
-    endDate: hackathon.winnerAnnouncementDate
-      ? new Date(hackathon.winnerAnnouncementDate).toISOString()
-      : hackathon.submissionDeadline
-        ? new Date(hackathon.submissionDeadline).toISOString()
-        : "",
-    organizer,
+    description: hackathon.description,
+    imageUrl: hackathon.banner,
+
+    // Dates - all required fields
+    startDate: hackathon.startDate,
+    deadline: hackathon.submissionDeadline,
+    judgingDate: hackathon.judgingDate,
+    winnerAnnouncementDate: hackathon.winnerAnnouncementDate,
+    endDate: hackathon.winnerAnnouncementDate, // For backward compatibility
+
+    // Prize information
+    totalPrizePool: totalPrizePool.toFixed(2),
+    prizeTiers: filteredPrizeTiers,
+
+    // Categories and basic info
+    categories: hackathon.categories || [],
     featured: hackathon.featured || false,
-    resources: resources.length > 0 ? resources : undefined,
-    venue,
-    participantType: hackathon.participantType || undefined,
+    status: hackathon.status,
+    participantType: hackathon.participantType,
+    participants: participantsCount,
+
+    // Team info (only for team-related participant types)
+    ...teamInfo,
+
+    // Venue information
+    venue: hackathon.venue
+      ? {
+          type: hackathon.venue.type,
+          country: hackathon.venue.country,
+          state: hackathon.venue.state,
+          city: hackathon.venue.city,
+          venueName: hackathon.venue.venueName,
+          venueAddress: hackathon.venue.venueAddress,
+        }
+      : undefined,
+
+    // Organizer info
+    organizer: hackathon.organizationId?.name || "Unknown Organizer",
+
+    // Tab visibility
+    tabVisibility: hackathon.tabVisibility || {
+      detailsTab: true,
+      participantsTab: true,
+      resourcesTab: true,
+      submissionTab: true,
+      announcementsTab: true,
+      discussionTab: true,
+      winnersTab: true,
+      sponsorsTab: true,
+      joinATeamTab: true,
+      rulesTab: true,
+    },
+
+    // Sponsors and partners
+    sponsors: hackathon.sponsorsPartners || [],
+
+    // Social links and contact info
+    socialLinks: hackathon.socialLinks || [],
+    contactEmail: hackathon.contactEmail,
+    telegram: hackathon.telegram,
+    discord: hackathon.discord,
+
+    // Additional timeline info
+    phases: hackathon.phases || [],
+    timezone: hackathon.timezone,
+
+    // Judging criteria without weights
+    criteria: criteriaWithoutWeights,
   };
 };
