@@ -44,6 +44,7 @@ export interface Venue {
   venueAddress?: string;
 }
 
+// Update your Hackathon interface to include all the fields you need
 export interface Hackathon {
   id: string;
   slug: string;
@@ -63,6 +64,19 @@ export interface Hackathon {
   resources?: string[];
   venue?: Venue;
   participantType?: "individual" | "team" | "team_or_individual";
+
+  // Add these if you need them in the list response
+  orgId?: string;
+  tabVisibility?: any;
+  sponsors?: any[];
+  socialLinks?: string[];
+  contactEmail?: string;
+  telegram?: string;
+  discord?: string;
+  prizeTiers?: any[];
+  criteria?: any[];
+  teamMin?: number;
+  teamMax?: number;
 }
 
 export interface HackathonListResponse {
