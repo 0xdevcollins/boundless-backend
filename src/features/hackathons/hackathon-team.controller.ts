@@ -181,7 +181,7 @@ export const inviteTeamMember = async (
     sendCreated(
       res,
       {
-        _id: invitation._id.toString(),
+        _id: (invitation._id as mongoose.Types.ObjectId).toString(),
         email: invitation.email,
         status: invitation.status,
         expiresAt: invitation.expiresAt.toISOString(),
@@ -638,7 +638,8 @@ export const acceptTeamInvitation = async (
 
     if (
       !hackathon ||
-      hackathon._id.toString() !== invitation.hackathonId.toString()
+      (hackathon._id as mongoose.Types.ObjectId).toString() !==
+        invitation.hackathonId.toString()
     ) {
       sendNotFound(res, "Hackathon not found");
       return;

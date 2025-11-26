@@ -82,7 +82,7 @@ export const registerForHackathon = async (
       }
 
       // Generate team ID
-      teamId = `${hackathon._id.toString()}-${Date.now()}`;
+      teamId = `${(hackathon._id as mongoose.Types.ObjectId).toString()}-${Date.now()}`;
 
       // Add current user as team leader
       teamMembersData = [
@@ -168,7 +168,7 @@ export const registerForHackathon = async (
     const profile = userData?.profile || {};
 
     const responseData = {
-      _id: participant._id.toString(),
+      _id: (participant._id as mongoose.Types.ObjectId).toString(),
       userId: participant.userId._id.toString(),
       hackathonId: participant.hackathonId.toString(),
       organizationId: participant.organizationId.toString(),
