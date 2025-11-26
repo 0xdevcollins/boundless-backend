@@ -14,6 +14,7 @@ import {
 import {
   AuthenticatedRequest,
   resolveHackathonByIdOrSlug,
+  isRegistrationOpen,
 } from "./hackathon.helpers.js";
 
 /**
@@ -49,9 +50,13 @@ export const registerForHackathon = async (
       return;
     }
 
-    // Check if hackathon is open for registration
-    if (hackathon.startDate && new Date() > hackathon.startDate) {
-      sendBadRequest(res, "Hackathon registration has closed");
+    // Check if hackathon is open for registration based on policy
+    const registrationStatus = isRegistrationOpen(hackathon);
+    if (!registrationStatus.isOpen) {
+      sendBadRequest(
+        res,
+        registrationStatus.errorMessage || "Hackathon registration has closed",
+      );
       return;
     }
 

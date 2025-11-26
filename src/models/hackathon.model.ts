@@ -36,6 +36,12 @@ export enum VenueType {
   PHYSICAL = "physical",
 }
 
+export enum RegistrationDeadlinePolicy {
+  BEFORE_START = "before_start",
+  BEFORE_SUBMISSION_DEADLINE = "before_submission_deadline",
+  CUSTOM = "custom",
+}
+
 export interface IPhase {
   name: string;
   startDate: Date;
@@ -97,6 +103,8 @@ export interface IHackathon extends Document {
   participantType?: ParticipantType;
   teamMin?: number;
   teamMax?: number;
+  registrationDeadlinePolicy?: RegistrationDeadlinePolicy;
+  registrationDeadline?: Date;
   submissionRequirements?: {
     requireGithub?: boolean;
     requireDemoVideo?: boolean;
@@ -367,6 +375,17 @@ const HackathonSchema = new Schema<IHackathon>(
       min: [1, "Team max must be at least 1"],
       max: [20, "Team max cannot exceed 20"],
     },
+    registrationDeadlinePolicy: {
+      type: String,
+      enum: {
+        values: Object.values(RegistrationDeadlinePolicy),
+        message: `Registration deadline policy must be one of: ${Object.values(RegistrationDeadlinePolicy).join(", ")}`,
+      },
+      default: RegistrationDeadlinePolicy.BEFORE_SUBMISSION_DEADLINE,
+    },
+    registrationDeadline: {
+      type: Date,
+    },
     submissionRequirements: {
       requireGithub: {
         type: Boolean,
@@ -558,6 +577,39 @@ HackathonSchema.pre("save", async function (next) {
   // Validate team min/max
   if (this.teamMin && this.teamMax && this.teamMin > this.teamMax) {
     return next(new Error("Team min must be less than or equal to team max"));
+  }
+
+  // Validate registration deadline policy
+  if (this.registrationDeadlinePolicy === RegistrationDeadlinePolicy.CUSTOM) {
+    if (!this.registrationDeadline) {
+      return next(
+        new Error(
+          "Registration deadline is required when policy is set to 'custom'",
+        ),
+      );
+    }
+    // Ensure custom deadline is before submission deadline if submission deadline exists
+    if (
+      this.submissionDeadline &&
+      this.registrationDeadline >= this.submissionDeadline
+    ) {
+      return next(
+        new Error(
+          "Custom registration deadline must be before submission deadline",
+        ),
+      );
+    }
+    // Ensure custom deadline is after current time when hackathon is published
+    if (
+      this.status === HackathonStatus.PUBLISHED &&
+      this.registrationDeadline <= new Date()
+    ) {
+      return next(
+        new Error(
+          "Custom registration deadline must be in the future when hackathon is published",
+        ),
+      );
+    }
   }
 
   // Validate judging criteria weights sum to 100

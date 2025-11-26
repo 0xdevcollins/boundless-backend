@@ -19,6 +19,7 @@ import {
 import {
   AuthenticatedRequest,
   resolveHackathonByIdOrSlug,
+  isRegistrationOpen,
 } from "./hackathon.helpers.js";
 import { sendEmail } from "../../utils/email.utils.js";
 import { config } from "../../config/main.config.js";
@@ -297,6 +298,19 @@ export const addTeamMember = async (
       }
       if (existingParticipant.teamId !== participant.teamId) {
         sendConflict(res, "User is already part of another team");
+        return;
+      }
+    }
+
+    // Check if hackathon is open for registration (only if user is not already registered)
+    if (!existingParticipant) {
+      const registrationStatus = isRegistrationOpen(hackathon);
+      if (!registrationStatus.isOpen) {
+        sendBadRequest(
+          res,
+          registrationStatus.errorMessage ||
+            "Hackathon registration has closed",
+        );
         return;
       }
     }
@@ -655,6 +669,16 @@ export const acceptTeamInvitation = async (
       sendBadRequest(
         res,
         "You are already registered for this hackathon. Please leave your current registration first.",
+      );
+      return;
+    }
+
+    // Check if hackathon is open for registration based on policy
+    const registrationStatus = isRegistrationOpen(hackathon);
+    if (!registrationStatus.isOpen) {
+      sendBadRequest(
+        res,
+        registrationStatus.errorMessage || "Hackathon registration has closed",
       );
       return;
     }

@@ -3,6 +3,7 @@ import {
   HackathonCategory,
   ParticipantType,
   VenueType,
+  RegistrationDeadlinePolicy,
 } from "../../models/hackathon.model.js";
 import { isValidStellarAddress } from "../../utils/wallet.js";
 
@@ -231,6 +232,38 @@ export const participationTabSchema: ValidationChain[] = [
     .optional()
     .isBoolean()
     .withMessage("rulesTab must be a boolean"),
+  body("participation.registrationDeadlinePolicy")
+    .optional()
+    .isIn(Object.values(RegistrationDeadlinePolicy))
+    .withMessage(
+      `Registration deadline policy must be one of: ${Object.values(RegistrationDeadlinePolicy).join(", ")}`,
+    ),
+  body("participation.registrationDeadline")
+    .optional()
+    .isISO8601()
+    .withMessage("Registration deadline must be a valid ISO 8601 date")
+    .custom((value, { req }) => {
+      const policy = req.body?.participation?.registrationDeadlinePolicy;
+      if (policy === RegistrationDeadlinePolicy.CUSTOM) {
+        if (!value) {
+          throw new Error(
+            "Registration deadline is required when policy is 'custom'",
+          );
+        }
+        // Check if registration deadline is before submission deadline
+        const submissionDeadline = req.body?.timeline?.submissionDeadline;
+        if (submissionDeadline) {
+          const regDeadline = new Date(value);
+          const subDeadline = new Date(submissionDeadline);
+          if (regDeadline >= subDeadline) {
+            throw new Error(
+              "Registration deadline must be before submission deadline",
+            );
+          }
+        }
+      }
+      return true;
+    }),
 ];
 
 export const rewardsTabSchema: ValidationChain[] = [

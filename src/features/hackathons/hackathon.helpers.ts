@@ -5,6 +5,7 @@ import {
   ParticipantType,
   VenueType,
   HackathonStatus,
+  RegistrationDeadlinePolicy,
 } from "../../models/hackathon.model.js";
 import Hackathon from "../../models/hackathon.model.js";
 import Organization from "../../models/organization.model.js";
@@ -112,6 +113,13 @@ export const transformRequestBody = (body: any): Partial<IHackathon> => {
       updateData.teamMin = body.participation.teamMin;
     if (body.participation.teamMax !== undefined)
       updateData.teamMax = body.participation.teamMax;
+    if (body.participation.registrationDeadlinePolicy !== undefined)
+      updateData.registrationDeadlinePolicy =
+        body.participation.registrationDeadlinePolicy;
+    if (body.participation.registrationDeadline !== undefined)
+      updateData.registrationDeadline = new Date(
+        body.participation.registrationDeadline,
+      );
     if (body.participation.submissionRequirements !== undefined)
       updateData.submissionRequirements =
         body.participation.submissionRequirements;
@@ -406,4 +414,55 @@ export const resolveHackathonByIdOrSlug = async (
   const hackathon = await hackathonQuery.lean();
 
   return hackathon as IHackathon | null;
+};
+
+/**
+ * Check if hackathon registration is open based on registration deadline policy
+ * Returns { isOpen: boolean, errorMessage?: string }
+ */
+export const isRegistrationOpen = (
+  hackathon: IHackathon,
+): { isOpen: boolean; errorMessage?: string } => {
+  const now = new Date();
+  const policy =
+    hackathon.registrationDeadlinePolicy ||
+    RegistrationDeadlinePolicy.BEFORE_SUBMISSION_DEADLINE; // Default
+
+  switch (policy) {
+    case RegistrationDeadlinePolicy.BEFORE_START:
+      if (hackathon.startDate && now > hackathon.startDate) {
+        return {
+          isOpen: false,
+          errorMessage: "Registration closed: Hackathon has already started",
+        };
+      }
+      break;
+    case RegistrationDeadlinePolicy.BEFORE_SUBMISSION_DEADLINE:
+      if (hackathon.submissionDeadline && now > hackathon.submissionDeadline) {
+        return {
+          isOpen: false,
+          errorMessage: "Registration closed: Submission deadline has passed",
+        };
+      }
+      break;
+    case RegistrationDeadlinePolicy.CUSTOM:
+      if (
+        hackathon.registrationDeadline &&
+        now > hackathon.registrationDeadline
+      ) {
+        return {
+          isOpen: false,
+          errorMessage: "Registration closed: Registration deadline has passed",
+        };
+      } else if (!hackathon.registrationDeadline) {
+        return {
+          isOpen: false,
+          errorMessage:
+            "Registration closed: Registration deadline not configured",
+        };
+      }
+      break;
+  }
+
+  return { isOpen: true };
 };
