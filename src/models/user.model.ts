@@ -1,5 +1,7 @@
 import mongoose, { Document, Schema } from "mongoose";
 import bcrypt from "bcryptjs";
+// Badge is used in schema refs
+// eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
 import Badge from "./badge.model.js";
 
 export enum UserStatus {
@@ -108,6 +110,7 @@ export interface IUser extends Document {
   deleted: boolean;
   deletedAt?: Date;
   deletedReason?: string;
+  // eslint-disable-next-line no-unused-vars
   comparePassword(enteredPassword: string): Promise<boolean>;
 }
 

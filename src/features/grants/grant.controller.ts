@@ -1,12 +1,8 @@
 import { Request, Response } from "express";
-import { body, validationResult } from "express-validator";
-import Grant, { IGrant } from "../../models/grant.model.js";
+import { validationResult } from "express-validator";
+import Grant from "../../models/grant.model.js";
 import { UserRole } from "../../models/user.model.js";
-import {
-  sendError,
-  sendSuccess,
-  sendValidationError,
-} from "../../utils/apiResponse.js";
+import { sendError, sendValidationError } from "../../utils/apiResponse.js";
 import GrantApplication from "../../models/grant-application.model.js";
 import Comment from "../../models/comment.model.js";
 import Vote from "../../models/vote.model.js";

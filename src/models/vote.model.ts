@@ -11,6 +11,7 @@ export interface IVote extends Document {
 
 // VoteModel interface for static methods
 interface VoteModel extends Model<IVote> {
+  // eslint-disable-next-line no-unused-vars
   getVoteCounts(projectId: Types.ObjectId): Promise<
     {
       upvotes: number;
@@ -19,6 +20,7 @@ interface VoteModel extends Model<IVote> {
       netVotes: number;
     }[]
   >;
+
   getUserVote(
     userId: Types.ObjectId,
     projectId: Types.ObjectId,
@@ -54,6 +56,7 @@ const VoteSchema = new Schema<IVote>(
 );
 
 // Virtual for vote type
+// eslint-disable-next-line no-unused-vars
 VoteSchema.virtual("voteType").get(function (this: IVote) {
   return this.value === 1 ? "upvote" : "downvote";
 });

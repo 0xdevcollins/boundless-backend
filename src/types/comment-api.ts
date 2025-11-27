@@ -146,7 +146,7 @@ export interface ApiErrorResponse {
 }
 
 // API Endpoint Types
-export type CommentApiResponse<T = any> =
+export type CommentApiResponse =
   | CreateCommentResponse
   | GetCommentsResponse
   | UpdateCommentResponse
@@ -182,6 +182,7 @@ export interface UseCommentsReturn {
 }
 
 export interface UseCreateCommentReturn {
+  // eslint-disable-next-line no-unused-vars
   createComment: (data: CreateCommentRequest) => Promise<CreateCommentResponse>;
   loading: boolean;
   error: string | null;

@@ -6,6 +6,8 @@ import HackathonTeamInvitation, {
   HackathonTeamInvitationStatus,
 } from "../../models/hackathon-team-invitation.model.js";
 import User from "../../models/user.model.js";
+// Hackathon is used in error message strings
+// eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
 import Hackathon from "../../models/hackathon.model.js";
 import {
   sendSuccess,

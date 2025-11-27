@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import mongoose from "mongoose";
 import HackathonTeamRecruitmentPost, {
   TeamRecruitmentPostStatus,
 } from "../../models/hackathon-team-recruitment-post.model.js";

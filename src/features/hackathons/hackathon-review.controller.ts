@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import Hackathon from "../../models/hackathon.model.js";
 import HackathonParticipant from "../../models/hackathon-participant.model.js";
 import User from "../../models/user.model.js";
+// Organization is used in error message strings
+// eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
 import Organization from "../../models/organization.model.js";
 import {
   sendSuccess,

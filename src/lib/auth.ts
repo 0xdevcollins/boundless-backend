@@ -10,8 +10,7 @@ import EmailTemplatesService from "../services/email/email-templates.service.js"
 import { syncBetterAuthUser } from "./auth-sync.js";
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
-// Create a separate MongoClient for Better Auth
-// This ensures type compatibility with Better Auth's MongoDB adapter
+
 let betterAuthClient: MongoClient | null = null;
 let betterAuthDb: ReturnType<MongoClient["db"]> | null = null;
 
@@ -21,14 +20,12 @@ const db = client.db();
 export const auth = betterAuth({
   database: mongodbAdapter(db, {
     client,
-    usePlural: true, // Use plural collection names (users) to match backend Mongoose model
+    usePlural: true,
   }),
-  // baseURL should be the backend server URL, not frontend
   baseURL: process.env.BETTER_AUTH_URL || "https://api.boundlessfi.xyz",
-  // basePath: "/api/auth",
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true, // We'll use OTP for verification
+    requireEmailVerification: true,
     sendResetPassword: async ({ user, url, token }, request) => {
       const emailTemplate = EmailTemplatesService.getTemplate(
         "password-reset",
@@ -47,10 +44,8 @@ export const auth = betterAuth({
       });
     },
     onPasswordReset: async ({ user }, request) => {
-      // Execute logic after password has been successfully reset
       console.log(`Password for user ${user.email} has been reset.`);
 
-      // Optionally send a confirmation email
       try {
         const emailTemplate = EmailTemplatesService.getTemplate(
           "password-reset",
@@ -72,7 +67,6 @@ export const auth = betterAuth({
           "Failed to send password reset confirmation email:",
           error,
         );
-        // Don't throw - email sending failure shouldn't break password reset
       }
     },
   },
@@ -80,16 +74,9 @@ export const auth = betterAuth({
     google: {
       clientId: config.GOOGLE_CLIENT_ID,
       clientSecret: config.GOOGLE_CLIENT_SECRET,
-      // Optional: Always ask user to select an account (useful for multi-account users)
-      // Uncomment to enable:
-      // prompt: "select_account",
-
-      // Optional: Always get refresh token (required for offline access to Google APIs)
-      // Note: Google only issues refresh token on first consent. To get a new refresh token,
-      // users must revoke app access in their Google account settings, then re-authorize.
-      // Uncomment both lines to enable:
+      redirectUri: config.GOOGLE_REDIRECT_URI,
       accessType: "offline",
-      prompt: "select_account consent", // Required with accessType: "offline"
+      prompt: "select_account consent",
     },
     github: {
       clientId: config.GITHUB_CLIENT_ID,
@@ -104,10 +91,7 @@ export const auth = betterAuth({
   },
   plugins: [
     lastLoginMethod({
-      // Store in database for persistent tracking and analytics
-      // Set to false to use cookie-only storage (default)
       storeInDatabase: true,
-      // Cookie expires in 30 days (default)
       maxAge: 60 * 60 * 24 * 30,
     }),
     oneTap(),
@@ -163,18 +147,15 @@ export const auth = betterAuth({
   ],
   hooks: {
     after: createAuthMiddleware(async (ctx) => {
-      // Access the new session from context (created after sign-up/sign-in)
       const newSession = ctx.context.newSession;
 
       if (!newSession || !newSession.user) {
-        return; // No user created, skip sync
+        return;
       }
 
       const user = newSession.user;
 
-      // Handle team invitations after sign-up
       if (ctx.path === "/sign-up/email") {
-        // Check both body and query for invitation token
         const invitationToken =
           (ctx.body?.invitation as string | undefined) ||
           (ctx.query?.invitation as string | undefined);
@@ -186,22 +167,17 @@ export const auth = betterAuth({
             });
           } catch (error) {
             console.error("Error handling invitation during sign-up:", error);
-            // Don't fail the sign-up if invitation handling fails
           }
         } else {
-          // Sync user even without invitation
           await syncBetterAuthUser(user.id, user.email);
         }
       }
 
-      // Handle team invitations after OAuth sign-in
       if (ctx.path === "/sign-in/social" || ctx.path.startsWith("/callback/")) {
-        // Check both body and query for invitation token
         const invitationToken =
           (ctx.body?.invitation as string | undefined) ||
           (ctx.query?.invitation as string | undefined);
 
-        // Extract user info from Better Auth user
         const firstName = user.name?.split(" ")[0] || "";
         const lastName = user.name?.split(" ").slice(1).join(" ") || "";
         const avatar = user.image || "";
@@ -218,7 +194,6 @@ export const auth = betterAuth({
             console.error("Error handling invitation during OAuth:", error);
           }
         } else {
-          // Sync user even without invitation
           await syncBetterAuthUser(user.id, user.email, {
             firstName,
             lastName,
@@ -227,26 +202,22 @@ export const auth = betterAuth({
         }
       }
 
-      // Sync user after email verification and update verification status
       if (ctx.path === "/email-otp/verify-email") {
         await syncBetterAuthUser(user.id, user.email);
-        // Update user verification status
         const { updateUserVerificationStatus } = await import("./auth-sync.js");
         await updateUserVerificationStatus(user.email, true);
       }
     }),
   },
-  // trustedOrigins must be at the top level (not inside advanced)
-  // Must include exactly the origins your browser uses (protocol, hostname, and port must all match)
   trustedOrigins: [
     "https://boundlessfi.xyz",
     "https://www.boundlessfi.xyz",
     "https://staging.boundlessfi.xyz",
     "https://www.staging.boundlessfi.xyz",
-    "https://staging-api.boundlessfi.xyz", // Add this for staging API
-    "https://api.boundlessfi.xyz", // Add this for production API
+    "https://staging-api.boundlessfi.xyz",
+    "https://api.boundlessfi.xyz",
     "http://localhost:3000",
-    "http://localhost:8000", // For local development
+    "http://localhost:8000",
     "http://192.168.1.187:3000",
   ],
 });

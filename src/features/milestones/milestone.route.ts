@@ -135,7 +135,6 @@ import { Router } from "express";
 import {
   reviewMilestone,
   submitMilestoneProof,
-  updateMilestoneStatus,
 } from "./milestone.controller.js";
 import { protect } from "../../middleware/better-auth.middleware.js";
 import { roleMiddleware } from "../../middleware/better-auth.middleware.js";

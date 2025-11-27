@@ -93,11 +93,13 @@ export const publishHackathon = async (
       }
 
       // Merge new data with existing draft (exclude draftId from body)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
       const { draftId: _, ...bodyWithoutDraftId } = req.body;
       const updateData = transformRequestBody(bodyWithoutDraftId);
       Object.assign(hackathon, updateData);
     } else {
       // Create new hackathon (exclude draftId from body)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
       const { draftId: _, ...bodyWithoutDraftId } = req.body;
       const updateData = transformRequestBody(bodyWithoutDraftId);
       hackathon = new Hackathon({
@@ -321,6 +323,7 @@ export const updateHackathon = async (
         process.env.FRONTEND_URL ||
         config.cors.origin ||
         "https://boundlessfi.xyz";
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
       const baseUrl = Array.isArray(frontendUrl) ? frontendUrl[0] : frontendUrl;
       const updaterName =
         `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||

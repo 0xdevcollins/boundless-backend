@@ -22,7 +22,8 @@ app.get("/user", (req, res) => {
 });
 app.listen(PORT, () => {
   console.log(`Server is running at http://localhost:${PORT}`);
-  connectDB().catch((err) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
+  connectDB().catch((_err) => {
     console.log("Database connection optional - server will continue running");
   });
 });

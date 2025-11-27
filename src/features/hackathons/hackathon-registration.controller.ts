@@ -105,9 +105,6 @@ export const registerForHackathon = async (
         }).select("email profile");
 
         // Add existing users to team
-        const existingUserEmails = new Set(
-          memberUsers.map((u) => u.email.toLowerCase()),
-        );
         memberUsers.forEach((member) => {
           // Don't add if already added as leader
           if (member._id.toString() !== user._id.toString()) {

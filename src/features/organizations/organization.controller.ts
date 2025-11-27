@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { body, validationResult } from "express-validator";
 import Organization, {
   CustomPermissions,
   IOrganization,
@@ -11,7 +10,6 @@ import Grant from "../../models/grant.model.js";
 import {
   sendSuccess,
   sendError,
-  sendValidationError,
   sendNotFound,
   sendForbidden,
   sendBadRequest,
@@ -648,6 +646,7 @@ export const updateOrganizationProfile = async (
         process.env.FRONTEND_URL ||
         config.cors.origin ||
         "https://boundlessfi.xyz";
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
       const baseUrl = Array.isArray(frontendUrl) ? frontendUrl[0] : frontendUrl;
       const actorName =
         `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
@@ -830,6 +829,7 @@ export const updateOrganizationLinks = async (
         process.env.FRONTEND_URL ||
         config.cors.origin ||
         "https://boundlessfi.xyz";
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
       const baseUrl = Array.isArray(frontendUrl) ? frontendUrl[0] : frontendUrl;
       const actorName =
         `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
@@ -1411,6 +1411,7 @@ export const archiveOrganization = async (
         process.env.FRONTEND_URL ||
         config.cors.origin ||
         "https://boundlessfi.xyz";
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
       const baseUrl = Array.isArray(frontendUrl) ? frontendUrl[0] : frontendUrl;
       const archiverName =
         `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
@@ -1551,6 +1552,7 @@ export const unarchiveOrganization = async (
         process.env.FRONTEND_URL ||
         config.cors.origin ||
         "https://boundlessfi.xyz";
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
       const baseUrl = Array.isArray(frontendUrl) ? frontendUrl[0] : frontendUrl;
       const unarchiverName =
         `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
@@ -1649,6 +1651,7 @@ export const deleteOrganization = async (
         process.env.FRONTEND_URL ||
         config.cors.origin ||
         "https://boundlessfi.xyz";
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
       const baseUrl = Array.isArray(frontendUrl) ? frontendUrl[0] : frontendUrl;
       const ownerName =
         `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||

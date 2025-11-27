@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
+// Hackathon is used in error message strings
+// eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
 import Hackathon from "../../models/hackathon.model.js";
 import HackathonParticipant from "../../models/hackathon-participant.model.js";
 import HackathonSubmissionVote from "../../models/hackathon-submission-vote.model.js";
-import HackathonSubmissionComment from "../../models/hackathon-submission-comment.model.js";
 import {
   sendSuccess,
   sendCreated,

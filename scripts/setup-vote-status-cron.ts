@@ -2,7 +2,6 @@ import cron from "node-cron";
 import ProjectStatusService from "../src/services/project-status.service";
 
 export function setupVoteStatusCron() {
-  
   cron.schedule("0 * * * *", async () => {
     console.log("Running project status check based on votes...");
 
@@ -24,14 +23,13 @@ export function setupVoteStatusCron() {
     }
   });
 
-  
   cron.schedule("0 */6 * * *", async () => {
     console.log("Checking for expired voting deadlines...");
 
     try {
       const results = await ProjectStatusService.processStatusTransitions({
-        voteThreshold: 50, 
-        positiveVoteRatio: 0.55, 
+        voteThreshold: 50,
+        positiveVoteRatio: 0.55,
         negativeVoteRatio: 0.45,
       });
 

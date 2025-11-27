@@ -5,7 +5,6 @@ import HackathonParticipant from "../../models/hackathon-participant.model.js";
 import HackathonSubmissionComment from "../../models/hackathon-submission-comment.model.js";
 import HackathonSubmissionVote from "../../models/hackathon-submission-vote.model.js";
 import {
-  sendSuccess,
   sendError,
   sendNotFound,
   sendForbidden,

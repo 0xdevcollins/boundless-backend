@@ -88,12 +88,10 @@ import {
   addTeamMember,
   removeTeamMember,
   leaveHackathon,
-  acceptTeamInvitation,
 } from "./hackathon-team.controller.js";
 import {
   inviteTeamMemberSchema,
   addTeamMemberSchema,
-  acceptInvitationSchema,
   memberIdParam,
 } from "./hackathon-team.validators.js";
 import {

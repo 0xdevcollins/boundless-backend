@@ -16,6 +16,7 @@ export class Config {
   // OAuth
   public readonly GOOGLE_CLIENT_ID: string;
   public readonly GOOGLE_CLIENT_SECRET: string;
+  public readonly GOOGLE_REDIRECT_URI: string;
   public readonly GITHUB_CLIENT_ID: string;
   public readonly GITHUB_CLIENT_SECRET: string;
 
@@ -58,6 +59,7 @@ export class Config {
 
     // OAuth
     this.GOOGLE_CLIENT_ID = this.getEnvVariable("GOOGLE_CLIENT_ID", true);
+    this.GOOGLE_REDIRECT_URI = this.getEnvVariable("GOOGLE_REDIRECT_URI", true);
     this.GOOGLE_CLIENT_SECRET = this.getEnvVariable(
       "GOOGLE_CLIENT_SECRET",
       true,

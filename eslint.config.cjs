@@ -6,7 +6,7 @@ module.exports = [
     ignores: ["node_modules", "dist"],
   },
   {
-    files: ["src/**/*.ts"],
+    files: ["src/**/*.ts", "scripts/**/*.ts"],
     languageOptions: {
       parser: tsParser,
       sourceType: "module",

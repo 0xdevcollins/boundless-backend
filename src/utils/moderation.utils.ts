@@ -83,7 +83,8 @@ export const filterSensitiveContent = (content: string): string => {
 };
 
 // Check content toxicity level (placeholder for more sophisticated implementation)
-export const checkToxicity = async (content: string): Promise<number> => {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
+export const checkToxicity = async (_content: string): Promise<number> => {
   // In a real application, you might want to use a service like
   // Google's Perspective API or TensorFlow.js for toxicity detection
   const toxicityScore = Math.random(); // Placeholder implementation

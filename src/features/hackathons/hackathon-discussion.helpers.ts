@@ -1,4 +1,4 @@
-import mongoose, { Types } from "mongoose";
+import { Types } from "mongoose";
 import HackathonDiscussion from "../../models/hackathon-discussion.model.js";
 import { IHackathonDiscussion } from "../../models/hackathon-discussion.model.js";
 import Organization from "../../models/organization.model.js";

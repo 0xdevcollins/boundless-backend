@@ -5,11 +5,9 @@ import { config } from "../src/config";
 
 async function migrateTrustlessWork() {
   try {
-    
     await mongoose.connect(config.mongoUri);
     console.log("Connected to database");
 
-    
     const campaigns = await Campaign.find({
       $or: [
         { trustlessWorkStatus: { $exists: false } },
@@ -21,7 +19,6 @@ async function migrateTrustlessWork() {
     console.log(`Found ${campaigns.length} campaigns to migrate`);
 
     for (const campaign of campaigns) {
-     
       const updates: any = {};
 
       if (!campaign.trustlessWorkStatus) {
@@ -44,7 +41,6 @@ async function migrateTrustlessWork() {
       }
     }
 
-    
     const milestones = await Milestone.find({
       $or: [
         { payoutPercentage: { $exists: false } },
@@ -59,7 +55,6 @@ async function migrateTrustlessWork() {
       const updates: any = {};
 
       if (milestone.payoutPercentage === undefined) {
-        
         const campaignMilestones = await Milestone.find({
           campaignId: milestone.campaignId,
         });
@@ -68,7 +63,6 @@ async function migrateTrustlessWork() {
       }
 
       if (milestone.amount === undefined) {
-       
         const campaign = await Campaign.findById(milestone.campaignId);
         if (campaign) {
           const campaignMilestones = await Milestone.find({
@@ -100,7 +94,6 @@ async function migrateTrustlessWork() {
     console.log("Disconnected from database");
   }
 }
-
 
 if (require.main === module) {
   migrateTrustlessWork();

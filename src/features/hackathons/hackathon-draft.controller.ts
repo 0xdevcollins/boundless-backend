@@ -4,7 +4,6 @@ import Hackathon, { HackathonStatus } from "../../models/hackathon.model.js";
 import {
   sendSuccess,
   sendError,
-  sendValidationError,
   sendNotFound,
   sendForbidden,
   sendBadRequest,

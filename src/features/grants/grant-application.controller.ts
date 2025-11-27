@@ -7,6 +7,7 @@ import Project from "../../models/project.model.js";
 // import { ContractService } from "../services/contract.service.js";
 import Account from "../../models/account.model.js";
 
+// Enum values are used in TRANSITION_RULES object keys
 enum ApplicationStatus {
   Submitted = "SUBMITTED",
   Paused = "PAUSED",
@@ -14,13 +15,15 @@ enum ApplicationStatus {
   AwaitingFinalApproval = "AWAITING_FINAL_APPROVAL",
 }
 
-const TRANSITION_RULES: { [key in ApplicationStatus]?: ApplicationStatus[] } = {
-  [ApplicationStatus.Submitted]: [
-    ApplicationStatus.Paused,
-    ApplicationStatus.Cancelled,
-  ],
-  [ApplicationStatus.Paused]: [ApplicationStatus.Cancelled],
-};
+// eslint-disable-next-line no-unused-vars
+const TRANSITION_RULES: { [_key in ApplicationStatus]?: ApplicationStatus[] } =
+  {
+    [ApplicationStatus.Submitted]: [
+      ApplicationStatus.Paused,
+      ApplicationStatus.Cancelled,
+    ],
+    [ApplicationStatus.Paused]: [ApplicationStatus.Cancelled],
+  };
 
 function isValidTransition(currentStatus: string, newStatus: string): boolean {
   const allowed = TRANSITION_RULES[currentStatus as ApplicationStatus];
@@ -148,7 +151,8 @@ export const lockEscrow = async (req: Request, res: Response) => {
         400,
       );
     }
-    const walletAddress = account.providerAccountId;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
+    const _walletAddress = account.providerAccountId;
     try {
       // await ContractService.fundProject({
       //   projectId: project._id.toString(),

@@ -6,10 +6,7 @@ import {
   removeVote,
 } from "./project-voting.controller.js";
 
-import {
-  protect,
-  optionalAuth,
-} from "../../middleware/better-auth.middleware.js";
+import { protect } from "../../middleware/better-auth.middleware.js";
 import { validateRequest } from "../../middleware/validateRequest.js";
 import { body, param, query } from "express-validator";
 import rateLimit from "express-rate-limit";
@@ -48,7 +45,8 @@ const voteSchema = [
     }),
 ];
 
-const getVotesSchema = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _getVotesSchema = [
   query("page")
     .optional()
     .isInt({ min: 1 })
@@ -308,11 +306,11 @@ const simpleOptionalAuth = async (req: any, res: any, next: any) => {
       return;
     }
 
-    const token = authHeader.split(" ")[1];
+    const _token = authHeader.split(" ")[1];
     // For now, just set a mock user to avoid circular dependency
     req.user = { _id: new mongoose.Types.ObjectId() };
     next();
-  } catch (error) {
+  } catch (_error) {
     next();
   }
 };

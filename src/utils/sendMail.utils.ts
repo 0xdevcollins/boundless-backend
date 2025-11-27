@@ -1,12 +1,5 @@
 import nodemailer from "nodemailer";
 import { config } from "../config/main.config.js";
-import { NotificationType } from "../models/notification.model.js";
-
-interface EmailTemplate {
-  type: NotificationType;
-  subject: string;
-  template: string;
-}
 
 const transporter = nodemailer.createTransport({
   host: config.SMTP_HOST,
@@ -45,7 +38,9 @@ export default async function sendMail({
   }
 }
 
-function generateNotificationHtml({
+// Reserved for future use - notification email template generator
+// eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
+function _generateNotificationHtml({
   name,
   title,
   message,

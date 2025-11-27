@@ -10,14 +10,12 @@ import helmet from "helmet";
 import morgan from "morgan";
 import compression from "compression";
 import dotenv from "dotenv";
-import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import { toNodeHandler } from "better-auth/node";
 
 import connectDB from "./config/db.js";
 import { setupSwagger } from "./config/swagger.js";
 import { sendError } from "./utils/apiResponse.js";
-import { authMiddleware } from "./utils/jwt.utils.js";
 import { checkDatabaseHealth, getDatabaseStatus } from "./utils/db.utils.js";
 import { auth } from "./lib/auth.js";
 
@@ -173,6 +171,7 @@ app.use("*", (req, res) => {
   sendError(res, `Route ${req.originalUrl} not found`, 404);
 });
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
 app.use((error: any, req: Request, res: Response, _next: NextFunction) => {
   console.error("Global error handler:", error);
 

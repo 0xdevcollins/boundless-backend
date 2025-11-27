@@ -1,8 +1,9 @@
 import { IHackathon } from "../../models/hackathon.model.js";
-import { IHackathonParticipant } from "../../models/hackathon-participant.model.js";
 import {
   Participant,
   SubmissionCardProps,
+  // Hackathon type is referenced in comments
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
   Hackathon,
 } from "../../types/hackathon.js";
 

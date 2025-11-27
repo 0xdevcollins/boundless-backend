@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import HackathonDiscussion from "../../models/hackathon-discussion.model.js";
-import Hackathon from "../../models/hackathon.model.js";
 import {
   sendSuccess,
   sendCreated,
@@ -16,8 +15,6 @@ import {
   resolveHackathonByIdOrSlug,
 } from "./hackathon.helpers.js";
 import {
-  buildDiscussionTree,
-  calculateReplyCount,
   formatDiscussionResponse,
   canModifyDiscussion,
 } from "./hackathon-discussion.helpers.js";
