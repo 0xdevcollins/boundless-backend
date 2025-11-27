@@ -299,7 +299,7 @@ export class PublicBlogController {
   // GET /api/blog/categories
   static async getCategories(req: Request, res: Response): Promise<void> {
     try {
-      const categories = await BlogCategory.find({ isActive: true })
+      const categories = await BlogCategory.find({})
         .populate("parent", "name slug")
         .sort({ name: 1 });
 
