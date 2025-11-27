@@ -22,6 +22,10 @@ export const auth = betterAuth({
     client,
     usePlural: true,
   }),
+  session: {
+    expiresIn: 60 * 60 * 24 * 7,
+    updateAge: 60 * 60 * 24,
+  },
   baseURL: process.env.BETTER_AUTH_URL || "https://api.boundlessfi.xyz",
   emailAndPassword: {
     enabled: true,
