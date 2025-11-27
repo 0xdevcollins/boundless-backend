@@ -201,6 +201,8 @@ export const transformHackathonToFrontend = async (
     featured: hackathon.featured || false,
     status: hackathon.status,
     participantType: hackathon.participantType,
+    registrationDeadlinePolicy: hackathon.registrationDeadlinePolicy,
+    registrationDeadline: hackathon.registrationDeadline,
     participants: participantsCount,
 
     // Team info (only for team-related participant types)
