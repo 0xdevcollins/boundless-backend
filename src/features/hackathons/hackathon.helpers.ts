@@ -276,9 +276,9 @@ export const validatePublishRequirements = (
   if (!hackathon.contactEmail) {
     errors.push("Contact email is required");
   }
-  if (!hackathon.sponsorsPartners || hackathon.sponsorsPartners.length === 0) {
-    errors.push("At least one sponsor/partner is required");
-  }
+  // if (!hackathon.sponsorsPartners || hackathon.sponsorsPartners.length === 0) {
+  //   errors.push("At least one sponsor/partner is required");
+  // }
 
   return { valid: errors.length === 0, errors };
 };

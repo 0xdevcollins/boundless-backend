@@ -451,8 +451,9 @@ export const publishSchema: ValidationChain[] = [
     .isEmail()
     .withMessage("Contact email is required and must be a valid email address"),
   body("collaboration.sponsorsPartners")
-    .isArray({ min: 1 })
-    .withMessage("At least one sponsor/partner is required"),
+    .optional()
+    .isArray()
+    .withMessage("Sponsors/partners must be an array if provided"),
 ];
 
 // Analytics query validators
