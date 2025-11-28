@@ -108,12 +108,12 @@ app.use(
     crossOriginEmbedderPolicy: false,
   }),
 );
-app.use(
-  rateLimit({
-    windowMs: config.rateLimit.windowMs,
-    max: config.rateLimit.max,
-  }),
-);
+// app.use(
+//   rateLimit({
+//     windowMs: config.rateLimit.windowMs,
+//     max: config.rateLimit.max,
+//   }),
+// );
 
 // Mount Better Auth handler BEFORE express.json() middleware
 // This is critical - Better Auth needs to handle requests before body parsing

@@ -26,6 +26,9 @@ import EmailTemplatesService from "../../services/email/email-templates.service.
 import { NotificationType } from "../../models/notification.model.js";
 import hackathonParticipantModel from "../../models/hackathon-participant.model.js";
 import hackathonTeamInvitationModel from "../../models/hackathon-team-invitation.model.js";
+import { auth } from "../../lib/auth.js";
+import { fromNodeHeaders } from "better-auth/node";
+import { getCustomOrgFromBetterAuth } from "../../utils/organization-sync.utils.js";
 
 const checkProfileCompletion = (org: IOrganization): boolean => {
   // Check if all required profile fields are filled
@@ -55,9 +58,9 @@ const checkProfileCompletion = (org: IOrganization): boolean => {
   return hasRequiredFields && hasLinks && hasMembers;
 };
 
-// **
-//  * Helper function to check if a user has a specific permission
-//  */
+/**
+ * Helper function to check if a user has a specific permission
+ */
 export const checkUserPermission = async (
   organizationId: string,
   userEmail: string,
@@ -69,9 +72,42 @@ export const checkUserPermission = async (
 
     // Determine user role
     let userRole: "owner" | "admin" | "member" | null = null;
-    if (organization.owner === userEmail) userRole = "owner";
-    else if (organization.admins?.includes(userEmail)) userRole = "admin";
-    else if (organization.members.includes(userEmail)) userRole = "member";
+
+    // If Better Auth org ID exists, check via Better Auth
+    if (organization.betterAuthOrgId) {
+      try {
+        const user = await User.findOne({ email: userEmail.toLowerCase() });
+        if (!user) return false;
+
+        const members = await auth.api.listMembers({
+          query: {
+            organizationId: organization.betterAuthOrgId,
+          },
+        });
+
+        const userMember = members.members?.find(
+          (m: any) => m.user.email.toLowerCase() === userEmail.toLowerCase(),
+        );
+
+        if (!userMember) return false;
+
+        // Map Better Auth roles to our roles
+        if (userMember.role === "owner") userRole = "owner";
+        else if (userMember.role === "admin") userRole = "admin";
+        else userRole = "member";
+      } catch (error) {
+        console.error("Error checking Better Auth membership:", error);
+        // Fallback to custom org check
+        if (organization.owner === userEmail) userRole = "owner";
+        else if (organization.admins?.includes(userEmail)) userRole = "admin";
+        else if (organization.members.includes(userEmail)) userRole = "member";
+      }
+    } else {
+      // Fallback to custom org check
+      if (organization.owner === userEmail) userRole = "owner";
+      else if (organization.admins?.includes(userEmail)) userRole = "admin";
+      else if (organization.members.includes(userEmail)) userRole = "member";
+    }
 
     if (!userRole) return false;
 
@@ -160,32 +196,130 @@ export const createOrganization = async (
       return;
     }
 
-    // Check if an organization with this name already exists
+    // Check if an organization with this name already exists (case-insensitive)
+    const trimmedName = name.trim();
     const existingOrganization = await Organization.findOne({
-      name: name.trim(),
+      name: {
+        $regex: new RegExp(
+          `^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+          "i",
+        ),
+      },
     });
     if (existingOrganization) {
       sendBadRequest(
         res,
-        `An organization with the name "${name}" already exists. Please choose a different name.`,
+        `An organization with the name "${trimmedName}" already exists. Please choose a different name.`,
       );
       return;
     }
 
-    const organization = await Organization.create({
-      name: name.trim(),
-      logo,
-      tagline,
-      about,
-      links: {
-        website: "",
-        x: "",
-        github: "",
-        others: "",
-      },
-      owner: user.email,
-      members: [user.email],
-    });
+    // Generate slug from name
+    const slug = trimmedName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    // Create Better Auth organization
+    let betterAuthOrg;
+    try {
+      betterAuthOrg = await auth.api.createOrganization({
+        body: {
+          name: name.trim(),
+          slug,
+        },
+        headers: fromNodeHeaders(req.headers),
+      });
+
+      if (!betterAuthOrg || !betterAuthOrg.id) {
+        throw new Error("Failed to create Better Auth organization");
+      }
+    } catch (error: any) {
+      console.error("Error creating Better Auth organization:", error);
+      sendInternalServerError(
+        res,
+        "Failed to create organization",
+        error instanceof Error ? error.message : "Unknown error",
+      );
+      return;
+    }
+
+    // Wait a bit for the hook to create custom org, then update it
+    // The hook creates a basic custom org, we need to update it with additional fields
+    let organization = await getCustomOrgFromBetterAuth(betterAuthOrg.id);
+
+    if (!organization) {
+      // Check if an org with this name exists but isn't linked to Better Auth yet
+      const existingOrg = await Organization.findOne({
+        name: {
+          $regex: new RegExp(
+            `^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+            "i",
+          ),
+        },
+      });
+
+      if (existingOrg) {
+        // Link existing org to Better Auth and update it using findOneAndUpdate to avoid validation issues
+        organization = await Organization.findOneAndUpdate(
+          { _id: existingOrg._id },
+          {
+            $set: {
+              betterAuthOrgId: betterAuthOrg.id,
+              logo,
+              tagline,
+              about,
+              // Ensure owner and members are set if missing
+              ...(existingOrg.owner ? {} : { owner: user.email }),
+              ...(existingOrg.members?.length ? {} : { members: [user.email] }),
+            },
+          },
+          { new: true },
+        );
+      } else {
+        // Create new custom org
+        organization = await Organization.create({
+          name: name.trim(),
+          logo,
+          tagline,
+          about,
+          links: {
+            website: "",
+            x: "",
+            github: "",
+            others: "",
+          },
+          owner: user.email,
+          members: [user.email],
+          betterAuthOrgId: betterAuthOrg.id,
+        });
+      }
+    } else {
+      // Update existing custom org with additional fields using findOneAndUpdate
+      const orgId = organization._id;
+      const hasOwner = !!organization.owner;
+      const hasMembers = !!organization.members?.length;
+      organization = await Organization.findOneAndUpdate(
+        { _id: orgId },
+        {
+          $set: {
+            logo,
+            tagline,
+            about,
+            // Ensure owner and members are set if missing
+            ...(hasOwner ? {} : { owner: user.email }),
+            ...(hasMembers ? {} : { members: [user.email] }),
+          },
+        },
+        { new: true },
+      );
+    }
+
+    // Ensure organization was created/updated successfully
+    if (!organization) {
+      sendInternalServerError(res, "Failed to create organization record");
+      return;
+    }
 
     // Send notification to the creator
     try {
@@ -500,10 +634,33 @@ export const getOrganizationById = async (
       return;
     }
 
-    // Check if user is a member or owner
-    const isMember =
-      organization.members.includes(user.email) ||
-      organization.owner === user.email;
+    // Check if user is a member (via Better Auth if available)
+    let isMember = false;
+    if (organization.betterAuthOrgId) {
+      try {
+        const membersResponse = await auth.api.listMembers({
+          query: {
+            organizationId: organization.betterAuthOrgId,
+          },
+          headers: fromNodeHeaders(req.headers),
+        });
+        const membersList = (membersResponse as any).members || [];
+        isMember = membersList.some(
+          (m: any) => m.user.email.toLowerCase() === user.email.toLowerCase(),
+        );
+      } catch (error) {
+        console.error("Error checking Better Auth membership:", error);
+        // Fallback to custom org check
+        isMember =
+          organization.members.includes(user.email) ||
+          organization.owner === user.email;
+      }
+    } else {
+      // Fallback to custom org check
+      isMember =
+        organization.members.includes(user.email) ||
+        organization.owner === user.email;
+    }
 
     if (!isMember) {
       sendForbidden(
@@ -607,10 +764,33 @@ export const updateOrganizationProfile = async (
       return;
     }
 
-    // Check if user is a member or owner
-    const isMember =
-      organization.members.includes(user.email) ||
-      organization.owner === user.email;
+    // Check if user is a member (via Better Auth if available)
+    let isMember = false;
+    if (organization.betterAuthOrgId) {
+      try {
+        const membersResponse = await auth.api.listMembers({
+          query: {
+            organizationId: organization.betterAuthOrgId,
+          },
+          headers: fromNodeHeaders(req.headers),
+        });
+        const membersList = (membersResponse as any).members || [];
+        isMember = membersList.some(
+          (m: any) => m.user.email.toLowerCase() === user.email.toLowerCase(),
+        );
+      } catch (error) {
+        console.error("Error checking Better Auth membership:", error);
+        // Fallback to custom org check
+        isMember =
+          organization.members.includes(user.email) ||
+          organization.owner === user.email;
+      }
+    } else {
+      // Fallback to custom org check
+      isMember =
+        organization.members.includes(user.email) ||
+        organization.owner === user.email;
+    }
 
     if (!isMember) {
       sendForbidden(
@@ -620,7 +800,36 @@ export const updateOrganizationProfile = async (
       return;
     }
 
-    // Update profile fields
+    // Update Better Auth organization if name changed
+    if (
+      organization.betterAuthOrgId &&
+      name !== undefined &&
+      name !== organization.name
+    ) {
+      try {
+        // Generate slug from new name
+        const slug = name
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+
+        await auth.api.updateOrganization({
+          body: {
+            data: {
+              name: name.trim(),
+              slug,
+            },
+          },
+          headers: fromNodeHeaders(req.headers),
+        });
+      } catch (error) {
+        console.error("Error updating Better Auth organization:", error);
+        // Continue with custom org update even if Better Auth update fails
+      }
+    }
+
+    // Update profile fields in custom org
     const updateData: any = {};
     if (name !== undefined) updateData.name = name;
     if (logo !== undefined) updateData.logo = logo;
@@ -786,15 +995,17 @@ export const updateOrganizationLinks = async (
       return;
     }
 
-    // Check if user is a member or owner
-    const isMember =
-      organization.members.includes(user.email) ||
-      organization.owner === user.email;
+    // Check if user is owner or admin (per create_edit_profile permission)
+    const hasPermission = await checkUserPermission(
+      id,
+      user.email,
+      "create_edit_profile",
+    );
 
-    if (!isMember) {
+    if (!hasPermission) {
       sendForbidden(
         res,
-        "Access denied. You must be a member to update this organization.",
+        "Access denied. Only owners and admins can update organization links.",
       );
       return;
     }
@@ -972,15 +1183,17 @@ export const updateOrganizationMembers = async (
       return;
     }
 
-    // Check if user is a member or owner
-    const isMember =
-      organization.members.includes(user.email) ||
-      organization.owner === user.email;
+    // Check if user has permission to invite/remove members (owner or admin)
+    const hasPermission = await checkUserPermission(
+      id,
+      user.email,
+      "invite_remove_members",
+    );
 
-    if (!isMember) {
+    if (!hasPermission) {
       sendForbidden(
         res,
-        "Access denied. You must be a member to update this organization.",
+        "Access denied. Only owners and admins can add or remove members.",
       );
       return;
     }
@@ -1647,10 +1860,49 @@ export const deleteOrganization = async (
       return;
     }
 
-    if (organization.owner !== user.email) {
+    // Check if user is owner (via Better Auth if available)
+    let isOwner = false;
+    if (organization.betterAuthOrgId) {
+      try {
+        const members = await auth.api.listMembers({
+          query: {
+            organizationId: organization.betterAuthOrgId,
+          },
+          headers: fromNodeHeaders(req.headers),
+        });
+        const userMember = members.members?.find(
+          (m: any) => m.user.email.toLowerCase() === user.email.toLowerCase(),
+        );
+        isOwner = userMember?.role === "owner";
+      } catch (error) {
+        console.error("Error checking Better Auth ownership:", error);
+        // Fallback to custom org check
+        isOwner = organization.owner === user.email;
+      }
+    } else {
+      // Fallback to custom org check
+      isOwner = organization.owner === user.email;
+    }
+
+    if (!isOwner) {
       await session.abortTransaction();
       sendForbidden(res, "Only the owner can delete the organization");
       return;
+    }
+
+    // Delete Better Auth organization if it exists
+    if (organization.betterAuthOrgId) {
+      try {
+        await auth.api.deleteOrganization({
+          body: {
+            organizationId: organization.betterAuthOrgId,
+          },
+          headers: fromNodeHeaders(req.headers),
+        });
+      } catch (error) {
+        console.error("Error deleting Better Auth organization:", error);
+        // Continue with custom org deletion even if Better Auth deletion fails
+      }
     }
 
     // Notify team members (non-blocking)
@@ -1874,12 +2126,47 @@ export const sendInvite = async (
       return;
     }
 
-    // Check if user is a member or owner
-    const isMember =
-      organization.members.includes(user.email) ||
-      organization.owner === user.email;
+    // Get Better Auth organization ID
+    const betterAuthOrgId = organization.betterAuthOrgId;
+    if (!betterAuthOrgId) {
+      sendBadRequest(
+        res,
+        "Organization is not linked to Better Auth. Please contact support.",
+      );
+      return;
+    }
 
-    if (!isMember) {
+    // Check if user is a member or owner (using Better Auth)
+    try {
+      const session = await auth.api.getSession({
+        headers: fromNodeHeaders(req.headers),
+      });
+      if (!session || !session.user) {
+        sendForbidden(res, "Authentication required");
+        return;
+      }
+
+      // Check membership via Better Auth
+      const members = await auth.api.listMembers({
+        query: {
+          organizationId: betterAuthOrgId,
+        },
+        headers: fromNodeHeaders(req.headers),
+      });
+
+      const isMember = members.members?.some(
+        (m: any) => m.user.email === user.email,
+      );
+
+      if (!isMember) {
+        sendForbidden(
+          res,
+          "Access denied. You must be a member to invite others.",
+        );
+        return;
+      }
+    } catch (error) {
+      console.error("Error checking membership:", error);
       sendForbidden(
         res,
         "Access denied. You must be a member to invite others.",
@@ -1897,146 +2184,82 @@ export const sendInvite = async (
       ),
     );
 
+    // Check existing members and invitations via Better Auth
+    const members = await auth.api.listMembers({
+      query: {
+        organizationId: betterAuthOrgId,
+      },
+      headers: fromNodeHeaders(req.headers),
+    });
+
+    const invitations = await auth.api.listInvitations({
+      query: {
+        organizationId: betterAuthOrgId,
+      },
+      headers: fromNodeHeaders(req.headers),
+    });
+
+    const existingMemberEmails = new Set(
+      members.members?.map((m: any) => m.user.email.toLowerCase()) || [],
+    );
+    const existingInvitationEmails = new Set(
+      (Array.isArray(invitations) ? invitations : []).map((inv: any) =>
+        inv.email.toLowerCase(),
+      ) || [],
+    );
+
     // Filter out already members or already invited
     const alreadyMembers: string[] = [];
     const alreadyInvited: string[] = [];
     const toInvite: string[] = [];
 
     for (const e of normalizedEmails) {
-      if (organization.members.includes(e)) {
+      if (existingMemberEmails.has(e)) {
         alreadyMembers.push(e);
         continue;
       }
-      if (organization.pendingInvites.includes(e)) {
+      if (existingInvitationEmails.has(e)) {
         alreadyInvited.push(e);
         continue;
       }
       toInvite.push(e);
     }
 
-    // Split by registration status
-    const existingUsers = await User.find({ email: { $in: toInvite } }).select(
-      "email profile.firstName profile.lastName",
-    );
-    const registeredSet = new Set(
-      existingUsers.map((u) => u.email.toLowerCase()),
-    );
-    const registeredEmails = toInvite.filter((e) => registeredSet.has(e));
-    const unregisteredEmails = toInvite.filter((e) => !registeredSet.has(e));
-
-    // Update pendingInvites with all toInvite (both registered and unregistered)
-    let updatedOrganization = organization;
-    if (toInvite.length > 0) {
-      updatedOrganization = (await Organization.findByIdAndUpdate(
-        id,
-        { $addToSet: { pendingInvites: { $each: toInvite } } },
-        { new: true, runValidators: true },
-      ))!;
-    }
-
-    // Prepare base URL for links (use first CORS origin if array)
-    const originCfg = config.cors.origin;
-    const baseUrl = Array.isArray(originCfg) ? originCfg[0] : originCfg;
-
-    // Generate and send emails (best effort; failures won't rollback DB)
+    // Create invitations via Better Auth (emails will be sent via callback)
     const sentToRegistered: string[] = [];
     const sentToUnregistered: string[] = [];
     const failed: Array<{ email: string; error: string }> = [];
 
-    // Direct invite link for registered users (frontend route)
-    for (const e of registeredEmails) {
-      const acceptUrl = `${baseUrl}/organizations/${id}/invite/accept?email=${encodeURIComponent(
-        e,
-      )}`;
+    for (const email of toInvite) {
       try {
-        await sendMail({
-          to: e,
-          subject: `You've been invited to join an organization`,
-          html: `
-            <p>Hello,</p>
-            <p>You have been invited to join <strong>${organization.name}</strong>.</p>
-            <p><a href="${acceptUrl}">Click here to accept the invite</a></p>
-            <p>If you did not expect this, you can ignore this email.</p>
-          `.trim(),
+        const result = await auth.api.createInvitation({
+          body: {
+            email,
+            role: "member",
+            organizationId: betterAuthOrgId,
+            resend: false,
+          },
+          headers: fromNodeHeaders(req.headers),
         });
-        sentToRegistered.push(e);
 
-        // Send in-app notification to invited user
-        try {
-          const invitedUser = existingUsers.find(
-            (u) => u.email.toLowerCase() === e.toLowerCase(),
-          );
-          if (invitedUser) {
-            const inviterName =
-              `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
-              user.email;
-            await NotificationService.sendSingleNotification(
-              {
-                userId: invitedUser._id,
-                email: invitedUser.email,
-                name:
-                  `${invitedUser.profile?.firstName || ""} ${invitedUser.profile?.lastName || ""}`.trim() ||
-                  invitedUser.email,
-                preferences: invitedUser.settings?.notifications,
-              },
-              {
-                type: NotificationType.ORGANIZATION_INVITE_SENT,
-                title: `Invited to join ${organization.name}`,
-                message: `${inviterName} has invited you to join "${organization.name}"`,
-                data: {
-                  organizationId: new mongoose.Types.ObjectId(id),
-                  organizationName: organization.name,
-                  inviterName,
-                  acceptUrl,
-                },
-                emailTemplate: EmailTemplatesService.getTemplate(
-                  "organization-invite-sent",
-                  {
-                    organizationId: id,
-                    organizationName: organization.name,
-                    inviterName,
-                    acceptUrl,
-                    unsubscribeUrl: `${baseUrl}/unsubscribe?email=${encodeURIComponent(e)}`,
-                  },
-                ),
-                sendEmail: false, // Email already sent above
-                sendInApp: true,
-              },
-            );
+        if (result && result.id) {
+          // Check if user is registered
+          const existingUser = await User.findOne({
+            email: email.toLowerCase(),
+          });
+          if (existingUser) {
+            sentToRegistered.push(email);
+          } else {
+            sentToUnregistered.push(email);
           }
-        } catch (notificationError) {
-          console.error(
-            `Error sending notification to ${e}:`,
-            notificationError,
-          );
-          // Don't fail the whole operation if notification fails
+        } else {
+          failed.push({
+            email,
+            error: "Failed to create invitation",
+          });
         }
       } catch (err: any) {
-        failed.push({ email: e, error: err?.message || "send failed" });
-      }
-    }
-
-    // Signup link with invite code for unregistered users
-    for (const e of unregisteredEmails) {
-      const inviteCode = Math.random().toString(36).slice(2, 10);
-      const signupUrl = `${baseUrl}/signup?orgId=${encodeURIComponent(
-        id,
-      )}&invite=${encodeURIComponent(inviteCode)}&email=${encodeURIComponent(e)}`;
-      try {
-        await sendMail({
-          to: e,
-          subject: `Join ${organization.name} on Boundless`,
-          html: `
-            <p>Hello,</p>
-            <p>You have been invited to join <strong>${organization.name}</strong> on Boundless.</p>
-            <p><a href="${signupUrl}">Create your account and join</a></p>
-            <p>Invite code: <strong>${inviteCode}</strong></p>
-            <p>If you did not expect this, you can ignore this email.</p>
-          `.trim(),
-        });
-        sentToUnregistered.push(e);
-      } catch (err: any) {
-        failed.push({ email: e, error: err?.message || "send failed" });
+        failed.push({ email, error: err?.message || "send failed" });
       }
     }
 
@@ -2088,7 +2311,7 @@ export const sendInvite = async (
     sendSuccess(
       res,
       {
-        organization: updatedOrganization,
+        organization,
         summary: {
           invitedCount: toInvite.length,
           alreadyMembers,
@@ -2161,21 +2384,60 @@ export const acceptInvite = async (
       return;
     }
 
-    // Check if user has a pending invite
-    if (!organization.pendingInvites.includes(user.email)) {
+    // Get Better Auth organization ID
+    const betterAuthOrgId = organization.betterAuthOrgId;
+    if (!betterAuthOrgId) {
+      sendBadRequest(
+        res,
+        "Organization is not linked to Better Auth. Please contact support.",
+      );
+      return;
+    }
+
+    // Find pending invitation for this user
+    let invitationId: string | null = null;
+    try {
+      const invitations = await auth.api.listUserInvitations({
+        query: {
+          email: user.email,
+        },
+        headers: fromNodeHeaders(req.headers),
+      });
+
+      const invitationsArray = Array.isArray(invitations) ? invitations : [];
+      const userInvitation = invitationsArray.find(
+        (inv: any) =>
+          inv.organizationId === betterAuthOrgId && inv.status === "pending",
+      );
+
+      if (!userInvitation) {
+        sendBadRequest(res, "No pending invite found for this user");
+        return;
+      }
+
+      invitationId = userInvitation.id;
+    } catch (error) {
+      console.error("Error finding invitation:", error);
       sendBadRequest(res, "No pending invite found for this user");
       return;
     }
 
-    // Remove from pending invites and add to members
-    const updatedOrganization = await Organization.findByIdAndUpdate(
-      id,
-      {
-        $pull: { pendingInvites: user.email },
-        $push: { members: user.email },
-      },
-      { new: true, runValidators: true },
-    );
+    // Accept invitation via Better Auth (this will add user to organization)
+    try {
+      await auth.api.acceptInvitation({
+        body: {
+          invitationId: invitationId!,
+        },
+        headers: fromNodeHeaders(req.headers),
+      });
+    } catch (error: any) {
+      console.error("Error accepting invitation:", error);
+      sendBadRequest(res, error?.message || "Failed to accept invitation");
+      return;
+    }
+
+    // Sync members to custom org (hook should handle this, but ensure it's done)
+    const updatedOrganization = await Organization.findById(id);
 
     // Check profile completion and update if needed
     const isComplete = checkProfileCompletion(updatedOrganization!);
@@ -2635,52 +2897,90 @@ export const assignRole = async (
       return;
     }
 
-    // Only owner can assign roles
-    if (organization.owner !== user.email) {
+    // Get Better Auth organization ID
+    const betterAuthOrgId = organization.betterAuthOrgId;
+    if (!betterAuthOrgId) {
+      sendBadRequest(
+        res,
+        "Organization is not linked to Better Auth. Please contact support.",
+      );
+      return;
+    }
+
+    // Check permissions via Better Auth (only owner can assign roles)
+    try {
+      const activeMember = await auth.api.getActiveMember({
+        headers: fromNodeHeaders(req.headers),
+      });
+
+      if (!activeMember || activeMember.role !== "owner") {
+        sendForbidden(res, "Only the owner can assign roles");
+        return;
+      }
+    } catch (error) {
+      console.error("Error checking permissions:", error);
       sendForbidden(res, "Only the owner can assign roles");
       return;
     }
 
-    // Cannot change owner's role
-    if (email === organization.owner) {
-      sendBadRequest(res, "Cannot change owner's role");
-      return;
-    }
+    // Find member by email
+    const members = await auth.api.listMembers({
+      query: {
+        organizationId: betterAuthOrgId,
+      },
+      headers: fromNodeHeaders(req.headers),
+    });
 
-    // Check if user is a member
-    if (!organization.members.includes(email)) {
+    const targetMember = members.members?.find(
+      (m: any) => m.user.email.toLowerCase() === email.toLowerCase(),
+    );
+
+    if (!targetMember) {
       sendBadRequest(res, "User must be a member of the organization");
       return;
     }
 
-    let updatedOrganization;
+    // Cannot change owner's role
+    if (targetMember.role === "owner") {
+      sendBadRequest(res, "Cannot change owner's role");
+      return;
+    }
 
+    let newRole: string;
     if (action === "promote") {
       // Check if already an admin
-      if (organization.admins?.includes(email)) {
+      if (targetMember.role === "admin") {
         sendBadRequest(res, "User is already an admin");
         return;
       }
-
-      updatedOrganization = await Organization.findByIdAndUpdate(
-        id,
-        { $addToSet: { admins: email } },
-        { new: true, runValidators: true },
-      );
+      newRole = "admin";
     } else {
       // demote
       // Check if user is an admin
-      if (!organization.admins?.includes(email)) {
+      if (targetMember.role !== "admin") {
         sendBadRequest(res, "User is not an admin");
         return;
       }
-
-      updatedOrganization = await Organization.findByIdAndUpdate(
-        id,
-        { $pull: { admins: email } },
-        { new: true, runValidators: true },
-      );
+      newRole = "member";
     }
+
+    // Update role via Better Auth
+    await auth.api.updateMemberRole({
+      body: {
+        role: newRole,
+        memberId: targetMember.id,
+        organizationId: betterAuthOrgId,
+      },
+      headers: fromNodeHeaders(req.headers),
+    });
+
+    // Sync members to custom org
+    const { syncMembersToCustomOrg } = await import(
+      "../../utils/organization-sync.utils.js"
+    );
+    await syncMembersToCustomOrg(betterAuthOrgId);
+
+    const updatedOrganization = await Organization.findById(id);
 
     // Send notifications for role changes
     try {
@@ -2978,39 +3278,109 @@ export const updateOrganizationMembersWithRoles = async (
       return;
     }
 
-    // Check permissions: Owner and Admin can manage members
-    if (!checkPermission(organization, user.email, ["owner", "admin"])) {
+    // Get Better Auth organization ID
+    const betterAuthOrgId = organization.betterAuthOrgId;
+    if (!betterAuthOrgId) {
+      sendBadRequest(
+        res,
+        "Organization is not linked to Better Auth. Please contact support.",
+      );
+      return;
+    }
+
+    // Check permissions via Better Auth
+    try {
+      const session = await auth.api.getSession({
+        headers: fromNodeHeaders(req.headers),
+      });
+      if (!session || !session.user) {
+        sendForbidden(res, "Authentication required");
+        return;
+      }
+
+      const activeMember = await auth.api.getActiveMember({
+        headers: fromNodeHeaders(req.headers),
+      });
+
+      if (
+        !activeMember ||
+        (activeMember.role !== "owner" && activeMember.role !== "admin")
+      ) {
+        sendForbidden(res, "Only owners and admins can manage members");
+        return;
+      }
+    } catch (error) {
+      console.error("Error checking permissions:", error);
       sendForbidden(res, "Only owners and admins can manage members");
       return;
     }
 
-    let updatedMembers = [...organization.members];
-
     if (action === "add") {
-      if (updatedMembers.includes(email)) {
-        sendBadRequest(res, "User is already a member");
+      // Find user by email
+      const targetUser = await User.findOne({ email: email.toLowerCase() });
+      if (!targetUser) {
+        sendBadRequest(res, "User not found");
         return;
       }
-      updatedMembers.push(email);
+
+      // Add member via Better Auth
+      try {
+        await auth.api.addMember({
+          body: {
+            userId: targetUser._id.toString(),
+            role: "member",
+            organizationId: betterAuthOrgId,
+          },
+          headers: fromNodeHeaders(req.headers),
+        });
+      } catch (error: any) {
+        if (error.message?.includes("already")) {
+          sendBadRequest(res, "User is already a member");
+          return;
+        }
+        throw error;
+      }
     } else if (action === "remove") {
-      if (email === organization.owner) {
+      // Find member by email
+      const members = await auth.api.listMembers({
+        query: {
+          organizationId: betterAuthOrgId,
+        },
+        headers: fromNodeHeaders(req.headers),
+      });
+
+      const targetMember = members.members?.find(
+        (m: any) => m.user.email.toLowerCase() === email.toLowerCase(),
+      );
+
+      if (!targetMember) {
+        sendBadRequest(res, "User is not a member");
+        return;
+      }
+
+      // Check if trying to remove owner
+      if (targetMember.role === "owner") {
         sendBadRequest(res, "Cannot remove the owner");
         return;
       }
-      // If removing an admin, also remove from admins array
-      if (organization.admins?.includes(email)) {
-        await Organization.findByIdAndUpdate(id, {
-          $pull: { admins: email },
-        });
-      }
-      updatedMembers = updatedMembers.filter((member) => member !== email);
+
+      // Remove member via Better Auth
+      await auth.api.removeMember({
+        body: {
+          memberIdOrEmail: email,
+          organizationId: betterAuthOrgId,
+        },
+        headers: fromNodeHeaders(req.headers),
+      });
     }
 
-    const updatedOrganization = await Organization.findByIdAndUpdate(
-      id,
-      { members: updatedMembers },
-      { new: true, runValidators: true },
+    // Sync members to custom org
+    const { syncMembersToCustomOrg } = await import(
+      "../../utils/organization-sync.utils.js"
     );
+    await syncMembersToCustomOrg(betterAuthOrgId);
+
+    const updatedOrganization = await Organization.findById(id);
 
     sendSuccess(res, updatedOrganization, `Member ${action}ed successfully`);
   } catch (error) {
@@ -3055,11 +3425,101 @@ export const getUserRoleInOrganization = async (
       return;
     }
 
-    const role = getUserRole(organization, user.email);
-
-    if (!role) {
-      sendForbidden(res, "You are not a member of this organization");
+    // Get Better Auth organization ID
+    const betterAuthOrgId = organization.betterAuthOrgId;
+    if (!betterAuthOrgId) {
+      // Fallback to custom org check for backward compatibility
+      const role = getUserRole(organization, user.email);
+      if (!role) {
+        sendForbidden(res, "You are not a member of this organization");
+        return;
+      }
+      // Return role from custom org
+      const permissions = {
+        owner: {
+          canEditProfile: true,
+          canCreateProfile: true,
+          canManageHackathons: true,
+          canPublishHackathons: true,
+          canViewAnalytics: true,
+          canInviteMembers: true,
+          canRemoveMembers: true,
+          canAssignRoles: true,
+          canPostAnnouncements: true,
+          canComment: true,
+          canAccessSubmissions: true,
+          canDeleteOrganization: true,
+        },
+        admin: {
+          canEditProfile: true,
+          canCreateProfile: false,
+          canManageHackathons: true,
+          canPublishHackathons: false,
+          canViewAnalytics: true,
+          canInviteMembers: true,
+          canRemoveMembers: true,
+          canAssignRoles: false,
+          canPostAnnouncements: false,
+          canComment: true,
+          canAccessSubmissions: true,
+          canDeleteOrganization: false,
+        },
+        member: {
+          canEditProfile: false,
+          canCreateProfile: false,
+          canManageHackathons: false,
+          canPublishHackathons: false,
+          canViewAnalytics: true,
+          canInviteMembers: false,
+          canRemoveMembers: false,
+          canAssignRoles: false,
+          canPostAnnouncements: false,
+          canComment: true,
+          canAccessSubmissions: true,
+          canDeleteOrganization: false,
+        },
+      };
+      sendSuccess(
+        res,
+        {
+          role,
+          permissions: permissions[role],
+        },
+        "User role retrieved successfully",
+      );
       return;
+    }
+
+    // Get role from Better Auth
+    let role: "owner" | "admin" | "member" | null = null;
+    try {
+      const membersResponse = await auth.api.listMembers({
+        query: {
+          organizationId: betterAuthOrgId,
+        },
+        headers: fromNodeHeaders(req.headers),
+      });
+
+      const membersList = (membersResponse as any).members || [];
+      const userMember = membersList.find(
+        (m: any) => m.user.email.toLowerCase() === user.email.toLowerCase(),
+      );
+
+      if (!userMember) {
+        sendForbidden(res, "You are not a member of this organization");
+        return;
+      }
+
+      role = userMember.role as "owner" | "admin" | "member";
+    } catch (error) {
+      console.error("Error getting role from Better Auth:", error);
+      // Fallback to custom org check
+      const fallbackRole = getUserRole(organization, user.email);
+      if (!fallbackRole) {
+        sendForbidden(res, "You are not a member of this organization");
+        return;
+      }
+      role = fallbackRole;
     }
 
     // Get detailed permissions based on role
@@ -3107,6 +3567,11 @@ export const getUserRoleInOrganization = async (
         canDeleteOrganization: false,
       },
     };
+
+    if (!role) {
+      sendForbidden(res, "You are not a member of this organization");
+      return;
+    }
 
     sendSuccess(
       res,
@@ -3158,56 +3623,171 @@ export const getMembersWithRoles = async (
       return;
     }
 
-    // Check if user is a member
-    const userRole = getUserRole(organization, user.email);
-    if (!userRole) {
-      sendForbidden(
-        res,
-        "Access denied. You must be a member to view this organization.",
+    // Get Better Auth organization ID
+    const betterAuthOrgId = organization.betterAuthOrgId;
+
+    let owner: any;
+    let admins: any[] = [];
+    let members: any[] = [];
+
+    if (betterAuthOrgId) {
+      // Get members from Better Auth
+      try {
+        const betterAuthMembers = await auth.api.listMembers({
+          query: {
+            organizationId: betterAuthOrgId,
+          },
+          headers: fromNodeHeaders(req.headers),
+        });
+
+        // Check if user is a member
+        const userMember = betterAuthMembers.members?.find(
+          (m: any) => m.user.email.toLowerCase() === user.email.toLowerCase(),
+        );
+        if (!userMember) {
+          sendForbidden(
+            res,
+            "Access denied. You must be a member to view this organization.",
+          );
+          return;
+        }
+
+        // Get user details for all members
+        const memberEmails =
+          betterAuthMembers.members?.map((m: any) => m.user.email) || [];
+        const usersData = await User.find({
+          email: { $in: memberEmails },
+        }).select(
+          "email profile.firstName profile.lastName profile.username profile.avatar",
+        );
+
+        const userMap = new Map(
+          usersData.map((u) => [
+            u.email,
+            {
+              email: u.email,
+              firstName: u.profile.firstName,
+              lastName: u.profile.lastName,
+              username: u.profile.username,
+              avatar: u.profile.avatar,
+            },
+          ]),
+        );
+
+        // Group by role
+        for (const member of betterAuthMembers.members || []) {
+          const userData = userMap.get(member.user.email) || {
+            email: member.user.email,
+          };
+          if (member.role === "owner") {
+            owner = userData;
+          } else if (member.role === "admin") {
+            admins.push(userData);
+          } else {
+            members.push(userData);
+          }
+        }
+      } catch (error) {
+        console.error("Error getting members from Better Auth:", error);
+        // Fallback to custom org
+        const userRole = getUserRole(organization, user.email);
+        if (!userRole) {
+          sendForbidden(
+            res,
+            "Access denied. You must be a member to view this organization.",
+          );
+          return;
+        }
+        const allEmails = [
+          organization.owner,
+          ...(organization.admins || []),
+          ...organization.members,
+        ];
+        const uniqueEmails = [...new Set(allEmails)];
+        const usersData = await User.find({
+          email: { $in: uniqueEmails },
+        }).select(
+          "email profile.firstName profile.lastName profile.username profile.avatar",
+        );
+        const userMap = new Map(
+          usersData.map((u) => [
+            u.email,
+            {
+              email: u.email,
+              firstName: u.profile.firstName,
+              lastName: u.profile.lastName,
+              username: u.profile.username,
+              avatar: u.profile.avatar,
+            },
+          ]),
+        );
+        owner = userMap.get(organization.owner) || {
+          email: organization.owner,
+        };
+        admins = (organization.admins || [])
+          .map((email) => userMap.get(email) || { email })
+          .filter((admin) => admin.email !== organization.owner);
+        members = organization.members
+          .map((email) => userMap.get(email) || { email })
+          .filter(
+            (member) =>
+              member.email !== organization.owner &&
+              !organization.admins?.includes(member.email),
+          );
+      }
+    } else {
+      // Fallback to custom org check
+      const userRole = getUserRole(organization, user.email);
+      if (!userRole) {
+        sendForbidden(
+          res,
+          "Access denied. You must be a member to view this organization.",
+        );
+        return;
+      }
+
+      const allEmails = [
+        organization.owner,
+        ...(organization.admins || []),
+        ...organization.members,
+      ];
+      const uniqueEmails = [...new Set(allEmails)];
+
+      const usersData = await User.find({
+        email: { $in: uniqueEmails },
+      }).select(
+        "email profile.firstName profile.lastName profile.username profile.avatar",
       );
-      return;
+
+      const userMap = new Map(
+        usersData.map((u) => [
+          u.email,
+          {
+            email: u.email,
+            firstName: u.profile.firstName,
+            lastName: u.profile.lastName,
+            username: u.profile.username,
+            avatar: u.profile.avatar,
+          },
+        ]),
+      );
+
+      owner = userMap.get(organization.owner) || {
+        email: organization.owner,
+      };
+
+      admins = (organization.admins || [])
+        .map((email) => userMap.get(email) || { email })
+        .filter((admin) => admin.email !== organization.owner);
+
+      members = organization.members
+        .map((email) => userMap.get(email) || { email })
+        .filter(
+          (member) =>
+            member.email !== organization.owner &&
+            !(organization.admins || []).includes(member.email),
+        );
     }
-
-    // Get user details for all members
-    const allEmails = [
-      organization.owner,
-      ...(organization.admins || []),
-      ...organization.members,
-    ];
-    const uniqueEmails = [...new Set(allEmails)];
-
-    const users = await User.find({ email: { $in: uniqueEmails } }).select(
-      "email profile.firstName profile.lastName profile.username profile.avatar",
-    );
-
-    const userMap = new Map(
-      users.map((u) => [
-        u.email,
-        {
-          email: u.email,
-          firstName: u.profile.firstName,
-          lastName: u.profile.lastName,
-          username: u.profile.username,
-          avatar: u.profile.avatar,
-        },
-      ]),
-    );
-
-    const owner = userMap.get(organization.owner) || {
-      email: organization.owner,
-    };
-
-    const admins = (organization.admins || [])
-      .map((email) => userMap.get(email) || { email })
-      .filter((admin) => admin.email !== organization.owner);
-
-    const members = organization.members
-      .map((email) => userMap.get(email) || { email })
-      .filter(
-        (member) =>
-          member.email !== organization.owner &&
-          !(organization.admins || []).includes(member.email),
-      );
 
     sendSuccess(
       res,

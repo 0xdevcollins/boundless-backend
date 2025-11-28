@@ -11,6 +11,8 @@ import Hackathon from "../../models/hackathon.model.js";
 import Organization from "../../models/organization.model.js";
 import { checkPermission } from "../../utils/getUserRole.js";
 import { isValidStellarAddress } from "../../utils/wallet.js";
+import { auth } from "../../lib/auth.js";
+import User from "../../models/user.model.js";
 
 export interface AuthenticatedRequest extends Request {
   user: any;
@@ -32,7 +34,41 @@ export const canManageHackathons = async (
     return { canManage: false, organization: null };
   }
 
-  // Check if user is owner or admin
+  // If Better Auth org ID exists, check via Better Auth
+  if (organization.betterAuthOrgId) {
+    try {
+      const user = await User.findOne({ email: userEmail.toLowerCase() });
+      if (!user) {
+        return { canManage: false, organization };
+      }
+
+      // Get Better Auth session for user (we need to check membership)
+      // Since we don't have request headers here, we'll check via listMembers
+      const membersResponse = await auth.api.listMembers({
+        query: {
+          organizationId: organization.betterAuthOrgId,
+        },
+      });
+
+      const membersList = (membersResponse as any).members || [];
+      const userMember = membersList.find(
+        (m: any) => m.user.email.toLowerCase() === userEmail.toLowerCase(),
+      );
+
+      if (!userMember) {
+        return { canManage: false, organization };
+      }
+
+      const canManage =
+        userMember.role === "owner" || userMember.role === "admin";
+      return { canManage, organization };
+    } catch (error) {
+      console.error("Error checking Better Auth membership:", error);
+      // Fallback to custom org check
+    }
+  }
+
+  // Fallback to custom org check
   const canManage = checkPermission(organization, userEmail, [
     "owner",
     "admin",
