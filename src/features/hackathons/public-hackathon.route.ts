@@ -268,7 +268,7 @@ router.delete(
 );
 
 router.delete(
-  "/:hackathonSlugOrId/register",
+  "/:hackathonSlugOrId/leave",
   protect,
   validateRequest([hackathonIdOrSlugParam]),
   leaveHackathon,

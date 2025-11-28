@@ -92,6 +92,7 @@ app.use(
       "Origin",
       "Cookie",
       "Set-Cookie",
+      "skip-auth-refresh",
     ],
     exposedHeaders: ["Set-Cookie"],
     credentials: true,
