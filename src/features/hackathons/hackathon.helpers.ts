@@ -153,6 +153,11 @@ export const transformRequestBody = (body: any): Partial<IHackathon> => {
       updateData.sponsorsPartners = body.collaboration.sponsorsPartners;
   }
 
+  // Resources tab
+  if (body.resources !== undefined) {
+    updateData.resources = body.resources;
+  }
+
   // Contract-related fields (top-level in request body)
   if (body.contractId !== undefined) updateData.contractId = body.contractId;
   if (body.escrowAddress !== undefined)

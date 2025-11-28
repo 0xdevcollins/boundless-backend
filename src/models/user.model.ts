@@ -230,7 +230,6 @@ const userSchema = new Schema<IUser>(
     deleted: {
       type: Boolean,
       default: false,
-      index: true,
     },
     deletedAt: {
       type: Date,

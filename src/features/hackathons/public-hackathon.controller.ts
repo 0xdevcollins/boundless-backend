@@ -67,7 +67,7 @@ export const getHackathonBySlug = async (
     })
       .populate({
         path: "organizationId",
-        select: "name",
+        select: "name logo",
       })
       .lean();
 
@@ -241,7 +241,7 @@ export const getHackathonsList = async (
       Hackathon.find(filter)
         .populate({
           path: "organizationId",
-          select: "name",
+          select: "name logo",
         })
         .sort(sortOptions)
         .skip(skip)

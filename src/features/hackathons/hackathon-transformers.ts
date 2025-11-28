@@ -223,6 +223,7 @@ export const transformHackathonToFrontend = async (
 
     // Organizer info
     organizer: hackathon.organizationId?.name || "Unknown Organizer",
+    organizerLogo: hackathon.organizationId?.logo || undefined,
 
     // Tab visibility
     tabVisibility: hackathon.tabVisibility || {
@@ -253,5 +254,8 @@ export const transformHackathonToFrontend = async (
 
     // Judging criteria without weights
     criteria: criteriaWithoutWeights,
+
+    // Resources
+    resources: hackathon.resources || { resources: [] },
   };
 };

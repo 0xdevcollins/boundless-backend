@@ -72,13 +72,11 @@ const HackathonTeamRecruitmentPostSchema =
         type: Schema.Types.ObjectId,
         ref: "Organization",
         required: true,
-        index: true,
       },
       createdBy: {
         type: Schema.Types.ObjectId,
         ref: "User",
         required: true,
-        index: true,
       },
       projectName: {
         type: String,
@@ -137,7 +135,6 @@ const HackathonTeamRecruitmentPostSchema =
           message: `Status must be one of: ${Object.values(TeamRecruitmentPostStatus).join(", ")}`,
         },
         default: TeamRecruitmentPostStatus.ACTIVE,
-        index: true,
       },
       views: {
         type: Number,

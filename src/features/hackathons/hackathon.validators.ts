@@ -355,6 +355,66 @@ export const collaborationTabSchema: ValidationChain[] = [
     }),
 ];
 
+export const resourcesTabSchema: ValidationChain[] = [
+  body("resources.resources")
+    .optional()
+    .isArray()
+    .withMessage("Resources must be an array"),
+  body("resources.resources.*.link")
+    .optional()
+    .trim()
+    .custom((value) => {
+      // Only validate URL if link is provided and not empty
+      if (value !== undefined && value !== null && value !== "") {
+        try {
+          new URL(value);
+        } catch {
+          throw new Error("Link must be a valid URL");
+        }
+      }
+      return true;
+    }),
+  body("resources.resources.*.description").optional().trim(),
+  body("resources.resources.*.fileUrl")
+    .optional()
+    .trim()
+    .custom((value) => {
+      if (value !== undefined && value !== null && value !== "") {
+        try {
+          new URL(value);
+        } catch {
+          throw new Error("File URL must be a valid URL");
+        }
+      }
+      return true;
+    }),
+  body("resources.resources.*.fileName").optional().trim(),
+  body("resources.resources")
+    .optional()
+    .custom((resources, { req }) => {
+      // Validate that each resource has either link or fileUrl
+      if (resources && Array.isArray(resources)) {
+        for (let i = 0; i < resources.length; i++) {
+          const resource = resources[i];
+          const hasLink =
+            resource.link !== undefined &&
+            resource.link !== null &&
+            resource.link.trim() !== "";
+          const hasFile =
+            resource.fileUrl !== undefined &&
+            resource.fileUrl !== null &&
+            resource.fileUrl.trim() !== "";
+          if (!hasLink && !hasFile) {
+            throw new Error(
+              `Each resource must have either a link or a file (resource at index ${i})`,
+            );
+          }
+        }
+      }
+      return true;
+    }),
+];
+
 export const draftSchema: ValidationChain[] = [
   ...informationTabSchema,
   ...timelineTabSchema,
@@ -362,6 +422,7 @@ export const draftSchema: ValidationChain[] = [
   ...rewardsTabSchema,
   ...judgingTabSchema,
   ...collaborationTabSchema,
+  ...resourcesTabSchema,
 ];
 
 export const publishSchema: ValidationChain[] = [
