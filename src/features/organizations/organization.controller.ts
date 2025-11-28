@@ -24,6 +24,8 @@ import { DEFAULT_PERMISSIONS } from "../../types/permission.js";
 import NotificationService from "../notifications/notification.service.js";
 import EmailTemplatesService from "../../services/email/email-templates.service.js";
 import { NotificationType } from "../../models/notification.model.js";
+import hackathonParticipantModel from "../../models/hackathon-participant.model.js";
+import hackathonTeamInvitationModel from "../../models/hackathon-team-invitation.model.js";
 
 const checkProfileCompletion = (org: IOrganization): boolean => {
   // Check if all required profile fields are filled
@@ -1618,48 +1620,48 @@ export const deleteOrganization = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const { id } = req.params;
     const user = (req as AuthenticatedRequest).user;
 
     if (!user) {
+      await session.abortTransaction();
       sendError(res, "Authentication required", 401);
       return;
     }
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
+      await session.abortTransaction();
       sendBadRequest(res, "Invalid organization ID");
       return;
     }
 
-    const organization = await Organization.findById(id);
+    const organization = await Organization.findById(id).session(session);
 
     if (!organization) {
+      await session.abortTransaction();
       sendNotFound(res, "Organization not found");
       return;
     }
 
-    // Only the owner can delete the organization
     if (organization.owner !== user.email) {
+      await session.abortTransaction();
       sendForbidden(res, "Only the owner can delete the organization");
       return;
     }
 
-    // Send notifications to all members before deletion
+    // Notify team members (non-blocking)
     try {
-      const frontendUrl =
-        process.env.FRONTEND_URL ||
-        config.cors.origin ||
-        "https://boundlessfi.xyz";
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
+      const frontendUrl = process.env.FRONTEND_URL || "https://boundlessfi.xyz";
       const baseUrl = Array.isArray(frontendUrl) ? frontendUrl[0] : frontendUrl;
       const ownerName =
         `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
         user.email;
 
-      // Notify all members (including owner)
       const allMembers = [organization.owner, ...organization.members];
-
       const memberUsers = await User.find({
         email: { $in: allMembers },
       }).select(
@@ -1687,28 +1689,118 @@ export const deleteOrganization = async (
             {
               organizationId: id,
               organizationName: organization.name,
-              unsubscribeUrl: undefined, // Will be set per recipient
+              unsubscribeUrl: undefined,
             },
           ),
         },
       );
     } catch (notificationError) {
       console.error("Error sending delete notifications:", notificationError);
-      // Don't fail the whole operation if notification fails
     }
 
-    await Organization.findByIdAndDelete(id);
+    // Cleanup: hackathons, participants, invitations, grants, and statistics
+    const hackathonIds = await Hackathon.find({ organizationId: id })
+      .select("_id")
+      .session(session)
+      .then((hackathons) => hackathons.map((h) => h._id));
 
-    sendSuccess(res, null, "Organization deleted successfully");
+    if (hackathonIds.length > 0) {
+      await hackathonParticipantModel
+        .deleteMany({
+          hackathonId: { $in: hackathonIds },
+        })
+        .session(session);
+
+      await hackathonTeamInvitationModel
+        .deleteMany({
+          hackathonId: { $in: hackathonIds },
+        })
+        .session(session);
+
+      await Hackathon.deleteMany({ organizationId: id }).session(session);
+    }
+
+    await Grant.deleteMany({ organizationId: id }).session(session);
+
+    await hackathonTeamInvitationModel
+      .deleteMany({
+        organizationId: id,
+      })
+      .session(session);
+
+    const allMemberEmails = [
+      ...new Set([organization.owner, ...organization.members]),
+    ];
+
+    await User.updateMany(
+      { email: { $in: allMemberEmails } },
+      {
+        $inc: {
+          "stats.organizations": -1,
+          "stats.hackathons": -hackathonIds.length,
+        },
+      },
+    ).session(session);
+
+    await Organization.findByIdAndDelete(id).session(session);
+
+    await session.commitTransaction();
+
+    console.log(`Successfully deleted organization ${id}`);
+    sendSuccess(
+      res,
+      {
+        deletedHackathons: hackathonIds.length,
+        deletedGrants: await Grant.countDocuments({ organizationId: id }),
+      },
+      "Organization and all associated data deleted successfully",
+    );
   } catch (error) {
+    await session.abortTransaction();
+
     console.error("Delete organization error:", error);
     sendInternalServerError(
       res,
-      "Failed to delete organization",
+      "Failed to delete organization and associated data",
       error instanceof Error ? error.message : "Unknown error",
     );
+  } finally {
+    session.endSession();
   }
 };
+
+/**
+ * @swagger
+ * /api/organizations/{organizationId}/hackathons/{hackathonId}:
+ *   delete:
+ *     summary: Delete hackathon
+ *     description: Delete hackathon and all associated data (owner and admins only)
+ *     tags: [Hackathons]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Organization ID
+ *       - in: path
+ *         name: hackathonId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Hackathon ID
+ *     responses:
+ *       200:
+ *         description: Hackathon and all associated data deleted successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Only owner and admins can delete
+ *       404:
+ *         description: Hackathon not found
+ */
 
 /**
  * @swagger

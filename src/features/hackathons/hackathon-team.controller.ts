@@ -8,7 +8,7 @@ import HackathonTeamInvitation, {
 import User from "../../models/user.model.js";
 // Hackathon is used in error message strings
 // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
-import Hackathon from "../../models/hackathon.model.js";
+import Hackathon, { HackathonStatus } from "../../models/hackathon.model.js";
 import {
   sendSuccess,
   sendCreated,
@@ -533,7 +533,7 @@ export const leaveHackathon = async (
     const hackathonIdentifier = hackathonId || hackathonSlugOrId;
     const isOrgRoute = !!orgId;
 
-    // Resolve hackathon
+    // Resolve hackathon with proper population
     const hackathon = await resolveHackathonByIdOrSlug(
       hackathonIdentifier,
       isOrgRoute ? undefined : { includePublishedOnly: true },
@@ -541,6 +541,28 @@ export const leaveHackathon = async (
 
     if (!hackathon) {
       sendNotFound(res, "Hackathon not found");
+      return;
+    }
+
+    // Check if hackathon has ended
+    const now = new Date();
+    if (
+      hackathon.status === HackathonStatus.COMPLETED ||
+      hackathon.status === HackathonStatus.CANCELLED
+    ) {
+      sendBadRequest(
+        res,
+        "Cannot leave a hackathon that has ended or been cancelled",
+      );
+      return;
+    }
+
+    // Check if submission deadline has passed
+    if (hackathon.submissionDeadline && now > hackathon.submissionDeadline) {
+      sendBadRequest(
+        res,
+        "Cannot leave hackathon after submission deadline has passed",
+      );
       return;
     }
 
@@ -555,8 +577,21 @@ export const leaveHackathon = async (
       return;
     }
 
+    // Check if user has submitted and prevent leaving if they have
+    if (
+      participant.submission &&
+      participant.submission.status === "submitted"
+    ) {
+      sendBadRequest(res, "Cannot leave hackathon after submitting a project");
+      return;
+    }
+
+    let teamIdToCleanup: string | null = null;
+
     // If part of a team, remove from team first
     if (participant.participationType === "team" && participant.teamId) {
+      teamIdToCleanup = participant.teamId;
+
       // Find all team members
       const teamMembers = await HackathonParticipant.find({
         hackathonId: hackathon._id,
@@ -572,12 +607,72 @@ export const leaveHackathon = async (
           await member.save();
         }
       }
+
+      // Check if this was the last member and cleanup team data
+      const remainingMembers = await HackathonParticipant.countDocuments({
+        hackathonId: hackathon._id,
+        teamId: participant.teamId,
+      });
+
+      if (remainingMembers === 0) {
+        // Clean up all team-related data
+
+        // 1. Delete all pending team invitations for this team
+        await HackathonTeamInvitation.deleteMany({
+          hackathonId: hackathon._id,
+          teamId: participant.teamId,
+          status: HackathonTeamInvitationStatus.PENDING,
+        });
+
+        // 2. Update any accepted/declined invitations to mark them as expired
+        await HackathonTeamInvitation.updateMany(
+          {
+            hackathonId: hackathon._id,
+            teamId: participant.teamId,
+            status: {
+              $in: [
+                HackathonTeamInvitationStatus.ACCEPTED,
+                HackathonTeamInvitationStatus.DECLINED,
+              ],
+            },
+          },
+          {
+            $set: { status: HackathonTeamInvitationStatus.EXPIRED },
+          },
+        );
+      } else {
+        // If there are remaining members, just clean up this user's pending invitations
+        await HackathonTeamInvitation.deleteMany({
+          hackathonId: hackathon._id,
+          email: user.email,
+          status: HackathonTeamInvitationStatus.PENDING,
+        });
+      }
+    } else {
+      // For individual participants, clean up any pending invitations they sent or received
+      await HackathonTeamInvitation.deleteMany({
+        hackathonId: hackathon._id,
+        $or: [
+          {
+            invitedBy: user._id,
+            status: HackathonTeamInvitationStatus.PENDING,
+          },
+          { email: user.email, status: HackathonTeamInvitationStatus.PENDING },
+        ],
+      });
     }
 
     // Delete participant record
     await HackathonParticipant.deleteOne({ _id: participant._id });
 
-    sendSuccess(res, null, "Successfully left hackathon");
+    sendSuccess(
+      res,
+      {
+        teamCleanedUp: teamIdToCleanup ? true : false,
+        teamId: teamIdToCleanup,
+      },
+      "Successfully left hackathon",
+    );
   } catch (error) {
     console.error("Leave hackathon error:", error);
     sendInternalServerError(
