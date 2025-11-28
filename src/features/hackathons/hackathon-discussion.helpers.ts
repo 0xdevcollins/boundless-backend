@@ -2,6 +2,7 @@ import { Types } from "mongoose";
 import HackathonDiscussion from "../../models/hackathon-discussion.model.js";
 import { IHackathonDiscussion } from "../../models/hackathon-discussion.model.js";
 import Organization from "../../models/organization.model.js";
+import HackathonParticipant from "../../models/hackathon-participant.model.js";
 import { checkPermission } from "../../utils/getUserRole.js";
 
 /**
@@ -61,6 +62,21 @@ export const calculateTotalReactions = (reactionCounts: {
   HELPFUL: number;
 }): number => {
   return reactionCounts.LIKE + reactionCounts.DISLIKE + reactionCounts.HELPFUL;
+};
+
+/**
+ * Check if user is registered in a hackathon
+ * Returns true if user has a participant record for the hackathon
+ */
+export const isUserRegisteredInHackathon = async (
+  userId: Types.ObjectId,
+  hackathonId: Types.ObjectId,
+): Promise<boolean> => {
+  const participant = await HackathonParticipant.findOne({
+    userId,
+    hackathonId,
+  });
+  return !!participant;
 };
 
 /**

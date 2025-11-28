@@ -17,6 +17,7 @@ import {
 import {
   formatDiscussionResponse,
   canModifyDiscussion,
+  isUserRegisteredInHackathon,
 } from "./hackathon-discussion.helpers.js";
 
 /**
@@ -195,6 +196,19 @@ export const createDiscussion = async (
       return;
     }
 
+    // Check if user is registered in the hackathon
+    const isRegistered = await isUserRegisteredInHackathon(
+      user._id,
+      hackathon._id as mongoose.Types.ObjectId,
+    );
+    if (!isRegistered) {
+      sendForbidden(
+        res,
+        "You must be registered in this hackathon to participate in discussions",
+      );
+      return;
+    }
+
     // Validate parent comment if provided
     let parentComment = null;
     if (parentCommentId) {
@@ -301,6 +315,19 @@ export const updateDiscussion = async (
       return;
     }
 
+    // Check if user is registered in the hackathon
+    const isRegistered = await isUserRegisteredInHackathon(
+      user._id,
+      hackathon._id as mongoose.Types.ObjectId,
+    );
+    if (!isRegistered) {
+      sendForbidden(
+        res,
+        "You must be registered in this hackathon to participate in discussions",
+      );
+      return;
+    }
+
     // Find discussion
     const discussion = await HackathonDiscussion.findOne({
       _id: discussionId,
@@ -386,6 +413,19 @@ export const deleteDiscussion = async (
       return;
     }
 
+    // Check if user is registered in the hackathon
+    const isRegistered = await isUserRegisteredInHackathon(
+      user._id,
+      hackathon._id as mongoose.Types.ObjectId,
+    );
+    if (!isRegistered) {
+      sendForbidden(
+        res,
+        "You must be registered in this hackathon to participate in discussions",
+      );
+      return;
+    }
+
     // Find discussion
     const discussion = await HackathonDiscussion.findOne({
       _id: discussionId,
@@ -463,6 +503,19 @@ export const replyToDiscussion = async (
 
     if (!hackathon) {
       sendNotFound(res, "Hackathon not found");
+      return;
+    }
+
+    // Check if user is registered in the hackathon
+    const isRegistered = await isUserRegisteredInHackathon(
+      user._id,
+      hackathon._id as mongoose.Types.ObjectId,
+    );
+    if (!isRegistered) {
+      sendForbidden(
+        res,
+        "You must be registered in this hackathon to participate in discussions",
+      );
       return;
     }
 
@@ -559,6 +612,19 @@ export const reportDiscussion = async (
 
     if (!hackathon) {
       sendNotFound(res, "Hackathon not found");
+      return;
+    }
+
+    // Check if user is registered in the hackathon
+    const isRegistered = await isUserRegisteredInHackathon(
+      user._id,
+      hackathon._id as mongoose.Types.ObjectId,
+    );
+    if (!isRegistered) {
+      sendForbidden(
+        res,
+        "You must be registered in this hackathon to participate in discussions",
+      );
       return;
     }
 
