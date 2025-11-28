@@ -153,7 +153,6 @@ const OrganizationSchema = new Schema<IOrganization>(
     archived: {
       type: Boolean,
       default: false,
-      index: true,
     },
     archivedAt: {
       type: Date,
@@ -177,7 +176,7 @@ OrganizationSchema.index({ name: 1 });
 OrganizationSchema.index({ members: 1 });
 OrganizationSchema.index({ owner: 1 });
 OrganizationSchema.index({ admins: 1 });
-OrganizationSchema.index({ archived: 1 }); // Already added in field definition, but explicit for clarity
+OrganizationSchema.index({ archived: 1 });
 
 // Pre-save middleware to ensure admins are also in members array
 OrganizationSchema.pre("save", function (next) {

@@ -246,7 +246,6 @@ const HackathonSchema = new Schema<IHackathon>(
       type: Schema.Types.ObjectId,
       ref: "Organization",
       required: true,
-      index: true,
     },
     status: {
       type: String,
@@ -255,7 +254,6 @@ const HackathonSchema = new Schema<IHackathon>(
         message: `Status must be one of: ${Object.values(HackathonStatus).join(", ")}`,
       },
       default: HackathonStatus.DRAFT,
-      index: true,
     },
     publishedAt: {
       type: Date,
