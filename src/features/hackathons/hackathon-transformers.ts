@@ -223,6 +223,7 @@ export const transformHackathonToFrontend = async (
 
     // Organizer info
     organizer: hackathon.organizationId?.name || "Unknown Organizer",
+    organizerLogo: hackathon.organizationId?.logo || undefined,
 
     // Tab visibility
     tabVisibility: hackathon.tabVisibility || {

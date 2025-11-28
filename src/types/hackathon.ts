@@ -60,6 +60,7 @@ export interface Hackathon {
   startDate: string;
   endDate: string;
   organizer: string;
+  organizerLogo?: string;
   featured?: boolean;
   resources?: string[];
   venue?: Venue;
