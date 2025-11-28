@@ -254,5 +254,8 @@ export const transformHackathonToFrontend = async (
 
     // Judging criteria without weights
     criteria: criteriaWithoutWeights,
+
+    // Resources
+    resources: hackathon.resources || { resources: [] },
   };
 };

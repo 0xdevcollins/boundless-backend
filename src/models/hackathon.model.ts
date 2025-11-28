@@ -69,6 +69,17 @@ export interface ISponsorPartner {
   partnerLink?: string;
 }
 
+export interface IHackathonResource {
+  link?: string;
+  description?: string;
+  fileUrl?: string;
+  fileName?: string;
+}
+
+export interface IHackathonResources {
+  resources: IHackathonResource[];
+}
+
 export interface IHackathon extends Document {
   organizationId: Types.ObjectId;
   status: HackathonStatus;
@@ -135,6 +146,10 @@ export interface IHackathon extends Document {
   discord?: string;
   socialLinks?: string[];
   sponsorsPartners?: ISponsorPartner[];
+
+  // Resources Tab
+  resources?: IHackathonResources;
+
   contractId?: string;
   escrowAddress?: string;
   transactionHash?: string;
@@ -235,6 +250,78 @@ const SponsorPartnerSchema = new Schema<ISponsorPartner>(
     partnerLink: {
       type: String,
       trim: true,
+    },
+  },
+  { _id: false },
+);
+
+const HackathonResourceSchema = new Schema<IHackathonResource>(
+  {
+    link: {
+      type: String,
+      required: false,
+      trim: true,
+      validate: {
+        validator: function (v: string | undefined) {
+          // Only validate URL if link is provided and not empty
+          if (!v || v.trim() === "") return true;
+          try {
+            new URL(v);
+            return true;
+          } catch {
+            return false;
+          }
+        },
+        message: "Link must be a valid URL",
+      },
+    },
+    description: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    fileUrl: {
+      type: String,
+      required: false,
+      trim: true,
+      validate: {
+        validator: function (v: string | undefined) {
+          if (!v) return true;
+          try {
+            new URL(v);
+            return true;
+          } catch {
+            return false;
+          }
+        },
+        message: "File URL must be a valid URL",
+      },
+    },
+    fileName: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+  },
+  { _id: false },
+);
+
+const HackathonResourcesSchema = new Schema<IHackathonResources>(
+  {
+    resources: {
+      type: [HackathonResourceSchema],
+      default: [],
+      validate: {
+        validator: function (resources: IHackathonResource[]) {
+          // Each resource must have either a link or a file
+          return resources.every((resource) => {
+            const hasLink = resource.link && resource.link.trim() !== "";
+            const hasFile = !!resource.fileUrl;
+            return hasLink || hasFile;
+          });
+        },
+        message: "Each resource must have either a link or a file",
+      },
     },
   },
   { _id: false },
@@ -473,6 +560,10 @@ const HackathonSchema = new Schema<IHackathon>(
     sponsorsPartners: {
       type: [SponsorPartnerSchema],
       default: [],
+    },
+    resources: {
+      type: HackathonResourcesSchema,
+      required: false,
     },
     contractId: {
       type: String,

@@ -44,6 +44,17 @@ export interface Venue {
   venueAddress?: string;
 }
 
+export interface HackathonResource {
+  link?: string;
+  description?: string;
+  fileUrl?: string;
+  fileName?: string;
+}
+
+export interface HackathonResources {
+  resources: HackathonResource[];
+}
+
 // Update your Hackathon interface to include all the fields you need
 export interface Hackathon {
   id: string;
@@ -62,7 +73,7 @@ export interface Hackathon {
   organizer: string;
   organizerLogo?: string;
   featured?: boolean;
-  resources?: string[];
+  resources?: HackathonResources;
   venue?: Venue;
   participantType?: "individual" | "team" | "team_or_individual";
 
