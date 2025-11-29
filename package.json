@@ -27,12 +27,14 @@
     "cleanup:user-data": "tsx scripts/cleanup-orphaned-user-data.ts",
     "fix:sessions": "tsx scripts/fix-sessions-issue.ts",
     "fix:sessions:cleanup": "tsx scripts/cleanup-null-sessions.ts",
-    "fix:sessions:index": "tsx scripts/fix-sessions-index.ts"
+    "fix:sessions:index": "tsx scripts/fix-sessions-index.ts",
+    "admin:create-super": "tsx scripts/create-super-admin.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@better-auth/passkey": "^1.4.3",
     "@stellar/stellar-sdk": "^14.2.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/compression": "^1.8.1",

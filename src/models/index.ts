@@ -27,3 +27,4 @@ import "./hackathon-discussion.model.js";
 import "./hackathon-resource.model.js";
 import "./hackathon-team-invitation.model.js";
 import "./hackathon-team-recruitment-post.model.js";
+import "./admin.model.js";
