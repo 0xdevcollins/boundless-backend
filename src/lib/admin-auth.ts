@@ -5,6 +5,8 @@ import { admin, emailOTP } from "better-auth/plugins";
 import { MongoClient } from "mongodb";
 import dotenv from "dotenv";
 import { ac, adminRoles } from "./admin-permissions.js";
+import { EmailTemplatesService } from "../services/email/email-templates.service.js";
+import sendMail from "../utils/sendMail.utils.js";
 
 dotenv.config({ path: ".env.local" });
 
@@ -119,12 +121,28 @@ export const adminAuth = betterAuth({
     // Email OTP for temporary authentication during initial setup
     emailOTP({
       async sendVerificationOTP({ email, otp, type }) {
-        // Send OTP email for admin setup
-        console.log(`[ADMIN SETUP] Sending ${type} OTP ${otp} to ${email}`);
+        try {
+          // Get the admin OTP email template
+          const emailTemplate = EmailTemplatesService.getTemplate("admin-otp", {
+            otpCode: otp,
+            recipientName: "Admin",
+          });
 
-        // TODO: Implement actual email sending
-        // For now, just log the OTP (replace with actual email service)
-        console.log(`📧 ADMIN OTP: ${otp} (send this to ${email})`);
+          // Send the email
+          await sendMail({
+            to: email,
+            subject: emailTemplate.subject,
+            html: emailTemplate.html,
+          });
+
+          console.log(`[ADMIN AUTH] Successfully sent ${type} OTP to ${email}`);
+        } catch (error) {
+          console.error(
+            `[ADMIN AUTH] Failed to send ${type} OTP to ${email}:`,
+            error,
+          );
+          throw error; // Re-throw to let Better Auth handle the error
+        }
       },
       // Shorter OTP for better UX during setup
       otpLength: 6,
