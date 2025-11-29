@@ -3,6 +3,7 @@ import { body, param } from "express-validator";
 import {
   createOrganization,
   getOrganizationById,
+  getOrganizationAnalytics,
   updateOrganizationProfile,
   updateOrganizationLinks,
   updateOrganizationMembers,
@@ -129,6 +130,13 @@ router.get(
   protect,
   validateRequest(getOrganizationSchema),
   getOrganizationById,
+);
+
+router.get(
+  "/:id/analytics",
+  protect,
+  validateRequest(getOrganizationSchema),
+  getOrganizationAnalytics,
 );
 
 router.patch(

@@ -697,6 +697,116 @@ export const getOrganizationById = async (
 
 /**
  * @swagger
+ * /api/organizations/{id}/analytics:
+ *   get:
+ *     summary: Get organization analytics
+ *     description: Fetch analytics data for an organization (only accessible by members)
+ *     tags: [Organizations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Organization ID
+ *     responses:
+ *       200:
+ *         description: Analytics retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Not a member
+ *       404:
+ *         description: Organization not found
+ */
+export const getOrganizationAnalytics = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const user = (req as AuthenticatedRequest).user;
+
+    if (!user) {
+      sendError(res, "Authentication required", 401);
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      sendBadRequest(res, "Invalid organization ID");
+      return;
+    }
+
+    const organization = await Organization.findById(id);
+
+    if (!organization) {
+      sendNotFound(res, "Organization not found");
+      return;
+    }
+
+    // Check if user is a member (via Better Auth if available)
+    let isMember = false;
+    if (organization.betterAuthOrgId) {
+      try {
+        const membersResponse = await auth.api.listMembers({
+          query: {
+            organizationId: organization.betterAuthOrgId,
+          },
+          headers: fromNodeHeaders(req.headers),
+        });
+        const membersList = (membersResponse as any).members || [];
+        isMember = membersList.some(
+          (m: any) => m.user.email.toLowerCase() === user.email.toLowerCase(),
+        );
+      } catch (error) {
+        console.error("Error checking Better Auth membership:", error);
+        // Fallback to custom org check
+        isMember =
+          organization.members.includes(user.email) ||
+          organization.owner === user.email;
+      }
+    } else {
+      // Fallback to custom org check
+      isMember =
+        organization.members.includes(user.email) ||
+        organization.owner === user.email;
+    }
+
+    if (!isMember) {
+      sendForbidden(
+        res,
+        "Access denied. You must be a member to view analytics.",
+      );
+      return;
+    }
+
+    // Calculate analytics data
+    const analytics = await calculateOrganizationAnalytics(id, organization);
+
+    const responseData = {
+      organizationId: id,
+      organizationName: organization.name,
+      ...analytics,
+      memberCount: organization.members.length,
+      hackathonCount: organization.hackathons.length,
+      grantCount: organization.grants.length,
+    };
+
+    sendSuccess(res, responseData, "Analytics retrieved successfully");
+  } catch (error) {
+    console.error("Get organization analytics error:", error);
+    sendInternalServerError(
+      res,
+      "Failed to retrieve analytics",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};
+
+/**
+ * @swagger
  * /api/organizations/{id}/profile:
  *   patch:
  *     summary: Update organization profile
