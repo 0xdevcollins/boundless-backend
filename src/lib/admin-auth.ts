@@ -104,7 +104,7 @@ export const adminAuth = betterAuth({
       rpName: "Boundless Admin",
       origin:
         process.env.NODE_ENV === "production"
-          ? "https://admin.boundlessfi.xyz"
+          ? "https://www.admin.boundlessfi.xyz"
           : "http://localhost:3000",
       authenticatorSelection: {
         // Require platform authenticators (built-in biometrics) for admin security
