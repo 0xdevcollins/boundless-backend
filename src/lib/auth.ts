@@ -371,5 +371,7 @@ export const auth = betterAuth({
     "http://localhost:8000",
     "http://192.168.1.187:3000",
     "https://staging.api.boundlessfi.xyz",
+    "https://admin.boundlessfi.xyz",
+    "https://www.admin.boundlessfi.xyz",
   ],
 });
