@@ -18,6 +18,7 @@ import { setupSwagger } from "./config/swagger.js";
 import { sendError } from "./utils/apiResponse.js";
 import { checkDatabaseHealth, getDatabaseStatus } from "./utils/db.utils.js";
 import { auth } from "./lib/auth.js";
+import { adminAuth } from "./lib/admin-auth.js";
 
 import { config } from "./config/main.config.js";
 
@@ -54,6 +55,8 @@ const allowedOrigins = [
   "https://www.boundlessfi.xyz",
   "https://staging.boundlessfi.xyz",
   "https://www.staging.boundlessfi.xyz",
+  "https://admin.boundlessfi.xyz", // Admin dashboard
+  "https://www.admin.boundlessfi.xyz", // Admin dashboard
   "http://localhost:3000", // For local frontend development
   "http://localhost:8000", // For local development
   "http://192.168.1.187:3000",
@@ -118,6 +121,10 @@ app.use(
 // Mount Better Auth handler BEFORE express.json() middleware
 // This is critical - Better Auth needs to handle requests before body parsing
 app.all("/api/auth/*", toNodeHandler(auth));
+
+// Mount Admin Auth handler (passkey-only authentication for admins)
+// Uses separate database tables and stricter security settings
+app.all("/api/admin-auth/*", toNodeHandler(adminAuth));
 
 // Mount express json middleware after Better Auth handler
 app.use(express.json({ limit: "10mb" }));

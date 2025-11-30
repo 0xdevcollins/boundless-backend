@@ -22,6 +22,7 @@ export class EmailTemplatesService {
       "password-reset": () => this.getPasswordResetTemplate(data),
       "email-verification": () => this.getEmailVerificationTemplate(data),
       "otp-verification": () => this.getOtpVerificationTemplate(data),
+      "admin-otp": () => this.getAdminOtpTemplate(data),
       "team-invitation-existing-user": () =>
         this.getTeamInvitationExistingUserTemplate(data),
       "team-invitation-new-user": () =>
@@ -596,6 +597,24 @@ export class EmailTemplatesService {
       subject: `🔐 Your verification code for Boundless`,
       priority: "high",
       html: EmailTemplateUtils.generateOtpEmail(otpCode, recipientName),
+    };
+  }
+
+  /**
+   * Admin OTP Template
+   */
+  private static getAdminOtpTemplate(data: any): EmailTemplate {
+    const otpCode = data.otpCode || data.otp;
+    const recipientName = data.recipientName || data.firstName || "Admin";
+
+    if (!otpCode) {
+      throw new Error("OTP code is required for admin OTP email");
+    }
+
+    return {
+      subject: `🔐 Admin verification code for Boundless Admin`,
+      priority: "high",
+      html: EmailTemplateUtils.generateAdminOtpEmail(otpCode, recipientName),
     };
   }
 

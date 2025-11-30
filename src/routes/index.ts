@@ -1,5 +1,6 @@
 import { Router } from "express";
 import authRoutes from "../features/auth/auth.route.js";
+import adminSetupRoutes from "../features/auth/admin-setup.route.js";
 import userRoutes from "../features/users/user.route.js";
 import projectIdeaRoutes from "../features/projects/project-idea.route.js";
 import projectVotingRoutes from "../features/projects/project-voting.route.js";
@@ -20,12 +21,14 @@ import organizationRoutes from "../features/organizations/organization.route.js"
 import hackathonRoutes from "../features/hackathons/hackathon.route.js";
 import publicHackathonRoutes from "../features/hackathons/public-hackathon.route.js";
 import teamInvitationRoutes from "../features/team-invitations/team-invitation.route.js";
+import adminRoutes from "../features/admin/admin.route.js";
 import { protect } from "../middleware/better-auth.middleware.js";
 
 const router = Router();
 
 // Public routes
 router.use("/api", authRoutes);
+router.use("/api", adminSetupRoutes);
 router.use("/api/users", userRoutes);
 router.use("/api/projects", projectIdeaRoutes);
 router.use("/api/projects", projectVotingRoutes);
@@ -46,5 +49,8 @@ router.use("/api/organizations", organizationRoutes);
 router.use("/api/organizations", hackathonRoutes);
 router.use("/api/notifications", protect, notificationRoutes);
 router.use("/api/team-invitations", teamInvitationRoutes);
+
+// Admin routes
+router.use("/api/admin", adminRoutes);
 
 export default router;

@@ -250,6 +250,42 @@ export class EmailTemplateUtils {
   }
 
   /**
+   * Generate admin OTP email
+   */
+  static generateAdminOtpEmail(
+    otpCode: string,
+    recipientName?: string,
+  ): string {
+    const template = this.loadTemplate("auth-email-template");
+
+    const data: EmailTemplateData = {
+      emailTitle: "🔐 Admin Verification Code",
+      emailSubtitle: `Hello ${recipientName || "Admin"}! Please verify your admin access with the code below.`,
+      emailDescription:
+        "Enter the verification code below in the admin panel to complete your authentication.",
+      preheaderText: `Your admin verification code is ${otpCode}`,
+      disclaimerText:
+        "You're receiving this email because you initiated admin authentication for Boundless. This code provides access to sensitive administrative functions.",
+      showOtpCode: true,
+      otpCode,
+      showCtaButton: false,
+      showAdditionalInfo: true,
+      additionalInfo:
+        "This code expires in 5 minutes for security reasons. Admin access is monitored and logged for security purposes. If you didn't request this code, please contact security immediately.",
+      twitterUrl: "https://twitter.com/boundlessfi",
+      linkedinUrl: "https://linkedin.com/company/boundlessfi",
+      githubUrl: "https://github.com/boundlessfi",
+      companyAddress:
+        "Boundless Admin, 123 Innovation Drive, Tech City, TC 12345",
+      privacyUrl: "https://admin.boundlessfi.xyz/privacy",
+      termsUrl: "https://admin.boundlessfi.xyz/terms",
+      unsubscribeUrl: "https://admin.boundlessfi.xyz/unsubscribe",
+    };
+
+    return this.replaceVariables(template, data);
+  }
+
+  /**
    * Generate email using the reusable index.html template
    */
   static generateEmail(data: {

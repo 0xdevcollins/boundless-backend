@@ -8,7 +8,6 @@ import {
 } from "better-auth/plugins";
 import { createAuthMiddleware } from "better-auth/api";
 import { MongoClient } from "mongodb";
-import mongoose from "mongoose";
 import { config } from "../config/main.config.js";
 import { sendEmail } from "../utils/email.utils.js";
 import sendMail from "../utils/sendMail.utils.js";
@@ -372,5 +371,7 @@ export const auth = betterAuth({
     "http://localhost:8000",
     "http://192.168.1.187:3000",
     "https://staging.api.boundlessfi.xyz",
+    "https://admin.boundlessfi.xyz",
+    "https://www.admin.boundlessfi.xyz",
   ],
 });
