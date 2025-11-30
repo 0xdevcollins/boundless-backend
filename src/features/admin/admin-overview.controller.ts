@@ -70,40 +70,8 @@ export const getAdminOverview = async (req: Request, res: Response) => {
         }),
       ]),
 
-      // Ongoing hackathons with funding info
-      Promise.all([
-        Hackathon.countDocuments({
-          status: { $in: ["active", "published"] },
-        }),
-        Hackathon.countDocuments({
-          status: { $in: ["active", "published"] },
-          createdAt: {
-            $gte: new Date(thirtyDaysAgo.getTime() - 30 * 24 * 60 * 60 * 1000),
-            $lt: thirtyDaysAgo,
-          },
-        }),
-        // Get total distributed and escrow amounts from hackathon-related transactions
-        Transaction.aggregate([
-          {
-            $match: {
-              type: { $in: ["FUNDING", "MILESTONE_RELEASE"] },
-              status: "CONFIRMED",
-              createdAt: { $gte: ninetyDaysAgo },
-            },
-          },
-          {
-            $group: {
-              _id: null,
-              totalDistributed: { $sum: "$amount" },
-              totalInEscrow: {
-                $sum: {
-                  $cond: [{ $eq: ["$type", "FUNDING"] }, "$amount", 0],
-                },
-              },
-            },
-          },
-        ]),
-      ]),
+      // Comprehensive hackathon metrics
+      getHackathonMetrics(thirtyDaysAgo),
 
       // Chart data for last 90 days
       generateChartData(ninetyDaysAgo),
@@ -118,20 +86,11 @@ export const getAdminOverview = async (req: Request, res: Response) => {
     const [currentUsers, previousUsers] = totalUsersResult;
     const [currentOrgs, previousOrgs] = organizationsResult;
     const [currentProjects, previousProjects] = projectsResult;
-    const [currentHackathons, previousHackathons, fundingData] =
-      hackathonsResult;
+    const hackathonMetrics = hackathonsResult;
 
     const usersChange = calculateChange(currentUsers, previousUsers);
     const orgsChange = calculateChange(currentOrgs, previousOrgs);
     const projectsChange = calculateChange(currentProjects, previousProjects);
-    const hackathonsChange = calculateChange(
-      currentHackathons,
-      previousHackathons,
-    );
-
-    // Format funding data
-    const totalDistributed = fundingData[0]?.totalDistributed || 0;
-    const totalInEscrow = fundingData[0]?.totalInEscrow || 0;
 
     const response = {
       metrics: {
@@ -154,12 +113,14 @@ export const getAdminOverview = async (req: Request, res: Response) => {
           label: "Active projects",
         },
         hackathons: {
-          value: currentHackathons,
-          change: hackathonsChange,
+          value: hackathonMetrics.totalHackathons,
+          change: hackathonMetrics.hackathonsChange,
           changeType:
-            hackathonsChange >= 0 ? "positive" : ("negative" as const),
-          label: "Ongoing hackathons",
-          additionalInfo: `$${totalDistributed.toLocaleString()} distributed • $${totalInEscrow.toLocaleString()} in escrow`,
+            hackathonMetrics.hackathonsChange >= 0
+              ? "positive"
+              : ("negative" as const),
+          label: "Total hackathons",
+          additionalInfo: `${hackathonMetrics.activeHackathons} active • ${hackathonMetrics.allTimeParticipants} total participants`,
         },
       },
       chart: {
@@ -252,4 +213,160 @@ async function generateChartData(startDate: Date): Promise<
     crowdfunding: crowdfundingMap.get(date) || 0,
     hackathons: hackathonMap.get(date) || 0,
   }));
+}
+
+/**
+ * Get comprehensive hackathon metrics
+ */
+async function getHackathonMetrics(thirtyDaysAgo: Date) {
+  const [
+    totalHackathonsResult,
+    activeHackathons,
+    allTimeParticipants,
+    activeParticipants,
+    escrowMetrics,
+  ] = await Promise.all([
+    // Total hackathons with change calculation
+    Promise.all([
+      Hackathon.countDocuments(),
+      Hackathon.countDocuments({
+        createdAt: {
+          $gte: new Date(thirtyDaysAgo.getTime() - 30 * 24 * 60 * 60 * 1000),
+          $lt: thirtyDaysAgo,
+        },
+      }),
+    ]),
+
+    // Active hackathons (ongoing)
+    Hackathon.countDocuments({
+      status: { $in: ["active", "published"] },
+    }),
+
+    // All time participants (unique users who participated in any hackathon)
+    // This requires querying hackathon participants collection
+    getAllTimeParticipants(),
+
+    // Active participants (currently participating)
+    getActiveParticipants(),
+
+    // Escrow and revenue metrics
+    getEscrowMetrics(),
+  ]);
+
+  const [currentTotal, previousTotal] = totalHackathonsResult;
+  const hackathonsChange = calculateChange(currentTotal, previousTotal);
+
+  return {
+    totalHackathons: currentTotal,
+    hackathonsChange,
+    activeHackathons,
+    allTimeParticipants,
+    activeParticipants,
+    ...escrowMetrics,
+  };
+}
+
+/**
+ * Calculate percentage change between current and previous values
+ */
+function calculateChange(current: number, previous: number): number {
+  if (previous === 0) return current > 0 ? 100 : 0;
+  return Math.round(((current - previous) / previous) * 100 * 10) / 10;
+}
+
+/**
+ * Get total unique participants across all hackathons
+ */
+async function getAllTimeParticipants(): Promise<number> {
+  try {
+    const HackathonParticipant = (
+      await import("../../models/hackathon-participant.model.js")
+    ).default;
+
+    // Count unique users who have participated in any hackathon
+    const uniqueParticipants = await HackathonParticipant.distinct("userId", {
+      status: { $in: ["registered", "confirmed", "completed"] },
+    });
+
+    return uniqueParticipants.length;
+  } catch (error) {
+    console.warn("Could not fetch all-time participants:", error);
+    return 0;
+  }
+}
+
+/**
+ * Get currently active participants
+ */
+async function getActiveParticipants(): Promise<number> {
+  try {
+    const HackathonParticipant = (
+      await import("../../models/hackathon-participant.model.js")
+    ).default;
+
+    // Count participants in active/ongoing hackathons
+    const activeHackathonIds = await Hackathon.find({
+      status: { $in: ["active", "published"] },
+    }).distinct("_id");
+
+    const activeParticipants = await HackathonParticipant.distinct("userId", {
+      hackathonId: { $in: activeHackathonIds },
+      status: { $in: ["registered", "confirmed"] },
+    });
+
+    return activeParticipants.length;
+  } catch (error) {
+    console.warn("Could not fetch active participants:", error);
+    return 0;
+  }
+}
+
+/**
+ * Get escrow and revenue metrics for hackathons
+ */
+async function getEscrowMetrics(): Promise<{
+  totalLockedEscrow: number;
+  totalReleasedEscrow: number;
+  totalRevenue: number;
+}> {
+  try {
+    // Get all hackathon-related transactions
+    const hackathonTransactions = await Transaction.aggregate([
+      {
+        $match: {
+          type: { $in: ["FUNDING", "MILESTONE_RELEASE"] },
+          status: "CONFIRMED",
+        },
+      },
+      {
+        $group: {
+          _id: "$type",
+          totalAmount: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const fundingTx = hackathonTransactions.find((tx) => tx._id === "FUNDING");
+    const releaseTx = hackathonTransactions.find(
+      (tx) => tx._id === "MILESTONE_RELEASE",
+    );
+
+    const totalLockedEscrow = fundingTx?.totalAmount || 0;
+    const totalReleasedEscrow = releaseTx?.totalAmount || 0;
+    const totalRevenue = totalLockedEscrow * 0.05; // Assuming 5% platform fee
+
+    return {
+      totalLockedEscrow,
+      totalReleasedEscrow,
+      totalRevenue,
+    };
+  } catch (error) {
+    console.warn("Could not fetch escrow metrics:", error);
+    return {
+      totalLockedEscrow: 0,
+      totalReleasedEscrow: 0,
+      totalRevenue: 0,
+    };
+  }
 }
