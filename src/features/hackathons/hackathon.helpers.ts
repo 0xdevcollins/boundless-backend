@@ -13,6 +13,14 @@ import { checkPermission } from "../../utils/getUserRole.js";
 import { isValidStellarAddress } from "../../utils/wallet.js";
 import { auth } from "../../lib/auth.js";
 import User from "../../models/user.model.js";
+import { HackathonTeamInvitationStatus } from "../../models/hackathon-team-invitation.model.js";
+import HackathonParticipant from "../../models/hackathon-participant.model.js";
+
+import { sendEmail } from "../../utils/email.utils.js";
+import { config } from "../../config/main.config.js";
+import EmailTemplatesService from "../../services/email/email-templates.service.js";
+import crypto from "crypto";
+import HackathonTeamInvitation from "../../models/hackathon-team-invitation.model.js";
 
 export interface AuthenticatedRequest extends Request {
   user: any;
@@ -507,3 +515,170 @@ export const isRegistrationOpen = (
 
   return { isOpen: true };
 };
+
+// Helper function that uses the real participant model
+export async function sendTeamInvitationsDuringRegistration({
+  teamMembers,
+  hackathon,
+  teamId,
+  teamName,
+  user,
+  req,
+}: {
+  teamMembers: string[];
+  hackathon: any;
+  teamId: string;
+  teamName: string;
+  user: any;
+  req: Request;
+}) {
+  const results = {
+    invitationsSent: 0,
+    successful: [] as string[],
+    failed: [] as { email: string; error: string }[],
+  };
+
+  for (const email of teamMembers) {
+    try {
+      // Skip self (leader)
+      if (email.toLowerCase() === user.email.toLowerCase()) continue;
+
+      // Check if user is registered
+      const existingUser = await User.findOne({
+        email: email.toLowerCase(),
+      });
+
+      // Check for existing invitation
+      const existingInvitation = await HackathonTeamInvitation.findOne({
+        hackathonId: hackathon._id,
+        teamId: teamId,
+        email: email.toLowerCase(),
+        status: HackathonTeamInvitationStatus.PENDING,
+      });
+
+      if (existingInvitation && (existingInvitation as any).isValid()) {
+        results.invitationsSent++;
+        results.successful.push(email);
+        continue;
+      }
+
+      // Check team size limits
+      const teamParticipants = await HackathonParticipant.find({
+        hackathonId: hackathon._id,
+        teamId: teamId,
+      });
+      const currentMemberCount = teamParticipants.length;
+
+      if (hackathon.teamMax && currentMemberCount >= hackathon.teamMax) {
+        results.failed.push({
+          email,
+          error: `Team has reached maximum size of ${hackathon.teamMax}`,
+        });
+        continue;
+      }
+
+      const token = crypto.randomBytes(32).toString("hex");
+
+      const invitation = await HackathonTeamInvitation.create({
+        hackathonId: hackathon._id,
+        teamId: teamId,
+        invitedBy: user._id,
+        email: email.toLowerCase(),
+        role: "member",
+        token,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        metadata: {
+          ipAddress: req.ip,
+          userAgent: req.get("User-Agent"),
+          invitedAt: new Date(),
+        },
+        ...(existingUser && { invitedUser: existingUser._id }),
+      });
+
+      try {
+        // Create the proper invite URL with hackathon slug
+        const inviteLink = `${config.frontendUrl}/hackathons/${hackathon.slug || hackathon._id}/team-invitations/${token}/accept`;
+        const hackathonLink = `${config.frontendUrl}/hackathons/${hackathon.slug || hackathon._id}`;
+        const inviterName =
+          `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
+          user.email;
+        const hackathonName = hackathon.title || "Hackathon";
+
+        if (existingUser) {
+          // Registered user - send invitation with accept link
+          const template = EmailTemplatesService.getTemplate(
+            "hackathon-team-invitation-existing-user",
+            {
+              recipientName: existingUser.profile?.firstName || email,
+              teamName: teamName,
+              hackathonName: hackathonName,
+              inviterName: inviterName,
+              invitationUrl: inviteLink,
+              hackathonUrl: hackathonLink,
+              expiresAt: invitation.expiresAt,
+              frontendUrl: config.frontendUrl,
+            },
+          );
+
+          await sendEmail({
+            to: email,
+            subject: template.subject,
+            text: template.text || "",
+            html: template.html,
+            priority: template.priority as any,
+          });
+        } else {
+          // Non-registered user - send invitation with auth link and instructions
+          const registrationUrl = `${config.frontendUrl}/auth?invitation=${token}&redirect=/hackathons/${hackathon.slug || hackathon._id}/team-invitations/${token}/accept`;
+
+          const template = EmailTemplatesService.getTemplate(
+            "hackathon-team-invitation-new-user",
+            {
+              recipientName: email,
+              teamName: teamName,
+              hackathonName: hackathonName,
+              inviterName: inviterName,
+              registrationUrl: registrationUrl,
+              invitationUrl: inviteLink,
+              hackathonUrl: hackathonLink,
+              expiresAt: invitation.expiresAt,
+              frontendUrl: config.frontendUrl,
+            },
+          );
+
+          await sendEmail({
+            to: email,
+            subject: template.subject,
+            text: template.text || "",
+            html: template.html,
+            priority: template.priority as any,
+          });
+        }
+
+        results.invitationsSent++;
+        results.successful.push(email);
+      } catch (emailError) {
+        console.error(
+          `Failed to send invitation email to ${email}:`,
+          emailError,
+        );
+        results.failed.push({
+          email,
+          error:
+            emailError instanceof Error
+              ? emailError.message
+              : "Email sending failed",
+        });
+      }
+    } catch (error) {
+      console.error(`Failed to create invitation for ${email}:`, error);
+      results.failed.push({
+        email,
+        error:
+          error instanceof Error ? error.message : "Invitation creation failed",
+      });
+    }
+  }
+
+  return results;
+}

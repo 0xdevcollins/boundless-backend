@@ -69,6 +69,12 @@ export class EmailTemplatesService {
         this.getTeamInvitationExpiredTemplate(data),
       "team-invitation-cancelled": () =>
         this.getTeamInvitationCancelledTemplate(data),
+      "hackathon-team-invitation-existing-user": () =>
+        this.getHackathonTeamInvitationExistingUserTemplate(data),
+      "hackathon-team-invitation-new-user": () =>
+        this.getHackathonTeamInvitationNewUserTemplate(data),
+      "hackathon-team-invitation-accepted": () =>
+        this.getHackathonTeamInvitationAcceptedTemplate(data),
     };
 
     const templateFunction = templates[templateType];
@@ -1465,6 +1471,139 @@ export class EmailTemplatesService {
         ctaText: "View Organization",
         privacyUrl: `${frontendUrl}/privacy`,
         termsUrl: `${frontendUrl}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  private static getHackathonTeamInvitationExistingUserTemplate(
+    data: any,
+  ): EmailTemplate {
+    const {
+      recipientName,
+      teamName,
+      hackathonName,
+      inviterName,
+      invitationUrl,
+      hackathonUrl,
+      expiresAt,
+    } = data;
+
+    if (!recipientName || !teamName || !hackathonName || !invitationUrl) {
+      throw new Error(
+        "Required data missing for hackathon team invitation email",
+      );
+    }
+
+    return {
+      subject: `🤝 You've been invited to join ${teamName} for ${hackathonName}`,
+      priority: "high",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Hackathon Team Invitation",
+        preheaderText: `Join ${teamName} for ${hackathonName}`,
+        headline: "🤝 Team Invitation",
+        bodyText1: `<strong>${inviterName}</strong> has invited you to join <strong>${teamName}</strong> for the hackathon <strong>${hackathonName}</strong>.`,
+        bodyText2:
+          "Click the button below to accept the invitation and join the team.",
+        ctaUrl: invitationUrl,
+        ctaText: "Accept Invitation",
+        bodyText3: hackathonUrl
+          ? `You can view the hackathon details here: <a href="${hackathonUrl}" style="color: #3498db;">${hackathonName}</a>`
+          : undefined,
+        disclaimerText: expiresAt
+          ? `This invitation will expire on ${new Date(expiresAt).toLocaleDateString()}. If you don't want to join this team, you can safely ignore this email.`
+          : "If you don't want to join this team, you can safely ignore this email.",
+        privacyUrl: `${process.env.FRONTEND_URL || "https://boundlessfi.xyz"}/privacy`,
+        termsUrl: `${process.env.FRONTEND_URL || "https://boundlessfi.xyz"}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Hackathon Team Invitation - New User Template
+   */
+  private static getHackathonTeamInvitationNewUserTemplate(
+    data: any,
+  ): EmailTemplate {
+    const {
+      recipientName,
+      teamName,
+      hackathonName,
+      inviterName,
+      registrationUrl,
+      invitationUrl,
+      hackathonUrl,
+      expiresAt,
+    } = data;
+
+    if (!recipientName || !teamName || !hackathonName || !registrationUrl) {
+      throw new Error(
+        "Required data missing for hackathon team invitation email",
+      );
+    }
+
+    return {
+      subject: `🤝 You've been invited to join ${teamName} for ${hackathonName}`,
+      priority: "high",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Hackathon Team Invitation",
+        preheaderText: `Join ${teamName} for ${hackathonName}`,
+        headline: "🤝 Team Invitation",
+        bodyText1: `<strong>${inviterName}</strong> has invited you to join <strong>${teamName}</strong> for the hackathon <strong>${hackathonName}</strong>.`,
+        bodyText2:
+          "Create an account on Boundless to accept this invitation and join the team. It's quick and free!",
+        ctaUrl: registrationUrl,
+        ctaText: "Create Account & Join",
+        bodyText3: hackathonUrl
+          ? `You can view the hackathon details here: <a href="${hackathonUrl}" style="color: #3498db;">${hackathonName}</a>`
+          : undefined,
+        disclaimerText: expiresAt
+          ? `This invitation will expire on ${new Date(expiresAt).toLocaleDateString()}. You'll need to create an account with this email address to accept the invitation.`
+          : "You'll need to create an account with this email address to accept the invitation.",
+        privacyUrl: `${process.env.FRONTEND_URL || "https://boundlessfi.xyz"}/privacy`,
+        termsUrl: `${process.env.FRONTEND_URL || "https://boundlessfi.xyz"}/terms`,
+        unsubscribeUrl: data.unsubscribeUrl,
+      }),
+    };
+  }
+
+  /**
+   * Hackathon Team Invitation Accepted Template
+   */
+  private static getHackathonTeamInvitationAcceptedTemplate(
+    data: any,
+  ): EmailTemplate {
+    const {
+      teamLeaderName,
+      newMemberName,
+      teamName,
+      hackathonName,
+      teamManagementUrl,
+    } = data;
+
+    if (!teamLeaderName || !newMemberName || !teamName || !hackathonName) {
+      throw new Error(
+        "Required data missing for hackathon team invitation accepted email",
+      );
+    }
+
+    return {
+      subject: `👥 ${newMemberName} joined your team ${teamName}`,
+      priority: "normal",
+      html: EmailTemplateUtils.generateEmail({
+        emailTitle: "Team Member Joined",
+        preheaderText: `${newMemberName} joined ${teamName}`,
+        headline: "👥 Team Member Joined!",
+        bodyText1: `Hello ${teamLeaderName}, <strong>${newMemberName}</strong> has accepted your invitation and joined <strong>${teamName}</strong> for ${hackathonName}.`,
+        bodyText2:
+          "They are now part of your hackathon team and can collaborate on the project.",
+        ctaUrl: teamManagementUrl,
+        ctaText: "Manage Team",
+        disclaimerText:
+          "You can manage your team members, roles, and settings from the team management page.",
+        privacyUrl: `${process.env.FRONTEND_URL || "https://boundlessfi.xyz"}/privacy`,
+        termsUrl: `${process.env.FRONTEND_URL || "https://boundlessfi.xyz"}/terms`,
         unsubscribeUrl: data.unsubscribeUrl,
       }),
     };
