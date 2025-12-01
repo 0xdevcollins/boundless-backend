@@ -1,5 +1,8 @@
 import { Request, Response } from "express";
-import Hackathon, { HackathonStatus } from "../../models/hackathon.model.js";
+import Hackathon, {
+  HackathonStatus,
+  ParticipantType,
+} from "../../models/hackathon.model.js";
 import HackathonParticipant from "../../models/hackathon-participant.model.js";
 import {
   sendSuccess,
@@ -341,7 +344,7 @@ export const getHackathonParticipants = async (
       return;
     }
 
-    // Find hackathon by slug
+    // Find hackathon by slug with participantType
     const hackathon = await Hackathon.findOne({
       slug,
       status: {
@@ -374,36 +377,185 @@ export const getHackathonParticipants = async (
       filter["submission"] = { $exists: false };
     }
 
-    // Execute query
-    const [participants, totalCount] = await Promise.all([
-      HackathonParticipant.find(filter)
-        .populate({
-          path: "userId",
-          select: "email profile",
-        })
-        .sort({ registeredAt: -1 })
-        .skip(skip)
-        .limit(limitNum)
-        .lean(),
-      HackathonParticipant.countDocuments(filter),
-    ]);
+    // Determine grouping based on hackathon participantType
+    const shouldGroupByTeam =
+      hackathon.participantType === ParticipantType.TEAM ||
+      hackathon.participantType === ParticipantType.TEAM_OR_INDIVIDUAL;
 
-    // Transform participants
-    const transformedParticipants = participants.map((participant: any) =>
-      transformParticipantToFrontend(participant),
-    );
+    if (shouldGroupByTeam) {
+      // Group participants by team
+      const teamGroups = await HackathonParticipant.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: "$teamId",
+            teamName: { $first: "$teamName" },
+            teamMembers: {
+              $push: {
+                _id: "$_id",
+                userId: "$userId",
+                participationType: "$participationType",
+                socialLinks: "$socialLinks",
+                submission: "$submission",
+                rank: "$rank",
+                registeredAt: "$registeredAt",
+                submittedAt: "$submittedAt",
+                createdAt: "$createdAt",
+                updatedAt: "$updatedAt",
+                // Include the teamMembers array to get role information
+                allTeamMembers: "$teamMembers",
+              },
+            },
+            memberCount: { $sum: 1 },
+            hasSubmission: {
+              $max: {
+                $cond: [{ $ifNull: ["$submission", false] }, 1, 0],
+              },
+            },
+            teamCreatedAt: { $min: "$createdAt" },
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            teamName: 1,
+            teamMembers: 1,
+            memberCount: 1,
+            hasSubmission: 1,
+            teamCreatedAt: 1,
+            isIndividual: {
+              $or: [{ $eq: ["$_id", null] }, { $eq: ["$_id", undefined] }],
+            },
+          },
+        },
+        { $sort: { teamCreatedAt: -1 } },
+        { $skip: skip },
+        { $limit: limitNum },
+      ]);
 
-    const totalPages = Math.ceil(totalCount / limitNum);
+      // Get total count of unique teams
+      const totalTeams = await HackathonParticipant.aggregate([
+        { $match: filter },
+        { $group: { _id: "$teamId" } },
+        { $count: "total" },
+      ]);
 
-    const response: ParticipantListResponse = {
-      participants: transformedParticipants,
-      hasMore: pageNum < totalPages,
-      total: totalCount,
-      currentPage: pageNum,
-      totalPages,
-    };
+      const totalCount = totalTeams[0]?.total || 0;
 
-    sendSuccess(res, response, "Participants retrieved successfully");
+      // Populate user data for all team members and include role
+      const populatedTeamGroups = await Promise.all(
+        teamGroups.map(async (team) => {
+          const populatedMembers = await Promise.all(
+            team.teamMembers.map(async (member: any) => {
+              const populatedMember = await HackathonParticipant.populate(
+                member,
+                {
+                  path: "userId",
+                  select: "email profile",
+                },
+              );
+
+              // Get the transformed participant data
+              const transformedParticipant =
+                transformParticipantToFrontend(populatedMember);
+
+              // Find the team member's role from the teamMembers array
+              const teamMemberInfo = member.allTeamMembers?.find(
+                (tm: any) =>
+                  tm.userId.toString() ===
+                  populatedMember.userId._id.toString(),
+              );
+
+              return {
+                id: transformedParticipant.id,
+                name: transformedParticipant.name,
+                username: transformedParticipant.username,
+                avatar: transformedParticipant.avatar,
+                role: teamMemberInfo?.role || "member", // Default to 'member' if role not found
+                teamId: team._id,
+                verified: transformedParticipant.verified,
+                joinedDate: transformedParticipant.joinedDate,
+                projects: transformedParticipant.projects,
+                followers: transformedParticipant.followers,
+                following: transformedParticipant.following,
+                hasSubmitted: transformedParticipant.hasSubmitted,
+              };
+            }),
+          );
+
+          return {
+            teamId: team._id,
+            teamName: team.teamName,
+            isIndividual: team.isIndividual || !team._id,
+            members: populatedMembers,
+            memberCount: team.memberCount,
+            hasSubmission: team.hasSubmission === 1,
+            teamCreatedAt: team.teamCreatedAt,
+          };
+        }),
+      );
+
+      const totalPages = Math.ceil(totalCount / limitNum);
+
+      const response = {
+        groups: populatedTeamGroups,
+        grouping: "team",
+        participantType: hackathon.participantType,
+        hasMore: pageNum < totalPages,
+        total: totalCount,
+        currentPage: pageNum,
+        totalPages,
+      };
+
+      sendSuccess(res, response, "Participants retrieved successfully");
+    } else {
+      // Flat list for individual-only hackathons
+      const [participants, totalCount] = await Promise.all([
+        HackathonParticipant.find(filter)
+          .populate({
+            path: "userId",
+            select: "email profile",
+          })
+          .sort({ registeredAt: -1 })
+          .skip(skip)
+          .limit(limitNum)
+          .lean(),
+        HackathonParticipant.countDocuments(filter),
+      ]);
+
+      // Transform participants for individual hackathons
+      const transformedParticipants = participants.map((participant: any) => {
+        const transformed = transformParticipantToFrontend(participant);
+        return {
+          id: transformed.id,
+          name: transformed.name,
+          username: transformed.username,
+          avatar: transformed.avatar,
+          role: "individual", // Since it's individual participation
+          teamId: null, // No team for individual participants
+          verified: transformed.verified,
+          joinedDate: transformed.joinedDate,
+          projects: transformed.projects,
+          followers: transformed.followers,
+          following: transformed.following,
+          hasSubmitted: transformed.hasSubmitted,
+        };
+      });
+
+      const totalPages = Math.ceil(totalCount / limitNum);
+
+      const response = {
+        participants: transformedParticipants,
+        grouping: "flat",
+        participantType: hackathon.participantType,
+        hasMore: pageNum < totalPages,
+        total: totalCount,
+        currentPage: pageNum,
+        totalPages,
+      };
+
+      sendSuccess(res, response, "Participants retrieved successfully");
+    }
   } catch (error) {
     console.error("Get hackathon participants error:", error);
     sendInternalServerError(
