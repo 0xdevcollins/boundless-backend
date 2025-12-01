@@ -15,13 +15,18 @@ import {
   AuthenticatedRequest,
   resolveHackathonByIdOrSlug,
   isRegistrationOpen,
+  sendTeamInvitationsDuringRegistration,
 } from "./hackathon.helpers.js";
+import { sendEmail } from "../../utils/email.utils.js";
+import { config } from "../../config/main.config.js";
+import EmailTemplatesService from "../../services/email/email-templates.service.js";
 
 /**
  * Register for hackathon
  * POST /organizations/{orgId}/hackathons/{hackathonId}/register
  * POST /hackathons/{hackathonSlugOrId}/register
  */
+
 export const registerForHackathon = async (
   req: Request,
   res: Response,
@@ -39,7 +44,6 @@ export const registerForHackathon = async (
     const hackathonIdentifier = hackathonId || hackathonSlugOrId;
     const isOrgRoute = !!orgId;
 
-    // Resolve hackathon
     const hackathon = await resolveHackathonByIdOrSlug(
       hackathonIdentifier,
       isOrgRoute ? undefined : { includePublishedOnly: true },
@@ -50,7 +54,6 @@ export const registerForHackathon = async (
       return;
     }
 
-    // Check if hackathon is open for registration based on policy
     const registrationStatus = isRegistrationOpen(hackathon);
     if (!registrationStatus.isOpen) {
       sendBadRequest(
@@ -60,7 +63,6 @@ export const registerForHackathon = async (
       return;
     }
 
-    // Check if already registered
     const existingParticipant = await HackathonParticipant.findOne({
       hackathonId: hackathon._id,
       userId: user._id,
@@ -71,9 +73,9 @@ export const registerForHackathon = async (
       return;
     }
 
-    // Handle team registration
     let teamId: string | undefined;
     let teamMembersData: any[] = [];
+    let invitationsSent = 0;
 
     if (participationType === "team") {
       if (!teamName) {
@@ -81,10 +83,8 @@ export const registerForHackathon = async (
         return;
       }
 
-      // Generate team ID
       teamId = `${(hackathon._id as mongoose.Types.ObjectId).toString()}-${Date.now()}`;
 
-      // Add current user as team leader
       teamMembersData = [
         {
           userId: user._id,
@@ -97,52 +97,47 @@ export const registerForHackathon = async (
         },
       ];
 
-      // If team members are provided, add them (but don't require all to be registered)
-      if (teamMembers && teamMembers.length > 0) {
-        // Find existing users by email
-        const memberUsers = await User.find({
-          email: { $in: teamMembers },
-        }).select("email profile");
+      const invitedMembersCount = teamMembers ? teamMembers.length : 0;
+      const totalPotentialMembers = 1 + invitedMembersCount;
 
-        // Add existing users to team
-        memberUsers.forEach((member) => {
-          // Don't add if already added as leader
-          if (member._id.toString() !== user._id.toString()) {
-            teamMembersData.push({
-              userId: member._id,
-              name:
-                `${member.profile?.firstName || ""} ${member.profile?.lastName || ""}`.trim() ||
-                member.email,
-              username: member.profile?.username || member.email.split("@")[0],
-              role: "member",
-              avatar: member.profile?.avatar,
-            });
-          }
+      if (hackathon.teamMin && totalPotentialMembers < hackathon.teamMin) {
+        sendBadRequest(
+          res,
+          `Team must have at least ${hackathon.teamMin} members including invited members.`,
+        );
+        return;
+      }
+
+      if (hackathon.teamMax && totalPotentialMembers > hackathon.teamMax) {
+        sendBadRequest(
+          res,
+          `Team cannot have more than ${hackathon.teamMax} members including invited members.`,
+        );
+        return;
+      }
+
+      if (teamMembers && teamMembers.length > 0) {
+        const invitationResults = await sendTeamInvitationsDuringRegistration({
+          teamMembers,
+          hackathon,
+          teamId,
+          teamName,
+          user,
+          req,
         });
 
-        // For non-registered users, invitations will be sent (handled separately)
-        // We don't fail if some users aren't registered
-      }
+        invitationsSent = invitationResults.invitationsSent;
 
-      // Check team size limits (only count registered members)
-      if (hackathon.teamMin && teamMembersData.length < hackathon.teamMin) {
-        sendBadRequest(
-          res,
-          `Team must have at least ${hackathon.teamMin} registered members. You can invite more members after registration.`,
-        );
-        return;
-      }
-
-      if (hackathon.teamMax && teamMembersData.length > hackathon.teamMax) {
-        sendBadRequest(
-          res,
-          `Team cannot have more than ${hackathon.teamMax} members`,
-        );
-        return;
+        if (invitationResults.failed.length > 0) {
+          console.warn("Some invitation emails failed:", {
+            failed: invitationResults.failed,
+            teamId,
+            hackathon: hackathon._id,
+          });
+        }
       }
     }
 
-    // Create participant
     const participant = await HackathonParticipant.create({
       userId: user._id,
       hackathonId: hackathon._id,
@@ -154,13 +149,44 @@ export const registerForHackathon = async (
       registeredAt: new Date(),
     });
 
-    // Populate user data
+    try {
+      const hackathonLink = `${config.frontendUrl}/hackathons/${hackathon.slug || hackathon._id}`;
+      const userName =
+        `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
+        user.email;
+
+      const template = EmailTemplatesService.getTemplate(
+        "hackathon-registered",
+        {
+          hackathonName: hackathon.title || "Hackathon",
+          hackathonSlug: hackathon.slug,
+          hackathonId: (hackathon._id as mongoose.Types.ObjectId).toString(),
+          userName,
+          participationType,
+          teamName: participationType === "team" ? teamName : undefined,
+          frontendUrl: config.frontendUrl,
+        },
+      );
+
+      await sendEmail({
+        to: user.email,
+        subject: template.subject,
+        text: template.text || "",
+        html: template.html,
+        priority: template.priority as any,
+      });
+    } catch (emailError) {
+      console.error(
+        "Failed to send registration confirmation email:",
+        emailError,
+      );
+    }
+
     await participant.populate({
       path: "userId",
       select: "email profile",
     });
 
-    // Format response
     const userData = participant.userId as any;
     const profile = userData?.profile || {};
 
@@ -185,9 +211,15 @@ export const registerForHackathon = async (
       teamMembers: participant.teamMembers || null,
       submission: null,
       registeredAt: participant.registeredAt.toISOString(),
+      invitationsSent,
     };
 
-    sendCreated(res, responseData, "Successfully registered for hackathon");
+    const message =
+      invitationsSent > 0
+        ? `Successfully registered for hackathon. ${invitationsSent} team invitation(s) sent.`
+        : "Successfully registered for hackathon.";
+
+    sendCreated(res, responseData, message);
   } catch (error) {
     console.error("Register for hackathon error:", error);
     sendInternalServerError(
@@ -197,6 +229,182 @@ export const registerForHackathon = async (
     );
   }
 };
+
+// export const registerForHackathon = async (
+//   req: Request,
+//   res: Response,
+// ): Promise<void> => {
+//   try {
+//     const user = (req as AuthenticatedRequest).user;
+//     if (!user) {
+//       sendForbidden(res, "Authentication required");
+//       return;
+//     }
+
+//     const { hackathonSlugOrId, orgId, hackathonId } = req.params;
+//     const { participationType, teamName, teamMembers } = req.body;
+
+//     const hackathonIdentifier = hackathonId || hackathonSlugOrId;
+//     const isOrgRoute = !!orgId;
+
+//     // Resolve hackathon
+//     const hackathon = await resolveHackathonByIdOrSlug(
+//       hackathonIdentifier,
+//       isOrgRoute ? undefined : { includePublishedOnly: true },
+//     );
+
+//     if (!hackathon) {
+//       sendNotFound(res, "Hackathon not found");
+//       return;
+//     }
+
+//     // Check if hackathon is open for registration based on policy
+//     const registrationStatus = isRegistrationOpen(hackathon);
+//     if (!registrationStatus.isOpen) {
+//       sendBadRequest(
+//         res,
+//         registrationStatus.errorMessage || "Hackathon registration has closed",
+//       );
+//       return;
+//     }
+
+//     // Check if already registered
+//     const existingParticipant = await HackathonParticipant.findOne({
+//       hackathonId: hackathon._id,
+//       userId: user._id,
+//     });
+
+//     if (existingParticipant) {
+//       sendConflict(res, "You are already registered for this hackathon");
+//       return;
+//     }
+
+//     // Handle team registration
+//     let teamId: string | undefined;
+//     let teamMembersData: any[] = [];
+
+//     if (participationType === "team") {
+//       if (!teamName) {
+//         sendBadRequest(res, "Team name is required for team participation");
+//         return;
+//       }
+
+//       // Generate team ID
+//       teamId = `${(hackathon._id as mongoose.Types.ObjectId).toString()}-${Date.now()}`;
+
+//       // Add current user as team leader
+//       teamMembersData = [
+//         {
+//           userId: user._id,
+//           name:
+//             `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
+//             user.email,
+//           username: user.profile?.username || user.email.split("@")[0],
+//           role: "leader",
+//           avatar: user.profile?.avatar,
+//         },
+//       ];
+
+//       // If team members are provided, add them (but don't require all to be registered)
+//       if (teamMembers && teamMembers.length > 0) {
+//         // Find existing users by email
+//         const memberUsers = await User.find({
+//           email: { $in: teamMembers },
+//         }).select("email profile");
+
+//         // Add existing users to team
+//         memberUsers.forEach((member) => {
+//           // Don't add if already added as leader
+//           if (member._id.toString() !== user._id.toString()) {
+//             teamMembersData.push({
+//               userId: member._id,
+//               name:
+//                 `${member.profile?.firstName || ""} ${member.profile?.lastName || ""}`.trim() ||
+//                 member.email,
+//               username: member.profile?.username || member.email.split("@")[0],
+//               role: "member",
+//               avatar: member.profile?.avatar,
+//             });
+//           }
+//         });
+
+//         // For non-registered users, invitations will be sent (handled separately)
+//         // We don't fail if some users aren't registered
+//       }
+
+//       // Check team size limits (only count registered members)
+//       if (hackathon.teamMin && teamMembersData.length < hackathon.teamMin) {
+//         sendBadRequest(
+//           res,
+//           `Team must have at least ${hackathon.teamMin} registered members. You can invite more members after registration.`,
+//         );
+//         return;
+//       }
+
+//       if (hackathon.teamMax && teamMembersData.length > hackathon.teamMax) {
+//         sendBadRequest(
+//           res,
+//           `Team cannot have more than ${hackathon.teamMax} members`,
+//         );
+//         return;
+//       }
+//     }
+
+//     // Create participant
+//     const participant = await HackathonParticipant.create({
+//       userId: user._id,
+//       hackathonId: hackathon._id,
+//       organizationId: hackathon.organizationId,
+//       participationType,
+//       teamId,
+//       teamName: participationType === "team" ? teamName : undefined,
+//       teamMembers: teamMembersData,
+//       registeredAt: new Date(),
+//     });
+
+//     // Populate user data
+//     await participant.populate({
+//       path: "userId",
+//       select: "email profile",
+//     });
+
+//     // Format response
+//     const userData = participant.userId as any;
+//     const profile = userData?.profile || {};
+
+//     const responseData = {
+//       _id: (participant._id as mongoose.Types.ObjectId).toString(),
+//       userId: participant.userId._id.toString(),
+//       hackathonId: participant.hackathonId.toString(),
+//       organizationId: participant.organizationId.toString(),
+//       user: {
+//         _id: userData._id.toString(),
+//         profile: {
+//           firstName: profile.firstName,
+//           lastName: profile.lastName,
+//           username: profile.username,
+//           avatar: profile.avatar,
+//         },
+//         email: userData.email,
+//       },
+//       participationType: participant.participationType,
+//       teamId: participant.teamId || null,
+//       teamName: participant.teamName || null,
+//       teamMembers: participant.teamMembers || null,
+//       submission: null,
+//       registeredAt: participant.registeredAt.toISOString(),
+//     };
+
+//     sendCreated(res, responseData, "Successfully registered for hackathon");
+//   } catch (error) {
+//     console.error("Register for hackathon error:", error);
+//     sendInternalServerError(
+//       res,
+//       "Failed to register for hackathon",
+//       error instanceof Error ? error.message : "Unknown error",
+//     );
+//   }
+// };
 
 /**
  * Check registration status

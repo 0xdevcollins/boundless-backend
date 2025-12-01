@@ -661,6 +661,255 @@ export const updateUserSecurity = async (
 };
 
 /**
+ * @desc    Get user profile by username (public endpoint)
+ * @route   GET /api/users/profile/:username
+ * @access  Public
+ */
+export const getUserProfileByUsername = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { username } = req.params;
+
+    if (!username) {
+      sendBadRequest(res, "Username is required");
+      return;
+    }
+
+    // Fetch user by username (exclude deleted users)
+    const user = await User.findOne({
+      "profile.username": username,
+      deleted: { $ne: true },
+    }).select("-password");
+
+    if (checkResource(res, !user, "User not found", 404)) {
+      return;
+    }
+
+    if (!user) return; // TypeScript guard
+
+    const userId = user._id;
+
+    // Get user's projects
+    const projects = await Project.find({ "owner.type": userId })
+      .select(
+        "title description media tags category type funding voting milestones createdAt updatedAt",
+      )
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
+    // Get user's activities
+    const activities = await Activity.find({ userId: userId })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .populate({
+        path: "details.projectId",
+        select: "title media",
+      })
+      .lean();
+
+    // Get user's organizations (exclude archived)
+    const userOrganizations = await Organization.find({
+      $or: [{ members: user?.email }, { owner: user?.email }],
+      archived: { $ne: true },
+    })
+      .select(
+        "_id name logo tagline about isProfileComplete owner members hackathons grants createdAt",
+      )
+      .lean();
+
+    // Get following
+    const following = await Follow.find({ follower: userId, status: "ACTIVE" })
+      .populate({
+        path: "following",
+        select: "profile firstName lastName username avatar bio",
+        match: { deleted: { $ne: true } },
+      })
+      .sort({ followedAt: -1 })
+      .limit(10)
+      .lean();
+
+    // Get followers
+    const followers = await Follow.find({ following: userId, status: "ACTIVE" })
+      .populate({
+        path: "follower",
+        select: "profile firstName lastName username avatar bio",
+        match: { deleted: { $ne: true } },
+      })
+      .sort({ followedAt: -1 })
+      .limit(10)
+      .lean();
+
+    // Get user's contributed projects
+    const contributedProjects = await Project.find({
+      "funding.contributors.user": userId,
+    })
+      .select(
+        "title description media tags category type funding voting milestones createdAt updatedAt",
+      )
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
+    // Calculate stats
+    const [
+      totalProjectsCreated,
+      totalProjectsFunded,
+      totalComments,
+      totalVotes,
+      totalGrants,
+      totalHackathons,
+      totalDonations,
+    ] = await Promise.all([
+      Project.countDocuments({ "owner.type": userId }),
+      Project.countDocuments({ "funding.contributors.user": userId }),
+      Comment.countDocuments({ author: userId }),
+      Project.aggregate([
+        { $match: { "voting.voters.userId": userId } },
+        { $count: "total" },
+      ]).then((result) => result[0]?.total || 0),
+      Project.countDocuments({ "owner.type": userId, "grant.isGrant": true }),
+      Project.countDocuments({ "owner.type": userId, category: "hackathon" }),
+      Project.aggregate([
+        { $match: { "funding.contributors.user": userId } },
+        { $unwind: "$funding.contributors" },
+        { $match: { "funding.contributors.user": userId } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$funding.contributors.amount" },
+          },
+        },
+      ]).then((result) => result[0]?.total || 0),
+    ]);
+
+    // Profile completeness
+    const profileCompleteness = checkProfileCompleteness(user);
+    const isProfileComplete = profileCompleteness.isComplete;
+
+    // Format projects
+    const formattedProjects = projects.map((project) => ({
+      id: project._id.toString(),
+      name: project.title,
+      description: project.description,
+      image: project.media?.banner || project.media?.logo,
+      ownerAvatar: user?.profile.avatar,
+      category: project.category,
+    }));
+
+    // Format activities
+    const formattedActivities = activities.map((activity) => {
+      const project = activity.details.projectId as any;
+      return {
+        id: activity._id.toString(),
+        type: activity.type.toLowerCase(),
+        description: `${activity.type.replace(/_/g, " ").toLowerCase()} ${
+          project?.title || "project"
+        }`,
+        projectName: project?.title || "Unknown Project",
+        projectId: project?._id?.toString(),
+        amount: activity.details.amount || null,
+        timestamp: activity.createdAt,
+        image: project?.media?.banner || project?.media?.logo,
+        emoji: getActivityEmoji(activity.type),
+      };
+    });
+
+    // Format organizations
+    const formattedOrganizations = userOrganizations.map((org) => ({
+      id: org._id.toString(),
+      name: org.name,
+      avatar: org.logo,
+      description: org.about,
+    }));
+
+    // Format following
+    const formattedFollowing = following.map((follow) => {
+      const user = follow.following as any;
+      return {
+        id: user._id.toString(),
+        profile: {
+          firstName: user.profile.firstName,
+          lastName: user.profile.lastName,
+          username: user.profile.username,
+          avatar: user.profile.avatar,
+          bio: user.profile.bio,
+        },
+        followedAt: follow.followedAt,
+      };
+    });
+
+    // Format followers
+    const formattedFollowers = followers.map((follow) => {
+      const user = follow.follower as any;
+      return {
+        id: user._id.toString(),
+        profile: {
+          firstName: user.profile.firstName,
+          lastName: user.profile.lastName,
+          username: user.profile.username,
+          avatar: user.profile.avatar,
+          bio: user.profile.bio,
+        },
+        followedAt: follow.followedAt,
+      };
+    });
+
+    // Response (same)
+    const response = {
+      profile: {
+        firstName: user?.profile.firstName,
+        lastName: user?.profile.lastName,
+        username: user?.profile.username,
+        avatar: user?.profile.avatar,
+        bio: user?.profile.bio,
+        location: user?.profile.location,
+        website: user?.profile.website,
+        socialLinks: user?.profile.socialLinks,
+      },
+      stats: {
+        projectsCreated: totalProjectsCreated,
+        projectsFunded: totalProjectsFunded,
+        totalContributed: user?.stats.totalContributed || 0,
+        reputation: user?.stats.reputation || 0,
+        communityScore: user?.stats.communityScore || 0,
+        commentsPosted: totalComments,
+        organizations: userOrganizations.length,
+        following: following.length,
+        followers: followers.length,
+        votes: totalVotes,
+        grants: totalGrants,
+        hackathons: totalHackathons,
+        donations: totalDonations,
+      },
+      organizations: formattedOrganizations,
+      following: formattedFollowing,
+      followers: formattedFollowers,
+      projects: formattedProjects,
+      activities: formattedActivities,
+      _id: user?._id,
+      email: user?.email,
+      isVerified: user?.isVerified,
+      contributedProjects: [],
+      createdAt: (user as any)?.createdAt,
+      updatedAt: (user as any)?.updatedAt,
+      __v: user?.__v,
+      lastLogin: user?.lastLogin,
+      isProfileComplete,
+      missingProfileFields: profileCompleteness.missingFields,
+      profileCompletionPercentage: profileCompleteness.completionPercentage,
+    };
+
+    sendSuccess(res, response, "User profile retrieved successfully");
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    sendInternalServerError(res, "Server Error");
+  }
+};
+
+/**
  * @desc    Get dashboard overview for the authenticated user
  * @route   GET /api/users/dashboard/overview
  * @access  Private
