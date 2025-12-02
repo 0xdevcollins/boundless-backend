@@ -47,7 +47,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       password,
       profile: createDefaultUserProfile(firstName, lastName, username),
       settings: createDefaultUserSettings(),
-      isVerified: false,
+      emailVerified: false,
     });
 
     const otp = generateOTP();
@@ -130,7 +130,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (!user.isVerified) {
+    if (!user.emailVerified) {
       sendUnauthorized(res, "Please verify your email first");
       return;
     }
@@ -507,7 +507,7 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    user.isVerified = true;
+    user.emailVerified = true;
     user.otp = undefined;
 
     let invitationResult = null;
@@ -633,7 +633,7 @@ export const refreshToken = async (
       return;
     }
 
-    if (!user.isVerified) {
+    if (!user.emailVerified) {
       sendUnauthorized(res, "User not verified");
       return;
     }

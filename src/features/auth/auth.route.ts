@@ -206,7 +206,7 @@ router.get("/me", protect, async (req, res) => {
             username: followedUser.profile?.username || "",
             avatar: followedUser.profile?.avatar || "",
           },
-          isVerified: followedUser.isVerified || false,
+          isVerified: followedUser.emailVerified || false,
           roles: followedUser.roles?.map((r: any) => r.role) || [],
         };
       });
@@ -225,7 +225,7 @@ router.get("/me", protect, async (req, res) => {
             username: followerUser.profile?.username || "",
             avatar: followerUser.profile?.avatar || "",
           },
-          isVerified: followerUser.isVerified || false,
+          isVerified: followerUser.emailVerified || false,
           roles: followerUser.roles?.map((r: any) => r.role) || [],
         };
       });
@@ -267,7 +267,7 @@ router.get("/me", protect, async (req, res) => {
         username: user.profile.username,
         avatar: user.profile.avatar || "",
       },
-      isVerified: user.isVerified,
+      isVerified: user.emailVerified,
       roles: user.roles.filter((r) => r.status === "ACTIVE").map((r) => r.role),
       lastLogin: user.lastLogin?.toISOString(),
       organizations: formattedOrganizations,

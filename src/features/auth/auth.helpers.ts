@@ -42,7 +42,7 @@ export const createUserFromOAuth = (
     email,
     profile: createDefaultUserProfile(firstName, lastName, username, avatar),
     settings: createDefaultUserSettings(),
-    isVerified: true,
+    emailVerified: true,
     ...(invitation && { invitationToken: invitation }),
   });
 };

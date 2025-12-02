@@ -56,7 +56,9 @@ export const getAdminUsers = async (req: Request, res: Response) => {
 
     // Get users with pagination
     const users = await User.find(query)
-      .select("_id email profile status roles createdAt lastLogin isVerified")
+      .select(
+        "_id email profile status roles createdAt lastLogin emailVerified",
+      )
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNum);
@@ -188,7 +190,7 @@ export const getAdminUserById = async (req: Request, res: Response) => {
         settings: 1,
         createdAt: 1,
         lastLogin: 1,
-        isVerified: 1,
+        emailVerified: 1,
       })
       .lean();
 
@@ -260,7 +262,7 @@ export const getAdminUserById = async (req: Request, res: Response) => {
       website: user.profile?.website,
       socialLinks: user.profile?.socialLinks,
       stats: user.stats,
-      isVerified: user.isVerified,
+      isVerified: user.emailVerified,
       activityHistory,
       sessions,
       permissions,

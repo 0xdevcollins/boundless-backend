@@ -33,14 +33,14 @@ export const getAdminOverview = async (req: Request, res: Response) => {
       Promise.all([
         User.countDocuments({
           createdAt: { $gte: thirtyDaysAgo },
-          isVerified: true,
+          emailVerified: true,
         }),
         User.countDocuments({
           createdAt: {
             $gte: new Date(thirtyDaysAgo.getTime() - 30 * 24 * 60 * 60 * 1000),
             $lt: thirtyDaysAgo,
           },
-          isVerified: true,
+          emailVerified: true,
         }),
       ]),
 

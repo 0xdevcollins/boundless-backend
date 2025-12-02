@@ -202,7 +202,7 @@ export async function syncBetterAuthUser(
         ),
         settings: createDefaultUserSettings(),
         // OAuth users are verified by default, email/password users need verification
-        isVerified: options.avatar ? true : false,
+        emailVerified: options.avatar ? true : false,
         ...(options.invitationToken && {
           invitationToken: options.invitationToken,
         }),
@@ -358,7 +358,7 @@ export async function syncBetterAuthUser(
     }
 
     // Send welcome email if user was just created and verified
-    if (user.isVerified) {
+    if (user.emailVerified) {
       try {
         const welcomeTemplate = EmailTemplatesService.getTemplate("welcome", {
           firstName: user.profile.firstName,
@@ -389,13 +389,13 @@ export async function syncBetterAuthUser(
  */
 export async function updateUserVerificationStatus(
   email: string,
-  isVerified: boolean,
+  emailVerified: boolean,
 ): Promise<void> {
   try {
     // Use updateOne instead of save() to avoid validation errors
     // This is safer when Better Auth may have created users directly in MongoDB
-    const updateQuery: any = { $set: { isVerified } };
-    if (isVerified) {
+    const updateQuery: any = { $set: { emailVerified } };
+    if (emailVerified) {
       // Clear OTP after verification using $unset
       updateQuery.$unset = { otp: "" };
     }

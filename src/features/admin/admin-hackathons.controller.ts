@@ -167,7 +167,7 @@ export const getAdminHackathonById = async (req: Request, res: Response) => {
     })
       .populate(
         "userId",
-        "profile.firstName profile.lastName profile.username email isVerified",
+        "profile.firstName profile.lastName profile.username email emailVerified",
       )
       .sort({ createdAt: -1 })
       .lean();
@@ -211,7 +211,7 @@ export const getAdminHackathonById = async (req: Request, res: Response) => {
           (participant.userId as any).profile?.username ||
           "Unknown",
         email: (participant.userId as any).email,
-        isVerified: (participant.userId as any).isVerified,
+        isVerified: (participant.userId as any).emailVerified,
       },
       team:
         participant.teamId && (participant.teamId as any)._id

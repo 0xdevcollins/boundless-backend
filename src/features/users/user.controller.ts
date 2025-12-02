@@ -322,7 +322,7 @@ export const getUserProfile = async (
       activities: formattedActivities,
       _id: user?._id,
       email: user?.email,
-      isVerified: user?.isVerified,
+      isVerified: user?.emailVerified,
       contributedProjects: [], // This would need to be populated with actual contributed projects
       createdAt: (user as any)?.createdAt,
       updatedAt: (user as any)?.updatedAt,
@@ -715,7 +715,7 @@ export const updateUserSecurity = async (
 //         // Also add roles as badges
 //         ...user.roles.map((r: any) => r.role),
 //       ],
-//       kycVerified: !!user.isVerified,
+//       kycVerified: !!user.emailVerified,
 //     };
 //     // DashboardStats
 //     const stats = {

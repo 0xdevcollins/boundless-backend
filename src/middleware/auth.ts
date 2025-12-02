@@ -150,7 +150,7 @@ export const protectWithRefresh = async (
           return;
         }
 
-        if (!user.isVerified) {
+        if (!user.emailVerified) {
           res
             .status(401)
             .json({ success: false, message: "User not verified" });

@@ -39,7 +39,7 @@ export interface IUser extends Document {
   _id: mongoose.Types.ObjectId;
   email: string;
   password: string;
-  isVerified: boolean;
+  emailVerified: boolean;
   otp?: string;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
@@ -118,7 +118,7 @@ const userSchema = new Schema<IUser>(
   {
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    isVerified: { type: Boolean, default: false },
+    emailVerified: { type: Boolean, default: false },
     otp: { type: String },
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Date },
