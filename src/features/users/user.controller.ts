@@ -891,7 +891,7 @@ export const getUserProfileByUsername = async (
       activities: formattedActivities,
       _id: user?._id,
       email: user?.email,
-      isVerified: user?.isVerified,
+      isVerified: user?.emailVerified,
       contributedProjects: [],
       createdAt: (user as any)?.createdAt,
       updatedAt: (user as any)?.updatedAt,
