@@ -10,6 +10,7 @@ import {
   updateUserSettings,
   updateUserSecurity,
   deleteUserAccount,
+  getUserProfileByUsername,
   // getDashboardOverview,
 } from "./user.controller.js";
 import { protect } from "../../middleware/better-auth.middleware.js";
@@ -36,6 +37,10 @@ router
   .get(asyncHandler(protect), asyncHandler(getUserProfile))
   // @ts-ignore
   .put(asyncHandler(protect), asyncHandler(updateUserProfile));
+
+// Public profile by username route (NO authentication required)
+// @ts-ignore
+router.get("/profile/:username", asyncHandler(getUserProfileByUsername));
 
 // Me route (same as profile)
 // @ts-ignore
