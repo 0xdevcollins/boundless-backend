@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import {
+  customSession,
   emailOTP,
   lastLoginMethod,
   oneTap,
@@ -13,10 +14,15 @@ import { sendEmail } from "../utils/email.utils.js";
 import sendMail from "../utils/sendMail.utils.js";
 import EmailTemplatesService from "../services/email/email-templates.service.js";
 import { syncBetterAuthUser } from "./auth-sync.js";
+import { checkProfileCompleteness } from "../utils/profile.utils.js";
 import Organization from "../models/organization.model.js";
 import NotificationService from "../features/notifications/notification.service.js";
 import { NotificationType } from "../models/notification.model.js";
 import User from "../models/user.model.js";
+import Project from "../models/project.model.js";
+import Activity from "../models/activity.model.js";
+import Follow from "../models/follow.model.js";
+import Comment from "../models/comment.model.js";
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
@@ -295,6 +301,280 @@ export const auth = betterAuth({
         },
       },
     }),
+    customSession(async ({ user, session }) => {
+      // Get the user from our custom User model to match /users/me structure
+      const customUser = await User.findOne({
+        email: user.email.toLowerCase(),
+        deleted: { $ne: true },
+      }).select("-password");
+
+      if (!customUser) {
+        return {
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            image: user.image,
+          },
+        };
+      }
+
+      const userId = customUser._id;
+
+      // Get user's projects
+      const projects = await Project.find({ "owner.type": userId })
+        .select(
+          "title description media tags category type funding voting milestones createdAt updatedAt",
+        )
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .lean();
+
+      // Get user's activities
+      const activities = await Activity.find({ userId: userId })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .populate({
+          path: "details.projectId",
+          select: "title media",
+        })
+        .lean();
+
+      // Get user's organizations (exclude archived)
+      const userOrganizations = await Organization.find({
+        $or: [{ members: customUser?.email }, { owner: customUser?.email }],
+        archived: { $ne: true },
+      })
+        .select(
+          "_id name logo tagline about isProfileComplete owner members hackathons grants createdAt",
+        )
+        .lean();
+
+      // Get following users (exclude deleted)
+      const following = await Follow.find({
+        follower: userId,
+        status: "ACTIVE",
+      })
+        .populate({
+          path: "following",
+          select: "profile firstName lastName username avatar bio",
+          match: { deleted: { $ne: true } },
+        })
+        .sort({ followedAt: -1 })
+        .limit(10)
+        .lean();
+
+      // Get followers (exclude deleted)
+      const followers = await Follow.find({
+        following: userId,
+        status: "ACTIVE",
+      })
+        .populate({
+          path: "follower",
+          select: "profile firstName lastName username avatar bio",
+          match: { deleted: { $ne: true } },
+        })
+        .sort({ followedAt: -1 })
+        .limit(10)
+        .lean();
+
+      // Calculate additional stats
+      const [
+        totalProjectsCreated,
+        totalProjectsFunded,
+        totalComments,
+        totalVotes,
+        totalGrants,
+        totalHackathons,
+        totalDonations,
+      ] = await Promise.all([
+        Project.countDocuments({ "owner.type": userId }),
+        Project.countDocuments({ "funding.contributors.user": userId }),
+        Comment.countDocuments({ author: userId }),
+        Project.aggregate([
+          { $match: { "voting.voters.userId": userId } },
+          { $count: "total" },
+        ]).then((result) => result[0]?.total || 0),
+        Project.countDocuments({ "owner.type": userId, "grant.isGrant": true }),
+        Project.countDocuments({ "owner.type": userId, category: "hackathon" }),
+        Project.aggregate([
+          { $match: { "funding.contributors.user": userId } },
+          { $unwind: "$funding.contributors" },
+          { $match: { "funding.contributors.user": userId } },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: "$funding.contributors.amount" },
+            },
+          },
+        ]).then((result) => result[0]?.total || 0),
+      ]);
+
+      // Check if profile is complete
+      const profileCompleteness = checkProfileCompleteness(customUser);
+      const isProfileComplete = profileCompleteness.isComplete;
+
+      // Format projects data
+      const formattedProjects = projects.map((project) => {
+        const progress =
+          project.funding.goal > 0
+            ? Math.round((project.funding.raised / project.funding.goal) * 100)
+            : 0;
+
+        const daysLeft = project.funding.endDate
+          ? Math.max(
+              0,
+              Math.ceil(
+                (new Date(project.funding.endDate).getTime() - Date.now()) /
+                  (1000 * 60 * 60 * 24),
+              ),
+            )
+          : 0;
+
+        return {
+          id: project._id.toString(),
+          name: project.title,
+          description: project.description,
+          image: project.media?.banner || project.media?.logo,
+          link: project.projectWebsite || `#`,
+          tags: project.tags || [],
+          category: project.category,
+          type: project.type,
+          amount: project.funding.goal,
+          status: project.status,
+          createdAt: project.createdAt,
+          updatedAt: project.updatedAt,
+          owner: customUser?.profile.username,
+          ownerName: `${customUser?.profile.firstName} ${customUser?.profile.lastName}`,
+          ownerUsername: customUser?.profile.username,
+          ownerAvatar: customUser?.profile.avatar,
+          votes: {
+            current: project.voting?.positiveVotes || 0,
+            total: project.voting?.totalVotes || 0,
+          },
+          daysLeft,
+          progress,
+        };
+      });
+
+      // Format activities data
+      const formattedActivities = activities.map((activity) => {
+        const project = activity.details.projectId as any;
+        return {
+          id: activity._id.toString(),
+          type: activity.type.toLowerCase(),
+          description: `${activity.type.replace(/_/g, " ").toLowerCase()} ${project?.title || "project"}`,
+          projectName: project?.title || "Unknown Project",
+          projectId: project?._id?.toString(),
+          amount: activity.details.amount || null,
+          timestamp: activity.createdAt,
+          image: project?.media?.banner || project?.media?.logo,
+          emoji: getActivityEmoji(activity.type),
+        };
+      });
+
+      // Format organizations data
+      const formattedOrganizations = userOrganizations.map((org) => ({
+        id: org._id.toString(),
+        name: org.name,
+        avatar: org.logo,
+        joinedAt: new Date().toISOString(), // This would need to be from the membership
+        description: org.about,
+        tagline: org.tagline,
+        isProfileComplete: org.isProfileComplete || false,
+        role:
+          org.owner === (customUser?.email || "")
+            ? ("owner" as const)
+            : ("member" as const),
+        memberCount: org.members?.length || 0,
+        hackathonCount: org.hackathons?.length || 0,
+        grantCount: org.grants?.length || 0,
+        createdAt: org.createdAt
+          ? new Date(org.createdAt).toISOString()
+          : new Date().toISOString(),
+      }));
+
+      // Format following data
+      const formattedFollowing = following.map((follow) => {
+        const followedUser = follow.following as any;
+        return {
+          id: followedUser._id.toString(),
+          profile: {
+            firstName: followedUser.profile.firstName,
+            lastName: followedUser.profile.lastName,
+            username: followedUser.profile.username,
+            avatar: followedUser.profile.avatar,
+            bio: followedUser.profile.bio,
+          },
+          followedAt: follow.followedAt,
+        };
+      });
+
+      // Format followers data
+      const formattedFollowers = followers.map((follow) => {
+        const followerUser = follow.follower as any;
+        return {
+          id: followerUser._id.toString(),
+          profile: {
+            firstName: followerUser.profile.firstName,
+            lastName: followerUser.profile.lastName,
+            username: followerUser.profile.username,
+            avatar: followerUser.profile.avatar,
+            bio: followerUser.profile.bio,
+          },
+          followedAt: follow.followedAt,
+        };
+      });
+
+      return {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+          profile: {
+            firstName: customUser?.profile.firstName,
+            lastName: customUser?.profile.lastName,
+            username: customUser?.profile.username,
+            avatar: customUser?.profile.avatar,
+            bio: customUser?.profile.bio,
+            location: customUser?.profile.location,
+            website: customUser?.profile.website,
+            socialLinks: customUser?.profile.socialLinks,
+          },
+          stats: {
+            projectsCreated: totalProjectsCreated,
+            projectsFunded: totalProjectsFunded,
+            totalContributed: customUser?.stats.totalContributed || 0,
+            reputation: customUser?.stats.reputation || 0,
+            communityScore: customUser?.stats.communityScore || 0,
+            commentsPosted: totalComments,
+            organizations: userOrganizations.length,
+            following: following.length,
+            followers: followers.length,
+            votes: totalVotes,
+            grants: totalGrants,
+            hackathons: totalHackathons,
+            donations: totalDonations,
+          },
+          organizations: formattedOrganizations,
+          following: formattedFollowing,
+          followers: formattedFollowers,
+          projects: formattedProjects,
+          activities: formattedActivities,
+          _id: customUser?._id,
+          isVerified: customUser?.emailVerified,
+          contributedProjects: [], // This would need to be populated with actual contributed projects
+          createdAt: (customUser as any)?.createdAt,
+          updatedAt: (customUser as any)?.updatedAt,
+          __v: customUser?.__v,
+          lastLogin: customUser?.lastLogin,
+          isProfileComplete,
+          missingProfileFields: profileCompleteness.missingFields,
+          profileCompletionPercentage: profileCompleteness.completionPercentage,
+        },
+      };
+    }),
   ],
   hooks: {
     after: createAuthMiddleware(async (ctx) => {
@@ -374,3 +654,33 @@ export const auth = betterAuth({
     "http://192.168.1.187:3000",
   ],
 });
+
+// Helper function to get emoji for activity type
+const getActivityEmoji = (activityType: string): string => {
+  const emojiMap: { [key: string]: string } = {
+    LOGIN: "🔐",
+    LOGOUT: "🚪",
+    PASSWORD_CHANGED: "🔑",
+    PROJECT_CREATED: "🚀",
+    PROJECT_UPDATED: "📝",
+    PROJECT_FUNDED: "💰",
+    PROJECT_VOTED: "🗳️",
+    CONTRIBUTION_MADE: "💸",
+    REFUND_RECEIVED: "↩️",
+    PROFILE_UPDATED: "👤",
+    AVATAR_CHANGED: "🖼️",
+    TEAM_JOINED: "👥",
+    TEAM_LEFT: "👋",
+    MILESTONE_CREATED: "🎯",
+    MILESTONE_COMPLETED: "✅",
+    MILESTONE_FUNDS_RELEASED: "💳",
+    COMMENT_POSTED: "💬",
+    COMMENT_LIKED: "👍",
+    COMMENT_DISLIKED: "👎",
+    USER_FOLLOWED: "👤",
+    USER_UNFOLLOWED: "👤",
+    ORGANIZATION_JOINED: "🏢",
+    ORGANIZATION_LEFT: "🏢",
+  };
+  return emojiMap[activityType] || "📝";
+};
