@@ -50,19 +50,8 @@ app.set("trust proxy", 1);
 // Configure CORS before other middleware
 // Note: Better Auth handles CORS for /api/auth/* routes via trustedOrigins
 // This CORS config is for other API routes
-const allowedOrigins = [
-  "https://boundlessfi.xyz",
-  "https://www.boundlessfi.xyz",
-  "https://staging.boundlessfi.xyz",
-  "https://www.staging.boundlessfi.xyz",
-  "https://api.boundlessfi.xyz",
-  "https://admin.boundlessfi.xyz", // Admin dashboard
-  "https://www.admin.boundlessfi.xyz", // Admin dashboard
-  "http://localhost:3000", // For local frontend development
-  "http://localhost:8000", // For local development
-  "http://192.168.1.187:3000",
-  "https://staging.api.boundlessfi.xyz",
-];
+const allowedOrigins = config.frontendUrl.split(",").map((url) => url.trim());
+console.log("allowedOrigins", allowedOrigins);
 
 app.use(
   cors({
