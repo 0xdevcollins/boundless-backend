@@ -110,7 +110,7 @@ export const auth = betterAuth({
           useSecureCookies: true,
           crossSubDomainCookies: {
             enabled: true,
-            domain: ".boundlessfi.xyz",
+            domain: "www.staging.boundlessfi.xyz",
           },
         }
       : {
@@ -130,7 +130,7 @@ export const auth = betterAuth({
         ...(production
           ? {
               secure: true,
-              domain: ".boundlessfi.xyz",
+              domain: "www.staging.boundlessfi.xyz",
             }
           : {}),
       },
