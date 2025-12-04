@@ -203,6 +203,7 @@ export async function syncBetterAuthUser(
         settings: createDefaultUserSettings(),
         // OAuth users are verified by default, email/password users need verification
         emailVerified: options.avatar ? true : false,
+        lastLogin: new Date(), // Set initial lastLogin to prevent issues
         ...(options.invitationToken && {
           invitationToken: options.invitationToken,
         }),
@@ -220,9 +221,29 @@ export async function syncBetterAuthUser(
         user.markModified("password"); // Explicitly mark as modified
       }
 
-      // Final validation: ensure password exists before save
+      // Ensure all required profile fields are set
+      if (!user.profile.firstName || user.profile.firstName.trim() === "") {
+        user.profile.firstName = safeFirstName;
+      }
+      if (!user.profile.lastName || user.profile.lastName.trim() === "") {
+        user.profile.lastName = safeLastName;
+      }
+      if (!user.profile.username || user.profile.username.trim() === "") {
+        user.profile.username = username;
+      }
+
+      // Final validation: ensure all required fields exist before save
       if (!user.password) {
         throw new Error("Password is required but was not set for OAuth user");
+      }
+      if (
+        !user.profile.firstName ||
+        !user.profile.lastName ||
+        !user.profile.username
+      ) {
+        throw new Error(
+          "Required profile fields (firstName, lastName, username) are missing",
+        );
       }
 
       try {

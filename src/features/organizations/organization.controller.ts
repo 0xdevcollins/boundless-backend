@@ -26,6 +26,12 @@ import EmailTemplatesService from "../../services/email/email-templates.service.
 import { NotificationType } from "../../models/notification.model.js";
 import hackathonParticipantModel from "../../models/hackathon-participant.model.js";
 import hackathonTeamInvitationModel from "../../models/hackathon-team-invitation.model.js";
+import HackathonTeamRecruitmentPost from "../../models/hackathon-team-recruitment-post.model.js";
+import HackathonResource from "../../models/hackathon-resource.model.js";
+import HackathonJudgingScore from "../../models/hackathon-judging-score.model.js";
+import HackathonDiscussion from "../../models/hackathon-discussion.model.js";
+import Notification from "../../models/notification.model.js";
+import Activity from "../../models/activity.model.js";
 import { auth } from "../../lib/auth.js";
 import { fromNodeHeaders } from "better-auth/node";
 import { getCustomOrgFromBetterAuth } from "../../utils/organization-sync.utils.js";
@@ -2060,36 +2066,128 @@ export const deleteOrganization = async (
       console.error("Error sending delete notifications:", notificationError);
     }
 
-    // Cleanup: hackathons, participants, invitations, grants, and statistics
+    // Comprehensive cleanup: Delete all organization-related data in proper order
     const hackathonIds = await Hackathon.find({ organizationId: id })
       .select("_id")
       .session(session)
       .then((hackathons) => hackathons.map((h) => h._id));
 
+    // Initialize deletion counters
+    const deletionStats = {
+      hackathons: hackathonIds.length,
+      participants: 0,
+      teamInvitations: 0,
+      recruitmentPosts: 0,
+      resources: 0,
+      judgingScores: 0,
+      discussions: 0,
+      grants: 0,
+      notifications: 0,
+      activities: 0,
+    };
+
+    // Delete hackathon-related data first (before deleting hackathons themselves)
     if (hackathonIds.length > 0) {
-      await hackathonParticipantModel
+      // Delete participants for all hackathons
+      const participantResult = await hackathonParticipantModel
         .deleteMany({
           hackathonId: { $in: hackathonIds },
         })
         .session(session);
+      deletionStats.participants = participantResult.deletedCount || 0;
 
-      await hackathonTeamInvitationModel
+      // Delete team invitations for all hackathons
+      const teamInvitationResult = await hackathonTeamInvitationModel
         .deleteMany({
           hackathonId: { $in: hackathonIds },
         })
         .session(session);
+      deletionStats.teamInvitations += teamInvitationResult.deletedCount || 0;
 
+      // Delete recruitment posts for all hackathons
+      const recruitmentResult = await HackathonTeamRecruitmentPost.deleteMany({
+        hackathonId: { $in: hackathonIds },
+      }).session(session);
+      deletionStats.recruitmentPosts = recruitmentResult.deletedCount || 0;
+
+      // Delete resources for all hackathons
+      const resourceResult = await HackathonResource.deleteMany({
+        hackathonId: { $in: hackathonIds },
+      }).session(session);
+      deletionStats.resources = resourceResult.deletedCount || 0;
+
+      // Delete judging scores for all hackathons
+      const judgingResult = await HackathonJudgingScore.deleteMany({
+        hackathonId: { $in: hackathonIds },
+      }).session(session);
+      deletionStats.judgingScores = judgingResult.deletedCount || 0;
+
+      // Delete discussions for all hackathons
+      const discussionResult = await HackathonDiscussion.deleteMany({
+        hackathonId: { $in: hackathonIds },
+      }).session(session);
+      deletionStats.discussions = discussionResult.deletedCount || 0;
+
+      // Delete hackathon-related notifications
+      const hackathonNotificationResult = await Notification.deleteMany({
+        "data.hackathonId": { $in: hackathonIds },
+      }).session(session);
+
+      // Delete hackathon-related activities
+      const hackathonActivityResult = await Activity.deleteMany({
+        "details.hackathonId": { $in: hackathonIds },
+      }).session(session);
+
+      // Finally delete the hackathons themselves
       await Hackathon.deleteMany({ organizationId: id }).session(session);
     }
 
-    await Grant.deleteMany({ organizationId: id }).session(session);
+    // Delete organization-level data
+    // Delete grants for this organization
+    const grantResult = await Grant.deleteMany({ organizationId: id }).session(
+      session,
+    );
+    deletionStats.grants = grantResult.deletedCount || 0;
 
-    await hackathonTeamInvitationModel
+    // Delete organization-level team invitations
+    const orgTeamInvitationResult = await hackathonTeamInvitationModel
       .deleteMany({
         organizationId: id,
       })
       .session(session);
+    deletionStats.teamInvitations += orgTeamInvitationResult.deletedCount || 0;
 
+    // Delete organization-level recruitment posts
+    const orgRecruitmentResult = await HackathonTeamRecruitmentPost.deleteMany({
+      organizationId: id,
+    }).session(session);
+    deletionStats.recruitmentPosts += orgRecruitmentResult.deletedCount || 0;
+
+    // Delete organization-level resources
+    const orgResourceResult = await HackathonResource.deleteMany({
+      organizationId: id,
+    }).session(session);
+    deletionStats.resources += orgResourceResult.deletedCount || 0;
+
+    // Delete organization-level judging scores
+    const orgJudgingResult = await HackathonJudgingScore.deleteMany({
+      organizationId: id,
+    }).session(session);
+    deletionStats.judgingScores += orgJudgingResult.deletedCount || 0;
+
+    // Delete organization-related notifications
+    const orgNotificationResult = await Notification.deleteMany({
+      "data.organizationId": new mongoose.Types.ObjectId(id),
+    }).session(session);
+    deletionStats.notifications = orgNotificationResult.deletedCount || 0;
+
+    // Delete organization-related activities
+    const orgActivityResult = await Activity.deleteMany({
+      "details.organizationId": new mongoose.Types.ObjectId(id),
+    }).session(session);
+    deletionStats.activities = orgActivityResult.deletedCount || 0;
+
+    // Update user statistics
     const allMemberEmails = [
       ...new Set([organization.owner, ...organization.members]),
     ];
@@ -2104,6 +2202,7 @@ export const deleteOrganization = async (
       },
     ).session(session);
 
+    // Finally delete the organization itself
     await Organization.findByIdAndDelete(id).session(session);
 
     await session.commitTransaction();
@@ -2112,8 +2211,8 @@ export const deleteOrganization = async (
     sendSuccess(
       res,
       {
-        deletedHackathons: hackathonIds.length,
-        deletedGrants: await Grant.countDocuments({ organizationId: id }),
+        ...deletionStats,
+        message: "Organization and all associated data deleted successfully",
       },
       "Organization and all associated data deleted successfully",
     );

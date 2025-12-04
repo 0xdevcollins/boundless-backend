@@ -12,6 +12,7 @@ export class Config {
   public readonly PORT: number;
   public readonly MONGODB_URI: string;
   public readonly JWT_SECRET: string;
+  public readonly BETTER_AUTH_URL: string;
 
   // OAuth
   public readonly GOOGLE_CLIENT_ID: string;
@@ -56,6 +57,11 @@ export class Config {
     this.PORT = this.getEnvVariable("PORT", true, parseInt);
     this.MONGODB_URI = this.getEnvVariable("MONGODB_URI", true);
     this.JWT_SECRET = this.getEnvVariable("JWT_SECRET", true);
+    this.BETTER_AUTH_URL =
+      this.getEnvVariable("BETTER_AUTH_URL", false) ||
+      (this.NODE_ENV === "production"
+        ? "https://api.boundlessfi.xyz"
+        : "http://localhost:8000");
 
     // OAuth
     this.GOOGLE_CLIENT_ID = this.getEnvVariable("GOOGLE_CLIENT_ID", true);

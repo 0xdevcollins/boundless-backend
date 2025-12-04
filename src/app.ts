@@ -55,6 +55,7 @@ const allowedOrigins = [
   "https://www.boundlessfi.xyz",
   "https://staging.boundlessfi.xyz",
   "https://www.staging.boundlessfi.xyz",
+  "https://api.boundlessfi.xyz",
   "https://admin.boundlessfi.xyz", // Admin dashboard
   "https://www.admin.boundlessfi.xyz", // Admin dashboard
   "http://localhost:3000", // For local frontend development
