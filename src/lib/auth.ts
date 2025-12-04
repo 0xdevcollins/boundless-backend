@@ -26,12 +26,9 @@ import Comment from "../models/comment.model.js";
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
-let betterAuthClient: MongoClient | null = null;
-let betterAuthDb: ReturnType<MongoClient["db"]> | null = null;
-
 const client = new MongoClient(process.env.MONGODB_URI || "");
 const db = client.db();
-
+const production = process.env.NODE_ENV === "production";
 export const auth = betterAuth({
   database: mongodbAdapter(db, {
     client,
@@ -103,9 +100,40 @@ export const auth = betterAuth({
     },
   },
   advanced: {
-    defaultCookieAttributes: {
-      sameSite: "none",
-      secure: true,
+    cookiePrefix: "boundless_auth",
+    ...(production
+      ? {
+          defaultCookieAttributes: {
+            sameSite: "lax",
+            secure: true,
+          },
+          useSecureCookies: true,
+          crossSubDomainCookies: {
+            enabled: true,
+            domain: ".boundlessfi.xyz",
+          },
+        }
+      : {
+          defaultCookieAttributes: {
+            sameSite: "lax",
+            secure: false,
+          },
+          useSecureCookies: false,
+        }),
+    cookies: {
+      session_token: {
+        attributes: {
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+        },
+        ...(production
+          ? {
+              secure: true,
+              domain: ".boundlessfi.xyz",
+            }
+          : {}),
+      },
     },
   },
   plugins: [
